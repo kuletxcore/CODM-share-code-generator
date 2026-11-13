@@ -393,12 +393,12 @@ export type Look = {
 /** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
   {
-    // Shadows Cyan 60 / tint 10 / bri 46, midtones Orange 0 / tint 6 / sat 56,
-    // highlights Orange 10 / tint 12 / sat 52 / bri 53.
+    // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
+    // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
     name: "Hajin",
-    note: "MW4 inspired: bright sun, warm autumn, cool shadows",
+    note: "MW4 inspired: hazy daylight, golden mids, soft cool shadows",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
     image: "/looks/hajin.webp",
   },
   {
