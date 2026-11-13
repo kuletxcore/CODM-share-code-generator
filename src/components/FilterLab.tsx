@@ -342,6 +342,7 @@ export default function FilterLab() {
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
 
+  const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
     setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
   }, []);
@@ -612,7 +613,7 @@ export default function FilterLab() {
                       (() => {
                         const k = panel;
                         const z = settings.zones[k];
-                        const hp = hueParts(z.hue);
+                        const hp = hueParts(z.hue, hueHint[k]);
                         return (
                           <div className="flex flex-col gap-3">
                             {k === "global" && (
@@ -640,7 +641,10 @@ export default function FilterLab() {
                                   title={name}
                                   aria-label={name}
                                   aria-pressed={hp.swatch === i}
-                                  onClick={() => setZone(k, { hue: hueFrom(i, hp.pos) })}
+                                  onClick={() => {
+                                    setHueHint((h) => ({ ...h, [k]: i }));
+                                    setZone(k, { hue: hueFrom(i, hp.pos) });
+                                  }}
                                   className={`relative h-10 border-2 transition-transform hover:scale-105 ${
                                     hp.swatch === i ? "border-white" : "border-black/50"
                                   }`}
@@ -660,7 +664,10 @@ export default function FilterLab() {
                               min={0}
                               max={100}
                               track={`linear-gradient(90deg,${hsl(hp.swatch * 45, 100, 50)},${hsl(hp.swatch * 45 + 45, 100, 50)})`}
-                              onChange={(v) => setZone(k, { hue: hueFrom(hp.swatch, v) })}
+                              onChange={(v) => {
+                                setHueHint((h) => ({ ...h, [k]: hp.swatch }));
+                                setZone(k, { hue: hueFrom(hp.swatch, v) });
+                              }}
                             />
                             <Slider
                               label="Tint"

@@ -71,11 +71,13 @@ export default function SmokeBackground() {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
       scene.add(mesh);
 
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
       const resize = () => {
         const w = window.innerWidth,
           h = window.innerHeight;
-        // render at half res: it is blurry smoke anyway
-        renderer.setSize(w / 2, h / 2, false);
+        // blurry smoke needs few pixels: half res on desktop, a third on touch screens
+        const div = coarse ? 3 : 2;
+        renderer.setSize(w / div, h / div, false);
         renderer.domElement.style.width = "100%";
         renderer.domElement.style.height = "100%";
         uniforms.uRes.value.set(w, h);
@@ -85,17 +87,33 @@ export default function SmokeBackground() {
 
       const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       let raf = 0;
-      const start = performance.now();
-      const loop = () => {
-        uniforms.uTime.value = (performance.now() - start) / 1000;
+      let last = 0;
+      let busy = false; // finger/mouse is down: leave the CPU and GPU to the preview
+      const FRAME = 1000 / 24; // smoke drifts slowly, 24fps is indistinguishable
+      let clock = 0; // animation time only advances while the smoke is actually drawn
+      const loop = (now: number) => {
+        raf = requestAnimationFrame(loop);
+        if (busy || document.hidden || now - last < FRAME) return;
+        clock += Math.min(now - last, 100) / 1000;
+        last = now;
+        uniforms.uTime.value = clock;
         renderer.render(scene, camera);
-        if (!still) raf = requestAnimationFrame(loop);
       };
-      loop();
+      uniforms.uTime.value = 0;
+      renderer.render(scene, camera);
+      const down = () => (busy = true);
+      const up = () => (busy = false);
+      window.addEventListener("pointerdown", down, { passive: true });
+      window.addEventListener("pointerup", up, { passive: true });
+      window.addEventListener("pointercancel", up, { passive: true });
+      if (!still) raf = requestAnimationFrame(loop);
 
       cleanup = () => {
         cancelAnimationFrame(raf);
         window.removeEventListener("resize", resize);
+        window.removeEventListener("pointerdown", down);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
         mesh.geometry.dispose();
         mat.dispose();
         renderer.dispose();
