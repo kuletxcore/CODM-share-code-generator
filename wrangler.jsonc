@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codm",
+  "account_id": "45dd08fff09f48cb97a56accf8ea85fa",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // build the static export before every deploy, including Cloudflare Workers Builds
+  "build": { "command": "npm run build" },
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}
