@@ -406,12 +406,14 @@ export const LOOKS: Look[] = [
     note: "Warm highlights, cool shadows, muted",
     mode: "Advanced",
     code: PRESETS[1].code,
+    image: "/looks/verdansk.webp",
   },
   {
     name: "Cold War",
     note: "Approximates the Black Ops Cold War colour grade",
     mode: "Advanced",
     code: PRESETS[2].code,
+    image: "/looks/cold-war.webp",
   },
   {
     name: "Default",
