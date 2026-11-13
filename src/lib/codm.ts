@@ -272,8 +272,8 @@ export const PRESETS: { name: string; note: string; code: string }[] = [
     }),
   },
   {
-    name: "Teal Wash",
-    note: "The shared custom code",
+    name: "Cold War",
+    note: "Approximates the Black Ops Cold War colour grade",
     code: "2_1_30_130_1000_1100_624_83_376_677_500_406_80_892_124_121_-161_1094_0_9_1000_385",
   },
 ];

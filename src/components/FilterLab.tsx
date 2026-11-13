@@ -239,7 +239,7 @@ function Preview({
       if (split > 0) {
         const x = r(c.width * split);
         ctx.drawImage(src, 0, 0, x, c.height, 0, 0, x, c.height);
-        ctx.fillStyle = "#ffd100";
+        ctx.fillStyle = "#ffea3b";
         ctx.fillRect(x - 1, 0, 2, c.height);
       }
     });
@@ -343,13 +343,21 @@ export default function FilterLab() {
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
         <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/codm-logo-white.webp"
+            alt="Call of Duty: Mobile"
+            width={1528}
+            height={509}
+            className="mb-4 h-10 w-auto sm:h-12"
+          />
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-codm"
           >
             <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
-            Fan-made tool
+            Unofficial fan-made tool
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
@@ -712,7 +720,7 @@ function Converter({
             </code>
             <button
               onClick={() => onApply({ ...result, preset: 2 })}
-              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-[#ffe14d]"
+              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
             >
               Open in generator
             </button>
@@ -769,7 +777,7 @@ function CodeBar({
           </output>
           <button
             onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-[#ffe14d]"
+            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
           >
             {copied ? "Copied" : "Copy"}
           </button>
