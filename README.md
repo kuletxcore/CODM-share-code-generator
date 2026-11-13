@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-Deploy (static export to a Cloudflare Worker named `codm`):
+Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` runs the build first, so Cloudflare Workers Builds works from a clean checkout):
 
 ```bash
 npm run deploy
