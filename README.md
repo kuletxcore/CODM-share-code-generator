@@ -4,7 +4,7 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
-- **Pick a look**: ready-made filters (Hajin, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator.
+- **Pick a look**: ready-made filters (Hajin, Apex, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 

@@ -302,7 +302,7 @@ export const PRESETS: { name: string; note: string; code: string }[] = [
   },
   {
     name: "Cold War",
-    note: "Approximates the Black Ops Cold War colour grade",
+    note: "Black Ops Cold War colour grade",
     code: "2_1_30_130_1000_1100_624_83_376_677_500_406_80_892_124_121_-161_1094_0_9_1000_385",
   },
 ];
@@ -393,24 +393,33 @@ export type Look = {
 /** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
   {
-    // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
-    // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
+    // Shadows Cyan 60 / tint 10 / bri 46, midtones Orange 0 / tint 6 / sat 56,
+    // highlights Orange 10 / tint 12 / sat 52 / bri 53.
     name: "Hajin",
-    note: "MW4 inspired: hazy daylight, golden mids, soft cool shadows",
+    note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040",
     image: "/looks/hajin.webp",
   },
   {
+    // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
+    // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
+    name: "Apex",
+    note: "MW4 Multiplayer: hazy daylight, golden mids",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
+    image: "/looks/apex.webp",
+  },
+  {
     name: "Verdansk",
-    note: "MW 2019 inspired: warm highlights, cool shadows, muted",
+    note: "MW 2019: warm highlights, cool shadows",
     mode: "Advanced",
     code: PRESETS[1].code,
     image: "/looks/verdansk.webp",
   },
   {
     name: "Cold War",
-    note: "Approximates the Black Ops Cold War colour grade",
+    note: "Black Ops Cold War colour grade",
     mode: "Advanced",
     code: PRESETS[2].code,
     image: "/looks/cold-war.webp",
