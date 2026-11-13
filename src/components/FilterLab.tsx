@@ -370,10 +370,10 @@ export default function FilterLab() {
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/codm-logo-white.webp"
+            src="/brand/codm-logo.svg"
             alt="Call of Duty: Mobile"
-            width={1528}
-            height={509}
+            width={1442}
+            height={479}
             className="mb-4 h-10 w-auto sm:h-12"
           />
           <motion.div
