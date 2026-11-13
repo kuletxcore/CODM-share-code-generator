@@ -22,10 +22,14 @@ export const ZONES: ZoneKey[] = ["global", "shadows", "midtones", "highlights"];
 export type Settings = {
   preset: number;
   enabled: number;
-  rangeBase: number;
-  shadowRange: number; // raw, default 300
-  rangeMid: number;
-  highlightRange: number; // raw, default 1500
+  /** Shadows handle on the Range bar, 0–1000. */
+  shadowPos: number;
+  /** End of the shadows falloff; the game writes handle + 100 once the handle is dragged. */
+  shadowEdge: number;
+  /** Highlights handle on the Range bar, 0–1000. */
+  highlightPos: number;
+  /** Highlights falloff; handle + 100 once dragged. */
+  highlightEdge: number;
   zones: Record<ZoneKey, Zone>;
 };
 
@@ -34,10 +38,10 @@ export const neutralZone = (): Zone => ({ hue: 0, tint: 0, sat: 50, bri: 50 });
 export const defaultSettings = (): Settings => ({
   preset: 0,
   enabled: 1,
-  rangeBase: 30,
-  shadowRange: 300,
-  rangeMid: 1000,
-  highlightRange: 1500,
+  shadowPos: 30,
+  shadowEdge: 300,
+  highlightPos: 1000,
+  highlightEdge: 1500,
   zones: {
     shadows: neutralZone(),
     midtones: neutralZone(),
@@ -56,10 +60,10 @@ export function encode(s: Settings): string {
   const out = [
     s.preset,
     s.enabled,
-    s.rangeBase,
-    s.shadowRange,
-    s.rangeMid,
-    s.highlightRange,
+    s.shadowPos,
+    s.shadowEdge,
+    s.highlightPos,
+    s.highlightEdge,
   ];
   for (const k of ZONES) {
     const z = s.zones[k];
@@ -80,7 +84,7 @@ export function decode(code: string): Settings | null {
   const n = parts.map((p) => Number(p));
   if (n.some((v) => !Number.isFinite(v))) return null;
   const s = defaultSettings();
-  [s.preset, s.enabled, s.rangeBase, s.shadowRange, s.rangeMid, s.highlightRange] = n;
+  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
   ZONES.forEach((k, i) => {
     const o = 6 + i * 4;
     s.zones[k] = {
@@ -129,23 +133,28 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-// Luminance thresholds used by both the preview and the analyser.
-function thresholds(s: Settings) {
-  const sEnd = clamp(s.shadowRange / 1000, 0.05, 0.9);
-  const hStart = clamp(1 - (s.highlightRange - 1000) / 1000, 0.3, 0.98);
-  return { sEnd, hStart: Math.max(hStart, sEnd + 0.05) };
+// Luminance thresholds used by both the preview and the analyser. The falloff
+// shapes are a guess; only the handle positions are confirmed.
+type Bands = { s0: number; s1: number; h0: number; h1: number };
+
+function thresholds(s: Settings): Bands {
+  const s0 = clamp(s.shadowPos / 1000, 0, 1);
+  const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
+  const h1 = clamp(s.highlightPos / 1000, 0, 1);
+  const width = Math.max((s.highlightEdge - s.highlightPos) / 1000, 0.02);
+  return { s0, s1, h0: h1 - width, h1 };
 }
 
-function zoneWeights(l: number, sEnd: number, hStart: number) {
-  const ws = 1 - smooth(sEnd * 0.3, sEnd * 1.4, l);
-  const wh = smooth(hStart - 0.15, Math.min(1, hStart + 0.25), l);
+function zoneWeights(l: number, t: Bands) {
+  const ws = 1 - smooth(t.s0, t.s1, l);
+  const wh = smooth(t.h0, t.h1, l) * (1 - ws);
   const wm = Math.max(0, 1 - ws - wh);
   return [ws, wm, wh] as const;
 }
 
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
-  const { sEnd, hStart } = thresholds(s);
+  const bands = thresholds(s);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
   const tintRgb = zs.map((z) => hueToRgb(z.hue));
   const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
@@ -158,7 +167,7 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
       g = data[i + 1] / 255,
       b = data[i + 2] / 255;
     const l0 = luma(r, g, b);
-    const [ws, wm, wh] = zoneWeights(l0, sEnd, hStart);
+    const [ws, wm, wh] = zoneWeights(l0, bands);
     w[0] = ws;
     w[1] = wm;
     w[2] = wh;
@@ -194,7 +203,7 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
 
 type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
 
-function zoneStats(data: Uint8ClampedArray, sEnd: number, hStart: number): ZoneStat[] {
+function zoneStats(data: Uint8ClampedArray, bands: Bands): ZoneStat[] {
   const acc = [0, 1, 2].map(() => ({ r: 0, g: 0, b: 0, l: 0, sat: 0, n: 0 }));
   for (let i = 0; i < data.length; i += 16) {
     const r = data[i] / 255,
@@ -204,7 +213,7 @@ function zoneStats(data: Uint8ClampedArray, sEnd: number, hStart: number): ZoneS
     const mx = Math.max(r, g, b),
       mn = Math.min(r, g, b);
     const sat = mx > 0.02 ? (mx - mn) / mx : 0;
-    const w = zoneWeights(l, sEnd, hStart);
+    const w = zoneWeights(l, bands);
     for (let z = 0; z < 3; z++) {
       const a = acc[z];
       a.r += r * w[z];
@@ -242,9 +251,9 @@ export function analyse(
   base: Uint8ClampedArray | null,
 ): Settings {
   const s = defaultSettings();
-  const { sEnd, hStart } = thresholds(s);
-  const t = zoneStats(target, sEnd, hStart);
-  const b = base ? zoneStats(base, sEnd, hStart) : null;
+  const bands = thresholds(s);
+  const t = zoneStats(target, bands);
+  const b = base ? zoneStats(base, bands) : null;
   const neutral = [
     { l: 0.11, sat: 0.3 },
     { l: 0.42, sat: 0.3 },

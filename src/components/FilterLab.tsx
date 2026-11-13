@@ -41,7 +41,7 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
   },
   range: {
     label: "Range",
-    desc: "Where shadows stop and highlights begin. Lower shadow range keeps the shadow tint in the deepest blacks only.",
+    desc: "Where shadows stop and highlights begin. Drag the shadows handle right to push the shadow colour into darker midtones; drag the highlights handle left to spread the highlight colour down.",
   },
 };
 
@@ -503,25 +503,33 @@ export default function FilterLab() {
                       <div className="flex flex-col gap-3">
                         <Slider
                           label="Shadows"
-                          value={settings.shadowRange / 10}
+                          value={settings.shadowPos / 10}
                           min={0}
                           max={100}
                           track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) => setSettings((s) => ({ ...s, shadowRange: v * 10 }))}
+                          onChange={(v) =>
+                            setSettings((s) => {
+                              const pos = Math.min(v * 10, s.highlightPos);
+                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
+                            })
+                          }
                         />
                         <Slider
                           label="Highlights"
-                          value={(settings.highlightRange - 1000) / 10}
+                          value={settings.highlightPos / 10}
                           min={0}
                           max={100}
                           track="linear-gradient(90deg,#777,#fff)"
                           onChange={(v) =>
-                            setSettings((s) => ({ ...s, highlightRange: 1000 + v * 10 }))
+                            setSettings((s) => {
+                              const pos = Math.max(v * 10, s.shadowPos);
+                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
+                            })
                           }
                         />
                         <p className="text-xs text-mute">
-                          Default code values: shadows 300, highlights 1500. How these map to the
-                          in-game range handles is still a guess.
+                          The two handles of the in-game Range bar, as a percentage of its width.
+                          Moving a handle writes it the same way the game does.
                         </p>
                       </div>
                     ) : (
