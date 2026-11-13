@@ -107,8 +107,14 @@ export function decode(code: string): Settings | null {
  */
 export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
 
-export function hueParts(deg: number): { swatch: number; pos: number } {
+export function hueParts(deg: number, prefer?: number): { swatch: number; pos: number } {
   const d = ((deg % 360) + 360) % 360;
+  // Slider 100 and the next swatch's 0 are the same raw value; honour the swatch
+  // the user picked so the end of the slider doesn't jump to the next colour.
+  if (prefer !== undefined) {
+    const off = (((d - prefer * 45) % 360) + 360) % 360;
+    if (off > 44.99 && off < 45.01) return { swatch: prefer, pos: 100 };
+  }
   const swatch = Math.min(7, Math.floor(d / 45 + 1e-9));
   return { swatch, pos: Math.min(100, (d - swatch * 45) / 0.45) };
 }
