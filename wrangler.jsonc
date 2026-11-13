@@ -5,6 +5,8 @@
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": true,
+  // PR branches deploy with `npx wrangler preview`, which needs this block
+  "previews": {},
   // build the static export before every deploy, including Cloudflare Workers Builds
   "build": { "command": "npm run build" },
   "assets": {

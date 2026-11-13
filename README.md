@@ -13,13 +13,13 @@ Live: https://codm.kuletxcore.workers.dev
 
 | Index | Meaning | Default |
 | --- | --- | --- |
-| 0 | preset flag (0 and 2 both seen in working codes) | 0 |
+| 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed) | 0 |
 | 1 | enabled | 1 |
 | 2 | Range bar shadows handle, 0–1000 (confirmed) | 30 |
 | 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
 | 4 | Range bar highlights handle, 0–1000 (confirmed) | 1000 |
 | 5 | highlights falloff; handle + 100 after a drag | 1500 |
-| 6–9 | group 1: not one of the in-game tabs; the game writes `0_24_0_1000` here (unconfirmed) | `0_0_0_1000` |
+| 6–9 | group 1: the **Simple** Customize Color screen, whole image (confirmed) | `0_0_0_1000` |
 | 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |
 | 14–17 | group 3: **midtones** (confirmed in game) | `0_0_0_1000` |
 | 18–21 | group 4: **highlights** (confirmed in game) | `0_0_0_1000` |

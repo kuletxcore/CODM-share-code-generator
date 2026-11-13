@@ -36,8 +36,8 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
     desc: "Sky, sunlit surfaces, bright paint. Warm highlights read as daylight; cool ones read as overcast.",
   },
   global: {
-    label: "Group 1",
-    desc: "The first value group in the code. It isn't one of the three in-game tabs, so it is probably a whole-image adjustment; the preview treats it that way. Leave it neutral if unsure.",
+    label: "Simple",
+    desc: "The game's simple Customize Color screen (Preset #1–#5), which colours the whole image. Advanced mode's Shadows, Midtones and Highlights apply on top of it. The code carries the selected slot and its colour.",
   },
   range: {
     label: "Range",
@@ -46,7 +46,11 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
 };
 
 const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
-const PANELS: Panel[] = ["shadows", "midtones", "highlights", "range", "global"];
+const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights", "range"];
+
+const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
+/** True when the code carries Advanced (shadows / midtones / highlights) values. */
+const usesAdvanced = (s: Settings) => !ZONE_TABS.every((k) => flat(s.zones[k]));
 
 const r = Math.round;
 const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
@@ -218,26 +222,48 @@ function Preview({
   const [split, setSplit] = useState(0);
   const src = source ?? sample;
 
+  // Original pixels, read once per image.
+  const orig = useMemo(
+    () => src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null,
+    [src],
+  );
+  // Filtered pixels, recomputed only when the image or settings change.
+  const graded = useMemo(() => {
+    if (!orig) return null;
+    const data = new Uint8ClampedArray(orig.data);
+    applyGrade(data, settings);
+    return data;
+  }, [orig, settings]);
+
+  // Build each frame from the two buffers so moving the compare slider never
+  // leaves anything from the previous frame behind.
   useEffect(() => {
     const c = view.current;
-    if (!c || !src) return;
+    if (!c || !orig || !graded) return;
     const id = requestAnimationFrame(() => {
-      c.width = src.width;
-      c.height = src.height;
-      const ctx = c.getContext("2d", { willReadFrequently: true })!;
-      ctx.drawImage(src, 0, 0);
-      const img = ctx.getImageData(0, 0, c.width, c.height);
-      applyGrade(img.data, settings);
-      ctx.putImageData(img, 0, 0);
-      if (split > 0) {
-        const x = r(c.width * split);
-        ctx.drawImage(src, 0, 0, x, c.height, 0, 0, x, c.height);
-        ctx.fillStyle = "#ffea3b";
-        ctx.fillRect(x - 1, 0, 2, c.height);
+      const { width: w, height: h } = orig;
+      if (c.width !== w) c.width = w;
+      if (c.height !== h) c.height = h;
+      const out = new ImageData(new Uint8ClampedArray(graded), w, h);
+      const x = Math.min(w, r(w * split));
+      if (x > 0) {
+        for (let y = 0; y < h; y++) {
+          const row = y * w * 4;
+          out.data.set(orig.data.subarray(row, row + x * 4), row);
+          // divider
+          for (let dx = Math.max(0, x - 2); dx < Math.min(w, x + 1); dx++) {
+            const i = row + dx * 4;
+            out.data[i] = 255;
+            out.data[i + 1] = 234;
+            out.data[i + 2] = 59;
+            out.data[i + 3] = 255;
+          }
+        }
       }
+      c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [settings, src, split]);
+  }, [orig, graded, split]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -292,7 +318,10 @@ function Preview({
 
 export default function FilterLab() {
   const [mode, setMode] = useState<Mode>("build");
-  const [panel, setPanel] = useState<Panel>("highlights");
+  const [advanced, setAdvanced] = useState(true);
+  const [tab, setPanel] = useState<Panel>("highlights");
+  // Simple mode has one screen; Advanced never shows it.
+  const panel: Panel = !advanced ? "global" : tab === "global" ? "shadows" : tab;
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -304,8 +333,10 @@ export default function FilterLab() {
     const m = location.hash.match(/c=([-\d_]+)/);
     const s = m && decode(m[1]);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
+    if (!s) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (s) setSettings(s);
+    setSettings(s);
+    setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
   }, []);
   useEffect(() => {
     history.replaceState(null, "", `#c=${code}`);
@@ -319,6 +350,7 @@ export default function FilterLab() {
     const s = decode(c);
     if (!s) return false;
     setSettings(s);
+    setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
     return true;
   }, []);
 
@@ -338,10 +370,10 @@ export default function FilterLab() {
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/codm-logo-white.webp"
+            src="/brand/codm-logo.svg"
             alt="Call of Duty: Mobile"
-            width={1528}
-            height={509}
+            width={1442}
+            height={479}
             className="mb-4 h-10 w-auto sm:h-12"
           />
           <motion.div
@@ -356,7 +388,7 @@ export default function FilterLab() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="font-display text-5xl font-extrabold uppercase leading-none tracking-tight sm:text-7xl"
+            className="font-title text-5xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
           >
             Filter Lab
           </motion.h1>
@@ -412,8 +444,41 @@ export default function FilterLab() {
           >
             {/* left list, like the mode selector */}
             <div className="flex flex-col gap-6">
-              <ul className="flex flex-col gap-1" aria-label="Adjustment groups">
-                {PANELS.map((p) => {
+              <div className="flex items-center justify-between gap-3 bg-white/[0.035] px-4 py-3">
+                <span
+                  className={`font-display text-lg font-extrabold uppercase tracking-wide ${
+                    advanced ? "text-mute" : "text-text"
+                  }`}
+                >
+                  Simple
+                </span>
+                <button
+                  role="switch"
+                  aria-checked={advanced}
+                  aria-label="Advanced mode"
+                  onClick={() => setAdvanced((v) => !v)}
+                  className={`relative h-7 w-14 shrink-0 border transition-colors ${
+                    advanced ? "border-codm bg-codm/25" : "border-line bg-black/50"
+                  }`}
+                >
+                  <motion.span
+                    layout
+                    transition={{ type: "spring", stiffness: 600, damping: 38 }}
+                    className={`absolute top-0.5 h-[22px] w-6 ${
+                      advanced ? "right-0.5 bg-codm" : "left-0.5 bg-mute"
+                    }`}
+                  />
+                </button>
+                <span
+                  className={`font-display text-lg font-extrabold uppercase tracking-wide ${
+                    advanced ? "text-codm" : "text-mute"
+                  }`}
+                >
+                  Advanced
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
+                {ADVANCED_PANELS.map((p) => {
                   const active = p === panel;
                   const z = p !== "range" ? settings.zones[p] : null;
                   return (
@@ -492,6 +557,27 @@ export default function FilterLab() {
                     transition={{ duration: 0.15 }}
                     className="flex flex-col gap-4"
                   >
+                    {(advanced ? !flat(settings.zones.global) : usesAdvanced(settings)) && (
+                      <p className="flex items-start justify-between gap-3 border-l-2 border-codm bg-codm/10 px-3 py-2 text-xs">
+                        <span>
+                          {advanced
+                            ? `This code also carries a Simple colour (Preset #${settings.preset + 1}).`
+                            : "This code also carries Advanced values (shadows, midtones, highlights)."}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setSettings((s) =>
+                              advanced
+                                ? { ...s, zones: { ...s.zones, global: { hue: 0, tint: 0, sat: 50, bri: 50 } } }
+                                : { ...defaultSettings(), preset: s.preset, zones: { ...defaultSettings().zones, global: s.zones.global } },
+                            )
+                          }
+                          className="shrink-0 font-display font-bold uppercase tracking-wider text-codm hover:text-codm-light"
+                        >
+                          Clear
+                        </button>
+                      </p>
+                    )}
                     <div>
                       <h2 className="font-display text-3xl font-extrabold uppercase leading-none">
                         {PANEL_INFO[panel].label}
@@ -539,6 +625,24 @@ export default function FilterLab() {
                         const hp = hueParts(z.hue);
                         return (
                           <div className="flex flex-col gap-3">
+                            {k === "global" && (
+                              <div className="grid grid-cols-5 gap-1" role="group" aria-label="Simple preset slot">
+                                {[0, 1, 2, 3, 4].map((i) => (
+                                  <button
+                                    key={i}
+                                    aria-pressed={settings.preset === i}
+                                    onClick={() => setSettings((s) => ({ ...s, preset: i }))}
+                                    className={`px-1 py-2 font-display text-sm font-bold ${
+                                      settings.preset === i
+                                        ? "bg-[#6d6a1f] text-codm-light"
+                                        : "bg-panel-2 text-mute hover:text-text"
+                                    }`}
+                                  >
+                                    Preset #{i + 1}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                             <div className="grid grid-cols-4 gap-2" role="group" aria-label="Hue swatches">
                               {SWATCH_NAMES.map((name, i) => (
                                 <button

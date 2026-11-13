@@ -1,25 +1,26 @@
 // CODM colour-filter share code: codec, preview grading and screenshot analysis.
 //
-// The share code is 22 underscore-separated integers. The layout below is
-// inferred from two known codes (the in-game default and one custom filter);
-// it has not been confirmed slider-by-slider in game.
+// The share code is 22 underscore-separated integers, worked out from in-game
+// screenshots taken alongside their codes:
 //
-//   [0] preset   [1] enabled   [2] 30   [3] shadow range   [4] 1000   [5] highlight range
-//   then four groups of (hue, tint, saturation, brightness):
-//   shadows, midtones, highlights, and a fourth group the panel does not show.
+//   [0] selected Simple preset slot (0-4 = Preset #1-#5)   [1] enabled
+//   [2..5] Range bar: shadows handle, falloff, highlights handle, falloff
+//   then 4 groups of hue_tint_brightness_saturation: Simple (whole image),
+//   shadows, midtones, highlights.
 //
 // Stored units -> panel units:
-//   hue        0..1000   -> 0..360 degrees
+//   hue        0..1000   -> swatch (0-7) * 125 + slider (0-100) * 1.25
 //   tint       0..1000   -> 0..100
-//   saturation -1000..1000 -> 0..100 (50 = neutral)
-//   brightness 0..2000   -> 0..100 (50 = neutral)
+//   brightness -1000..1000 -> 0..100 (50 = neutral)
+//   saturation 0..2000   -> 0..100 (50 = neutral)
 
 export type Zone = { hue: number; tint: number; sat: number; bri: number };
 export type ZoneKey = "global" | "shadows" | "midtones" | "highlights";
-/** Order of the four value groups in a share code. Shadows = group 2 is confirmed in game. */
+/** Order of the four value groups in a share code (all confirmed in game). */
 export const ZONES: ZoneKey[] = ["global", "shadows", "midtones", "highlights"];
 
 export type Settings = {
+  /** Selected Simple preset slot, 0-4 (Preset #1-#5). */
   preset: number;
   enabled: number;
   /** Shadows handle on the Range bar, 0–1000. */

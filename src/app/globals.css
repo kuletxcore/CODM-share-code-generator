@@ -38,6 +38,13 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Hitmarker Normal";
+  src: url("/fonts/HitmarkerNormal-Black.woff2") format("woff2");
+  font-weight: 800 900;
+  font-display: swap;
+}
+
 @theme {
   --color-ink: #0a0b0a;
   --color-panel: #121412;
@@ -52,6 +59,7 @@
   --color-lime-deep: #5b8f12;
   --font-display: "Hitmarker Condensed", "Saira Condensed", "Arial Narrow", sans-serif;
   --font-sans: "Hitmarker Text", "Barlow", system-ui, sans-serif;
+  --font-title: "Hitmarker Normal", "Hitmarker Condensed", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
