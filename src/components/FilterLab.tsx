@@ -388,7 +388,7 @@ export default function FilterLab() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="font-display text-5xl font-extrabold uppercase leading-none tracking-tight sm:text-7xl"
+            className="font-title text-5xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
           >
             Filter Lab
           </motion.h1>
