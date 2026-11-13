@@ -15,16 +15,21 @@
 //   brightness 0..2000   -> 0..100 (50 = neutral)
 
 export type Zone = { hue: number; tint: number; sat: number; bri: number };
-export type ZoneKey = "shadows" | "midtones" | "highlights" | "extra";
-export const ZONES: ZoneKey[] = ["shadows", "midtones", "highlights", "extra"];
+export type ZoneKey = "global" | "shadows" | "midtones" | "highlights";
+/** Order of the four value groups in a share code. Shadows = group 2 is confirmed in game. */
+export const ZONES: ZoneKey[] = ["global", "shadows", "midtones", "highlights"];
 
 export type Settings = {
   preset: number;
   enabled: number;
-  rangeBase: number;
-  shadowRange: number; // raw, default 300
-  rangeMid: number;
-  highlightRange: number; // raw, default 1500
+  /** Shadows handle on the Range bar, 0–1000. */
+  shadowPos: number;
+  /** End of the shadows falloff; the game writes handle + 100 once the handle is dragged. */
+  shadowEdge: number;
+  /** Highlights handle on the Range bar, 0–1000. */
+  highlightPos: number;
+  /** Highlights falloff; handle + 100 once dragged. */
+  highlightEdge: number;
   zones: Record<ZoneKey, Zone>;
 };
 
@@ -33,15 +38,15 @@ export const neutralZone = (): Zone => ({ hue: 0, tint: 0, sat: 50, bri: 50 });
 export const defaultSettings = (): Settings => ({
   preset: 0,
   enabled: 1,
-  rangeBase: 30,
-  shadowRange: 300,
-  rangeMid: 1000,
-  highlightRange: 1500,
+  shadowPos: 30,
+  shadowEdge: 300,
+  highlightPos: 1000,
+  highlightEdge: 1500,
   zones: {
     shadows: neutralZone(),
     midtones: neutralZone(),
     highlights: neutralZone(),
-    extra: neutralZone(),
+    global: neutralZone(),
   },
 });
 
@@ -55,18 +60,19 @@ export function encode(s: Settings): string {
   const out = [
     s.preset,
     s.enabled,
-    s.rangeBase,
-    s.shadowRange,
-    s.rangeMid,
-    s.highlightRange,
+    s.shadowPos,
+    s.shadowEdge,
+    s.highlightPos,
+    s.highlightEdge,
   ];
   for (const k of ZONES) {
     const z = s.zones[k];
     out.push(
       Math.round((z.hue / 360) * 1000),
       Math.round(z.tint * 10),
-      Math.round((z.sat - 50) * 20),
-      Math.round(z.bri * 20),
+      // confirmed in game: brightness is an offset around 0, saturation scales around 1000
+      Math.round((z.bri - 50) * 20),
+      Math.round(z.sat * 20),
     );
   }
   return out.map((n) => Math.round(n)).join("_");
@@ -78,18 +84,35 @@ export function decode(code: string): Settings | null {
   const n = parts.map((p) => Number(p));
   if (n.some((v) => !Number.isFinite(v))) return null;
   const s = defaultSettings();
-  [s.preset, s.enabled, s.rangeBase, s.shadowRange, s.rangeMid, s.highlightRange] = n;
+  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
   ZONES.forEach((k, i) => {
     const o = 6 + i * 4;
     s.zones[k] = {
       hue: (n[o] / 1000) * 360,
       tint: n[o + 1] / 10,
-      sat: n[o + 2] / 20 + 50,
-      bri: n[o + 3] / 20,
+      bri: n[o + 2] / 20 + 50,
+      sat: n[o + 3] / 20,
     };
   });
   return s;
 }
+
+// ---------- in-game hue controls ----------
+
+/**
+ * In game, hue is one of 8 swatches 45° apart plus a 0–100 slider towards the
+ * next swatch (raw = swatch * 125 + slider * 1.25). Confirmed against four
+ * in-game screenshots with known codes.
+ */
+export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
+
+export function hueParts(deg: number): { swatch: number; pos: number } {
+  const d = ((deg % 360) + 360) % 360;
+  const swatch = Math.min(7, Math.floor(d / 45 + 1e-9));
+  return { swatch, pos: Math.min(100, (d - swatch * 45) / 0.45) };
+}
+
+export const hueFrom = (swatch: number, pos: number) => swatch * 45 + pos * 0.45;
 
 // ---------- colour helpers ----------
 
@@ -110,24 +133,29 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-// Luminance thresholds used by both the preview and the analyser.
-function thresholds(s: Settings) {
-  const sEnd = clamp(s.shadowRange / 1000, 0.05, 0.9);
-  const hStart = clamp(1 - (s.highlightRange - 1000) / 1000, 0.3, 0.98);
-  return { sEnd, hStart: Math.max(hStart, sEnd + 0.05) };
+// Luminance thresholds used by both the preview and the analyser. The falloff
+// shapes are a guess; only the handle positions are confirmed.
+type Bands = { s0: number; s1: number; h0: number; h1: number };
+
+function thresholds(s: Settings): Bands {
+  const s0 = clamp(s.shadowPos / 1000, 0, 1);
+  const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
+  const h1 = clamp(s.highlightPos / 1000, 0, 1);
+  const width = Math.max((s.highlightEdge - s.highlightPos) / 1000, 0.02);
+  return { s0, s1, h0: h1 - width, h1 };
 }
 
-function zoneWeights(l: number, sEnd: number, hStart: number) {
-  const ws = 1 - smooth(sEnd * 0.3, sEnd * 1.4, l);
-  const wh = smooth(hStart - 0.15, Math.min(1, hStart + 0.25), l);
+function zoneWeights(l: number, t: Bands) {
+  const ws = 1 - smooth(t.s0, t.s1, l);
+  const wh = smooth(t.h0, t.h1, l) * (1 - ws);
   const wm = Math.max(0, 1 - ws - wh);
   return [ws, wm, wh] as const;
 }
 
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
-  const { sEnd, hStart } = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.extra];
+  const bands = thresholds(s);
+  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
   const tintRgb = zs.map((z) => hueToRgb(z.hue));
   const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
   const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
@@ -139,28 +167,28 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
       g = data[i + 1] / 255,
       b = data[i + 2] / 255;
     const l0 = luma(r, g, b);
-    const [ws, wm, wh] = zoneWeights(l0, sEnd, hStart);
+    const [ws, wm, wh] = zoneWeights(l0, bands);
     w[0] = ws;
     w[1] = wm;
     w[2] = wh;
-    // The fourth group is treated as a whole-image pass at reduced strength.
+    // index 3 is the first code group, applied to the whole image
     for (let z = 0; z < 4; z++) {
       const k = w[z];
       if (k <= 0.001) continue;
       const l = luma(r, g, b);
-      const t = tintAmt[z] * k * (z === 3 ? 0.5 : 1);
+      const t = tintAmt[z] * k;
       const c = tintRgb[z];
       const cl = luma(c[0], c[1], c[2]) || 1;
       // luminance-preserving tint
       let nr = r + (l * (c[0] / cl) - r) * t;
       let ng = g + (l * (c[1] / cl) - g) * t;
       let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k * (z === 3 ? 0.5 : 1);
+      const sm = 1 + (satMul[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k * (z === 3 ? 0.5 : 1);
+      const bm = 1 + (briMul[z] - 1) * k;
       r = nr * bm;
       g = ng * bm;
       b = nb * bm;
@@ -175,7 +203,7 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
 
 type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
 
-function zoneStats(data: Uint8ClampedArray, sEnd: number, hStart: number): ZoneStat[] {
+function zoneStats(data: Uint8ClampedArray, bands: Bands): ZoneStat[] {
   const acc = [0, 1, 2].map(() => ({ r: 0, g: 0, b: 0, l: 0, sat: 0, n: 0 }));
   for (let i = 0; i < data.length; i += 16) {
     const r = data[i] / 255,
@@ -185,7 +213,7 @@ function zoneStats(data: Uint8ClampedArray, sEnd: number, hStart: number): ZoneS
     const mx = Math.max(r, g, b),
       mn = Math.min(r, g, b);
     const sat = mx > 0.02 ? (mx - mn) / mx : 0;
-    const w = zoneWeights(l, sEnd, hStart);
+    const w = zoneWeights(l, bands);
     for (let z = 0; z < 3; z++) {
       const a = acc[z];
       a.r += r * w[z];
@@ -223,9 +251,9 @@ export function analyse(
   base: Uint8ClampedArray | null,
 ): Settings {
   const s = defaultSettings();
-  const { sEnd, hStart } = thresholds(s);
-  const t = zoneStats(target, sEnd, hStart);
-  const b = base ? zoneStats(base, sEnd, hStart) : null;
+  const bands = thresholds(s);
+  const t = zoneStats(target, bands);
+  const b = base ? zoneStats(base, bands) : null;
   const neutral = [
     { l: 0.11, sat: 0.3 },
     { l: 0.42, sat: 0.3 },
@@ -267,13 +295,13 @@ export const PRESETS: { name: string; note: string; code: string }[] = [
         shadows: { hue: 215, tint: 14, sat: 42, bri: 45 },
         midtones: { hue: 35, tint: 8, sat: 45, bri: 49 },
         highlights: { hue: 38, tint: 18, sat: 50, bri: 53 },
-        extra: neutralZone(),
+        global: neutralZone(),
       },
     }),
   },
   {
-    name: "Teal Wash",
-    note: "The shared custom code",
+    name: "Cold War",
+    note: "Approximates the Black Ops Cold War colour grade",
     code: "2_1_30_130_1000_1100_624_83_376_677_500_406_80_892_124_121_-161_1094_0_9_1000_385",
   },
 ];

@@ -7,23 +7,35 @@ Live: https://codm.kuletxcore.workers.dev
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
-## Share code format (inferred)
+## Share code format
 
-22 numbers joined by `_`. Worked out from shared codes, not from an official spec:
+22 numbers joined by `_`. Worked out from shared codes and in-game screenshots, not from an official spec.
 
 | Index | Meaning | Default |
 | --- | --- | --- |
-| 0 | preset flag (0 default, 2 custom) | 0 |
+| 0 | preset flag (0 and 2 both seen in working codes) | 0 |
 | 1 | enabled | 1 |
-| 2 | unknown | 30 |
-| 3 | shadow range | 300 |
-| 4 | unknown | 1000 |
-| 5 | highlight range | 1500 |
-| 6–9, 10–13, 14–17, 18–21 | groups of hue, tint, saturation, brightness: shadows, midtones, highlights, and a 4th group | `0_0_0_1000` |
+| 2 | Range bar shadows handle, 0–1000 (confirmed) | 30 |
+| 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
+| 4 | Range bar highlights handle, 0–1000 (confirmed) | 1000 |
+| 5 | highlights falloff; handle + 100 after a drag | 1500 |
+| 6–9 | group 1: not one of the in-game tabs; the game writes `0_24_0_1000` here (unconfirmed) | `0_0_0_1000` |
+| 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |
+| 14–17 | group 3: **midtones** (confirmed in game) | `0_0_0_1000` |
+| 18–21 | group 4: **highlights** (confirmed in game) | `0_0_0_1000` |
 
-Within a group: hue `0–1000` = 0–360°, tint `0–1000` = 0–100, saturation `-1000–1000` = 0–100 (50 neutral), brightness `0–2000` = 0–100 (50 neutral).
+Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
-The group order, range values and the 4th group are unconfirmed, and the preview is an approximation of the in-game filter.
+- hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
+- tint `0–1000` = 0–100.
+- brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral).
+- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).
+
+The preview is an approximation of the in-game filter.
+
+## Using a code in game
+
+Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
 
 ## Development
 

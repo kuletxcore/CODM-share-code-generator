@@ -45,8 +45,9 @@
   --color-line: #2c302b;
   --color-mute: #8e948b;
   --color-text: #e9ece6;
-  --color-codm: #ffd100;
-  --color-codm-deep: #e0a800;
+  --color-codm: #ffea3b;
+  --color-codm-light: #fff38a;
+  --color-codm-deep: #e6cf1f;
   --color-lime: #a6e22e;
   --color-lime-deep: #5b8f12;
   --font-display: "Hitmarker Condensed", "Saira Condensed", "Arial Narrow", sans-serif;

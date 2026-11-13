@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PRESETS,
-  ZONES,
   analyse,
   applyGrade,
   decode,
@@ -14,21 +13,14 @@ import {
   type Settings,
   type Zone,
   type ZoneKey,
+  SWATCH_NAMES,
+  hueFrom,
+  hueParts,
 } from "@/lib/codm";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
 
-const SWATCHES = [
-  { name: "Red", h: 0 },
-  { name: "Orange", h: 30 },
-  { name: "Lime", h: 75 },
-  { name: "Green", h: 120 },
-  { name: "Cyan", h: 180 },
-  { name: "Blue", h: 230 },
-  { name: "Purple", h: 270 },
-  { name: "Magenta", h: 310 },
-];
 
 const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
   shadows: {
@@ -43,17 +35,18 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
     label: "Highlights",
     desc: "Sky, sunlit surfaces, bright paint. Warm highlights read as daylight; cool ones read as overcast.",
   },
-  extra: {
-    label: "Group 4",
-    desc: "The fourth value group in the code. Its exact role in game isn't confirmed; the preview applies it lightly to the whole frame. Leave it neutral if unsure.",
+  global: {
+    label: "Group 1",
+    desc: "The first value group in the code. It isn't one of the three in-game tabs, so it is probably a whole-image adjustment; the preview treats it that way. Leave it neutral if unsure.",
   },
   range: {
     label: "Range",
-    desc: "Where shadows stop and highlights begin. Lower shadow range keeps the shadow tint in the deepest blacks only.",
+    desc: "Where shadows stop and highlights begin. Drag the shadows handle right to push the shadow colour into darker midtones; drag the highlights handle left to spread the highlight colour down.",
   },
 };
 
-const PANELS: Panel[] = ["shadows", "midtones", "highlights", "range", "extra"];
+const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
+const PANELS: Panel[] = ["shadows", "midtones", "highlights", "range", "global"];
 
 const r = Math.round;
 const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
@@ -117,7 +110,7 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="grid grid-cols-[6.5rem_1fr_3rem] items-center gap-3">
+    <label className="grid grid-cols-[6.5rem_1fr_3.75rem] items-center gap-3">
       <span className="font-display text-sm font-bold uppercase tracking-wider text-mute">
         {label}
       </span>
@@ -239,7 +232,7 @@ function Preview({
       if (split > 0) {
         const x = r(c.width * split);
         ctx.drawImage(src, 0, 0, x, c.height, 0, 0, x, c.height);
-        ctx.fillStyle = "#ffd100";
+        ctx.fillStyle = "#ffea3b";
         ctx.fillRect(x - 1, 0, 2, c.height);
       }
     });
@@ -319,7 +312,7 @@ export default function FilterLab() {
   }, [code]);
 
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
-    setSettings((s) => ({ ...s, preset: 2, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+    setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
   }, []);
 
   const loadCode = useCallback((c: string) => {
@@ -343,13 +336,21 @@ export default function FilterLab() {
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
         <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/codm-logo-white.webp"
+            alt="Call of Duty: Mobile"
+            width={1528}
+            height={509}
+            className="mb-4 h-10 w-auto sm:h-12"
+          />
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-codm"
           >
             <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
-            Fan-made tool
+            Unofficial fan-made tool
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
@@ -502,54 +503,70 @@ export default function FilterLab() {
                       <div className="flex flex-col gap-3">
                         <Slider
                           label="Shadows"
-                          value={settings.shadowRange / 10}
+                          value={settings.shadowPos / 10}
                           min={0}
                           max={100}
                           track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) => setSettings((s) => ({ ...s, preset: 2, shadowRange: v * 10 }))}
+                          onChange={(v) =>
+                            setSettings((s) => {
+                              const pos = Math.min(v * 10, s.highlightPos);
+                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
+                            })
+                          }
                         />
                         <Slider
                           label="Highlights"
-                          value={(settings.highlightRange - 1000) / 10}
+                          value={settings.highlightPos / 10}
                           min={0}
                           max={100}
                           track="linear-gradient(90deg,#777,#fff)"
                           onChange={(v) =>
-                            setSettings((s) => ({ ...s, preset: 2, highlightRange: 1000 + v * 10 }))
+                            setSettings((s) => {
+                              const pos = Math.max(v * 10, s.shadowPos);
+                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
+                            })
                           }
                         />
                         <p className="text-xs text-mute">
-                          Default code values: shadows 300, highlights 1500. How these map to the
-                          in-game range handles is still a guess.
+                          The two handles of the in-game Range bar, as a percentage of its width.
+                          Moving a handle writes it the same way the game does.
                         </p>
                       </div>
                     ) : (
                       (() => {
                         const k = panel;
                         const z = settings.zones[k];
+                        const hp = hueParts(z.hue);
                         return (
                           <div className="flex flex-col gap-3">
-                            <div className="flex flex-wrap gap-2" role="group" aria-label="Hue swatches">
-                              {SWATCHES.map((sw) => (
+                            <div className="grid grid-cols-4 gap-2" role="group" aria-label="Hue swatches">
+                              {SWATCH_NAMES.map((name, i) => (
                                 <button
-                                  key={sw.name}
-                                  title={sw.name}
-                                  aria-label={sw.name}
-                                  onClick={() => setZone(k, { hue: sw.h, tint: Math.max(z.tint, 20) })}
-                                  className={`h-8 w-8 border-2 transition-transform hover:scale-110 ${
-                                    r(z.hue) === sw.h && z.tint > 0 ? "border-white" : "border-black/50"
+                                  key={name}
+                                  title={name}
+                                  aria-label={name}
+                                  aria-pressed={hp.swatch === i}
+                                  onClick={() => setZone(k, { hue: hueFrom(i, hp.pos) })}
+                                  className={`relative h-10 border-2 transition-transform hover:scale-105 ${
+                                    hp.swatch === i ? "border-white" : "border-black/50"
                                   }`}
-                                  style={{ background: hsl(sw.h, 85, 50) }}
-                                />
+                                  style={{ background: hsl(i * 45, 100, 50) }}
+                                >
+                                  {hp.swatch === i && (
+                                    <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2fae4e] text-[10px] font-bold text-white">
+                                      ✓
+                                    </span>
+                                  )}
+                                </button>
                               ))}
                             </div>
                             <Slider
                               label="Hue"
-                              value={z.hue}
+                              value={hp.pos}
                               min={0}
-                              max={360}
-                              track="linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)"
-                              onChange={(v) => setZone(k, { hue: v })}
+                              max={100}
+                              track={`linear-gradient(90deg,${hsl(hp.swatch * 45, 100, 50)},${hsl(hp.swatch * 45 + 45, 100, 50)})`}
+                              onChange={(v) => setZone(k, { hue: hueFrom(hp.swatch, v) })}
                             />
                             <Slider
                               label="Tint"
@@ -687,7 +704,7 @@ function Converter({
                 </tr>
               </thead>
               <tbody className="font-mono tabular-nums">
-                {ZONES.slice(0, 3).map((k) => {
+                {(ZONE_TABS).map((k) => {
                   const z = result.zones[k];
                   return (
                     <tr key={k} className="border-t border-line">
@@ -698,7 +715,9 @@ function Converter({
                         />
                         {PANEL_INFO[k].label}
                       </td>
-                      <td>{r(z.hue)}</td>
+                      <td>
+                        {SWATCH_NAMES[hueParts(z.hue).swatch]} {r(hueParts(z.hue).pos)}
+                      </td>
                       <td>{r(z.tint)}</td>
                       <td>{r(z.sat)}</td>
                       <td>{r(z.bri)}</td>
@@ -708,11 +727,11 @@ function Converter({
               </tbody>
             </table>
             <code className="block break-all bg-black/50 p-3 font-mono text-xs text-codm">
-              {encode({ ...result, preset: 2 })}
+              {encode(result)}
             </code>
             <button
-              onClick={() => onApply({ ...result, preset: 2 })}
-              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-[#ffe14d]"
+              onClick={() => onApply(result)}
+              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
             >
               Open in generator
             </button>
@@ -769,7 +788,7 @@ function CodeBar({
           </output>
           <button
             onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-[#ffe14d]"
+            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -830,8 +849,10 @@ function Notes() {
           How to use a code
         </h2>
         <p>
-          Copy the code, open the colour filter settings in CODM, use the import option and paste
-          it. Tweak it in game if the preview and the real thing differ.
+          In CODM go to Settings → Audio and Graphics, pick a mode tab (MP, BR, DMZ: Recon…), then
+          under its Graphic Style tap Import → Go, choose a Custom slot, paste the code into
+          &ldquo;Enter the Share code&rdquo; and tap Apply. Share copies your current code; Customize
+          Color (where the mode has it) fine-tunes it.
         </p>
       </div>
       <div>
