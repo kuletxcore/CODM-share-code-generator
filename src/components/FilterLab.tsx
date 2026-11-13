@@ -393,8 +393,8 @@ export default function FilterLab() {
             Filter Lab
           </motion.h1>
           <p className="mt-2 max-w-xl text-mute">
-            Ready-made colour filters for Call of Duty: Mobile, captured in game. Copy a code, or
-            build your own.
+            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
+            your own.
           </p>
         </div>
       </header>

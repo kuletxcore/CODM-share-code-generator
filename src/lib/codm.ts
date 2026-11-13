@@ -386,68 +386,26 @@ export type Look = {
   note: string;
   mode: "Simple" | "Advanced";
   code: string;
-  /** Real in-game capture of this code, when there is one. */
-  image?: string;
 };
 
-/**
- * Ready-made looks. The ones with an image were captured in game with
- * exactly this code; the rest are previewed approximately.
- */
+/** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
   {
-    name: "Night Ops",
-    note: "Deep teal-green, night-vision feel",
+    name: "Verdansk",
+    note: "Warm highlights, cool shadows, muted",
     mode: "Advanced",
-    code: "0_1_394_494_648_748_0_24_0_1000_412_787_499_361_625_681_504_620_934_330_615_560",
-    image: "/looks/night-ops.webp",
-  },
-  {
-    name: "Sepia",
-    note: "Warm, faded, old-photo tones",
-    mode: "Simple",
-    code: "0_1_50_300_1000_1500_105_390_480_340_0_0_0_1000_0_0_0_1000_0_0_0_1000",
-    image: "/looks/sepia.webp",
-  },
-  {
-    name: "Ultraviolet",
-    note: "Everything washed in violet",
-    mode: "Simple",
-    code: "4_1_50_300_1000_1500_705_759_533_478_0_0_0_1000_0_0_0_1000_0_0_0_1000",
-    image: "/looks/ultraviolet.webp",
-  },
-  {
-    name: "Bleached",
-    note: "Bright, low-saturation daylight",
-    mode: "Simple",
-    code: "1_1_50_300_1000_1500_220_360_820_260_0_0_0_1000_0_0_0_1000_0_0_0_1000",
-    image: "/looks/bleached.webp",
-  },
-  {
-    name: "Vivid",
-    note: "Punchy colour, bright exposure",
-    mode: "Simple",
-    code: "3_1_50_300_1000_1500_433_290_1000_1600_0_0_0_1000_0_0_0_1000_0_0_0_1000",
-    image: "/looks/vivid.webp",
-  },
-  {
-    name: "Jungle",
-    note: "Dark, saturated green cast",
-    mode: "Simple",
-    code: "2_1_50_300_1000_1500_295_650_-520_2000_0_0_0_1000_0_0_0_1000_0_0_0_1000",
-    image: "/looks/jungle.webp",
-  },
-  {
-    name: "Toxic",
-    note: "Violet shadows, acid-green midtones",
-    mode: "Advanced",
-    code: "0_1_50_300_1000_1500_0_24_0_1000_740_490_1000_160_334_1000_-683_1953_826_210_-371_1554",
-    image: "/looks/toxic.webp",
+    code: PRESETS[1].code,
   },
   {
     name: "Cold War",
-    note: "Cool teal shadows, warm mids, soft highlights",
+    note: "Approximates the Black Ops Cold War colour grade",
     mode: "Advanced",
-    code: "2_1_30_130_1000_1100_624_83_376_677_500_406_80_892_124_121_-161_1094_0_9_1000_385",
+    code: PRESETS[2].code,
+  },
+  {
+    name: "Default",
+    note: "The in-game reset state",
+    mode: "Simple",
+    code: DEFAULT_CODE,
   },
 ];

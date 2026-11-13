@@ -54,28 +54,14 @@ function Card({
       transition={{ delay: Math.min(index, 4) * 0.05 }}
       className="cut group relative flex w-[78vw] max-w-[340px] shrink-0 snap-start flex-col overflow-hidden border border-line bg-panel/90 sm:w-auto sm:max-w-none"
     >
-      <div className="relative aspect-[1370/914] overflow-hidden bg-black">
-        {look.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={look.image}
-            alt={`${look.name} filter in game`}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <RenderedThumb code={look.code} />
-        )}
+      <div className="relative aspect-[480/219] overflow-hidden bg-black">
+        <RenderedThumb code={look.code} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 to-transparent" />
         <span className="absolute left-2 top-2 bg-black/70 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest text-text">
           {look.mode}
         </span>
-        <span
-          className={`absolute right-2 top-2 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest ${
-            look.image ? "bg-codm text-black" : "bg-black/70 text-mute"
-          }`}
-        >
-          {look.image ? "In-game" : "Preview"}
+        <span className="absolute right-2 top-2 bg-black/70 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
+          Preview
         </span>
         <div className="absolute inset-x-3 bottom-2">
           <h3 className="font-title text-2xl font-black uppercase leading-none tracking-wide">
@@ -121,7 +107,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             Pick a look
           </h2>
           <p className="mt-1 text-sm text-mute">
-            Captured in game. Copy a code, paste it into CODM, done.
+            Copy a code, paste it into CODM, done.
           </p>
         </div>
         <ol className="flex gap-3 font-display text-xs font-bold uppercase tracking-widest text-mute">
@@ -134,7 +120,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         </ol>
       </div>
 
-      <ul className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+      <ul className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
         {LOOKS.map((look, i) => (
           <Card
             key={look.name}
