@@ -838,9 +838,10 @@ function Notes() {
           How to use a code
         </h2>
         <p>
-          In CODM go to Settings → Audio and Graphics → MP Mode Graphic Style → Import → Go, paste
-          the code into &ldquo;Enter the Share code&rdquo; and tap Apply. Use Share there to copy your own
-          code, and Customize Color to fine-tune it.
+          In CODM go to Settings → Audio and Graphics, pick a mode tab (MP, BR, DMZ: Recon…), then
+          under its Graphic Style tap Import → Go, choose a Custom slot, paste the code into
+          &ldquo;Enter the Share code&rdquo; and tap Apply. Share copies your current code; Customize
+          Color (where the mode has it) fine-tunes it.
         </p>
       </div>
       <div>

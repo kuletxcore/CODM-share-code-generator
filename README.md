@@ -32,7 +32,7 @@ The preview is an approximation of the in-game filter.
 
 ## Using a code in game
 
-Settings → Audio and Graphics → MP Mode Graphic Style → Import → Go, paste into "Enter the Share code", then Apply. Share copies your current code; Customize Color edits it.
+Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
 
 ## Development
 
