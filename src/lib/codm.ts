@@ -15,8 +15,9 @@
 //   brightness 0..2000   -> 0..100 (50 = neutral)
 
 export type Zone = { hue: number; tint: number; sat: number; bri: number };
-export type ZoneKey = "shadows" | "midtones" | "highlights" | "extra";
-export const ZONES: ZoneKey[] = ["shadows", "midtones", "highlights", "extra"];
+export type ZoneKey = "global" | "shadows" | "midtones" | "highlights";
+/** Order of the four value groups in a share code. Shadows = group 2 is confirmed in game. */
+export const ZONES: ZoneKey[] = ["global", "shadows", "midtones", "highlights"];
 
 export type Settings = {
   preset: number;
@@ -41,7 +42,7 @@ export const defaultSettings = (): Settings => ({
     shadows: neutralZone(),
     midtones: neutralZone(),
     highlights: neutralZone(),
-    extra: neutralZone(),
+    global: neutralZone(),
   },
 });
 
@@ -65,8 +66,9 @@ export function encode(s: Settings): string {
     out.push(
       Math.round((z.hue / 360) * 1000),
       Math.round(z.tint * 10),
-      Math.round((z.sat - 50) * 20),
-      Math.round(z.bri * 20),
+      // confirmed in game: brightness is an offset around 0, saturation scales around 1000
+      Math.round((z.bri - 50) * 20),
+      Math.round(z.sat * 20),
     );
   }
   return out.map((n) => Math.round(n)).join("_");
@@ -84,8 +86,8 @@ export function decode(code: string): Settings | null {
     s.zones[k] = {
       hue: (n[o] / 1000) * 360,
       tint: n[o + 1] / 10,
-      sat: n[o + 2] / 20 + 50,
-      bri: n[o + 3] / 20,
+      bri: n[o + 2] / 20 + 50,
+      sat: n[o + 3] / 20,
     };
   });
   return s;
@@ -127,7 +129,7 @@ function zoneWeights(l: number, sEnd: number, hStart: number) {
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
   const { sEnd, hStart } = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.extra];
+  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
   const tintRgb = zs.map((z) => hueToRgb(z.hue));
   const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
   const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
@@ -143,24 +145,24 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
     w[0] = ws;
     w[1] = wm;
     w[2] = wh;
-    // The fourth group is treated as a whole-image pass at reduced strength.
+    // index 3 is the first code group, applied to the whole image
     for (let z = 0; z < 4; z++) {
       const k = w[z];
       if (k <= 0.001) continue;
       const l = luma(r, g, b);
-      const t = tintAmt[z] * k * (z === 3 ? 0.5 : 1);
+      const t = tintAmt[z] * k;
       const c = tintRgb[z];
       const cl = luma(c[0], c[1], c[2]) || 1;
       // luminance-preserving tint
       let nr = r + (l * (c[0] / cl) - r) * t;
       let ng = g + (l * (c[1] / cl) - g) * t;
       let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k * (z === 3 ? 0.5 : 1);
+      const sm = 1 + (satMul[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k * (z === 3 ? 0.5 : 1);
+      const bm = 1 + (briMul[z] - 1) * k;
       r = nr * bm;
       g = ng * bm;
       b = nb * bm;
@@ -267,7 +269,7 @@ export const PRESETS: { name: string; note: string; code: string }[] = [
         shadows: { hue: 215, tint: 14, sat: 42, bri: 45 },
         midtones: { hue: 35, tint: 8, sat: 45, bri: 49 },
         highlights: { hue: 38, tint: 18, sat: 50, bri: 53 },
-        extra: neutralZone(),
+        global: neutralZone(),
       },
     }),
   },

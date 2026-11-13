@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PRESETS,
-  ZONES,
   analyse,
   applyGrade,
   decode,
@@ -43,9 +42,9 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
     label: "Highlights",
     desc: "Sky, sunlit surfaces, bright paint. Warm highlights read as daylight; cool ones read as overcast.",
   },
-  extra: {
-    label: "Group 4",
-    desc: "The fourth value group in the code. Its exact role in game isn't confirmed; the preview applies it lightly to the whole frame. Leave it neutral if unsure.",
+  global: {
+    label: "Group 1",
+    desc: "The first value group in the code. It isn't one of the three in-game tabs, so it is probably a whole-image adjustment; the preview treats it that way. Leave it neutral if unsure.",
   },
   range: {
     label: "Range",
@@ -53,7 +52,8 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
   },
 };
 
-const PANELS: Panel[] = ["shadows", "midtones", "highlights", "range", "extra"];
+const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
+const PANELS: Panel[] = ["shadows", "midtones", "highlights", "range", "global"];
 
 const r = Math.round;
 const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
@@ -319,7 +319,7 @@ export default function FilterLab() {
   }, [code]);
 
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
-    setSettings((s) => ({ ...s, preset: 2, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+    setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
   }, []);
 
   const loadCode = useCallback((c: string) => {
@@ -514,7 +514,7 @@ export default function FilterLab() {
                           min={0}
                           max={100}
                           track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) => setSettings((s) => ({ ...s, preset: 2, shadowRange: v * 10 }))}
+                          onChange={(v) => setSettings((s) => ({ ...s, shadowRange: v * 10 }))}
                         />
                         <Slider
                           label="Highlights"
@@ -523,7 +523,7 @@ export default function FilterLab() {
                           max={100}
                           track="linear-gradient(90deg,#777,#fff)"
                           onChange={(v) =>
-                            setSettings((s) => ({ ...s, preset: 2, highlightRange: 1000 + v * 10 }))
+                            setSettings((s) => ({ ...s, highlightRange: 1000 + v * 10 }))
                           }
                         />
                         <p className="text-xs text-mute">
@@ -695,7 +695,7 @@ function Converter({
                 </tr>
               </thead>
               <tbody className="font-mono tabular-nums">
-                {ZONES.slice(0, 3).map((k) => {
+                {(ZONE_TABS).map((k) => {
                   const z = result.zones[k];
                   return (
                     <tr key={k} className="border-t border-line">
@@ -716,10 +716,10 @@ function Converter({
               </tbody>
             </table>
             <code className="block break-all bg-black/50 p-3 font-mono text-xs text-codm">
-              {encode({ ...result, preset: 2 })}
+              {encode(result)}
             </code>
             <button
-              onClick={() => onApply({ ...result, preset: 2 })}
+              onClick={() => onApply(result)}
               className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
             >
               Open in generator
@@ -838,8 +838,9 @@ function Notes() {
           How to use a code
         </h2>
         <p>
-          Copy the code, open the colour filter settings in CODM, use the import option and paste
-          it. Tweak it in game if the preview and the real thing differ.
+          In CODM go to Settings → Audio and Graphics → MP Mode Graphic Style → Import → Go, paste
+          the code into &ldquo;Enter the Share code&rdquo; and tap Apply. Use Share there to copy your own
+          code, and Customize Color to fine-tune it.
         </p>
       </div>
       <div>
