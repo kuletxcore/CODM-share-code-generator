@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  PRESETS,
   analyse,
   applyGrade,
   decode,
@@ -17,6 +16,7 @@ import {
   hueFrom,
   hueParts,
 } from "@/lib/codm";
+import LooksGallery from "@/components/LooksGallery";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -393,10 +393,22 @@ export default function FilterLab() {
             Filter Lab
           </motion.h1>
           <p className="mt-2 max-w-xl text-mute">
-            Build a Call of Duty: Mobile colour filter and get the share code, or start from a
-            screenshot of the look you want.
+            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
+            your own.
           </p>
         </div>
+      </header>
+
+      <LooksGallery
+        onEdit={(c) => {
+          loadCode(c);
+          setMode("build");
+          document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
+
+      <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
+        <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
         <nav aria-label="Mode" className="flex gap-1">
           {(
             [
@@ -422,9 +434,8 @@ export default function FilterLab() {
             </button>
           ))}
         </nav>
-      </header>
-
-      <div className="mt-6 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
+      </div>
+      <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
 
       {error && (
         <p role="alert" className="mt-4 border-l-2 border-red-500 bg-red-500/10 px-3 py-2 text-sm">
@@ -515,27 +526,6 @@ export default function FilterLab() {
                 })}
               </ul>
 
-              <div>
-                <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-mute">
-                  Presets
-                </h2>
-                <div className="flex flex-col gap-1">
-                  {PRESETS.map((p) => (
-                    <button
-                      key={p.name}
-                      onClick={() => loadCode(p.code)}
-                      className={`cut-sm flex flex-col border-l-2 px-3 py-2 text-left transition-colors ${
-                        code === p.code
-                          ? "border-codm bg-codm/10"
-                          : "border-transparent bg-white/[0.035] hover:bg-white/[0.07]"
-                      }`}
-                    >
-                      <span className="font-display font-bold uppercase tracking-wide">{p.name}</span>
-                      <span className="text-xs text-mute">{p.note}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* right: preview + controls */}
