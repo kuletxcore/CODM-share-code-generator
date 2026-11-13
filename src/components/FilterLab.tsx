@@ -13,21 +13,14 @@ import {
   type Settings,
   type Zone,
   type ZoneKey,
+  SWATCH_NAMES,
+  hueFrom,
+  hueParts,
 } from "@/lib/codm";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
 
-const SWATCHES = [
-  { name: "Red", h: 0 },
-  { name: "Orange", h: 30 },
-  { name: "Lime", h: 75 },
-  { name: "Green", h: 120 },
-  { name: "Cyan", h: 180 },
-  { name: "Blue", h: 230 },
-  { name: "Purple", h: 270 },
-  { name: "Magenta", h: 310 },
-];
 
 const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
   shadows: {
@@ -117,7 +110,7 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="grid grid-cols-[6.5rem_1fr_3rem] items-center gap-3">
+    <label className="grid grid-cols-[6.5rem_1fr_3.75rem] items-center gap-3">
       <span className="font-display text-sm font-bold uppercase tracking-wider text-mute">
         {label}
       </span>
@@ -535,29 +528,37 @@ export default function FilterLab() {
                       (() => {
                         const k = panel;
                         const z = settings.zones[k];
+                        const hp = hueParts(z.hue);
                         return (
                           <div className="flex flex-col gap-3">
-                            <div className="flex flex-wrap gap-2" role="group" aria-label="Hue swatches">
-                              {SWATCHES.map((sw) => (
+                            <div className="grid grid-cols-4 gap-2" role="group" aria-label="Hue swatches">
+                              {SWATCH_NAMES.map((name, i) => (
                                 <button
-                                  key={sw.name}
-                                  title={sw.name}
-                                  aria-label={sw.name}
-                                  onClick={() => setZone(k, { hue: sw.h, tint: Math.max(z.tint, 20) })}
-                                  className={`h-8 w-8 border-2 transition-transform hover:scale-110 ${
-                                    r(z.hue) === sw.h && z.tint > 0 ? "border-white" : "border-black/50"
+                                  key={name}
+                                  title={name}
+                                  aria-label={name}
+                                  aria-pressed={hp.swatch === i}
+                                  onClick={() => setZone(k, { hue: hueFrom(i, hp.pos) })}
+                                  className={`relative h-10 border-2 transition-transform hover:scale-105 ${
+                                    hp.swatch === i ? "border-white" : "border-black/50"
                                   }`}
-                                  style={{ background: hsl(sw.h, 85, 50) }}
-                                />
+                                  style={{ background: hsl(i * 45, 100, 50) }}
+                                >
+                                  {hp.swatch === i && (
+                                    <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2fae4e] text-[10px] font-bold text-white">
+                                      ✓
+                                    </span>
+                                  )}
+                                </button>
                               ))}
                             </div>
                             <Slider
                               label="Hue"
-                              value={z.hue}
+                              value={hp.pos}
                               min={0}
-                              max={360}
-                              track="linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)"
-                              onChange={(v) => setZone(k, { hue: v })}
+                              max={100}
+                              track={`linear-gradient(90deg,${hsl(hp.swatch * 45, 100, 50)},${hsl(hp.swatch * 45 + 45, 100, 50)})`}
+                              onChange={(v) => setZone(k, { hue: hueFrom(hp.swatch, v) })}
                             />
                             <Slider
                               label="Tint"
@@ -706,7 +707,9 @@ function Converter({
                         />
                         {PANEL_INFO[k].label}
                       </td>
-                      <td>{r(z.hue)}</td>
+                      <td>
+                        {SWATCH_NAMES[hueParts(z.hue).swatch]} {r(hueParts(z.hue).pos)}
+                      </td>
                       <td>{r(z.tint)}</td>
                       <td>{r(z.sat)}</td>
                       <td>{r(z.bri)}</td>

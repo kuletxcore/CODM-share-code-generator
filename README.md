@@ -16,14 +16,14 @@ Live: https://codm.kuletxcore.workers.dev
 | 0 | preset flag (0 and 2 both seen in working codes) | 0 |
 | 1 | enabled | 1 |
 | 2–5 | range settings (exact mapping unknown) | `30_300_1000_1500` |
-| 6–9 | group 1: probably a whole-image adjustment (unconfirmed) | `0_0_0_1000` |
+| 6–9 | group 1: not one of the in-game tabs; the game writes `0_24_0_1000` here (unconfirmed) | `0_0_0_1000` |
 | 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |
-| 14–17 | group 3: midtones (assumed) | `0_0_0_1000` |
-| 18–21 | group 4: highlights (assumed) | `0_0_0_1000` |
+| 14–17 | group 3: **midtones** (confirmed in game) | `0_0_0_1000` |
+| 18–21 | group 4: **highlights** (confirmed in game) | `0_0_0_1000` |
 
 Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
-- hue `0–1000` = 0–360°. In game, hue is picked as a swatch plus a 0–100 slider towards the next swatch.
+- hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
 - tint `0–1000` = 0–100.
 - brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral).
 - saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).

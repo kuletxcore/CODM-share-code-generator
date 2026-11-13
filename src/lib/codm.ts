@@ -93,6 +93,23 @@ export function decode(code: string): Settings | null {
   return s;
 }
 
+// ---------- in-game hue controls ----------
+
+/**
+ * In game, hue is one of 8 swatches 45° apart plus a 0–100 slider towards the
+ * next swatch (raw = swatch * 125 + slider * 1.25). Confirmed against four
+ * in-game screenshots with known codes.
+ */
+export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
+
+export function hueParts(deg: number): { swatch: number; pos: number } {
+  const d = ((deg % 360) + 360) % 360;
+  const swatch = Math.min(7, Math.floor(d / 45 + 1e-9));
+  return { swatch, pos: Math.min(100, (d - swatch * 45) / 0.45) };
+}
+
+export const hueFrom = (swatch: number, pos: number) => swatch * 45 + pos * 0.45;
+
 // ---------- colour helpers ----------
 
 export function hueToRgb(h: number): [number, number, number] {
