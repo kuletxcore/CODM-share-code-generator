@@ -403,7 +403,7 @@ export const LOOKS: Look[] = [
   },
   {
     name: "Verdansk",
-    note: "Warm highlights, cool shadows, muted",
+    note: "MW 2019 inspired: warm highlights, cool shadows, muted",
     mode: "Advanced",
     code: PRESETS[1].code,
     image: "/looks/verdansk.webp",
