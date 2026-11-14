@@ -218,7 +218,20 @@ function Preview({
   onClear: () => void;
 }) {
   const view = useRef<HTMLCanvasElement>(null);
-  const [sample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
+  const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
+  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
+  useEffect(() => {
+    let live = true;
+    import("@/lib/scene")
+      .then((m) => m.renderScene(960, 540))
+      .then((c) => {
+        if (live && c) setSample(c);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   const [split, setSplit] = useState(0);
   const src = source ?? sample;
 
