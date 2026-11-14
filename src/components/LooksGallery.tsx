@@ -17,20 +17,57 @@ async function copyText(text: string) {
   }
 }
 
-/** Approximate preview for looks without an in-game capture. */
+// One render of the 3D scene shared by every card without an image; each
+// look's graded pixels are cached so it is graded once.
+const W = 960,
+  H = 438;
+let base: Promise<ImageData> | null = null;
+const graded = new Map<string, Promise<ImageData>>();
+
+function baseImage(): Promise<ImageData> {
+  base ??= import("@/lib/scene")
+    .then((m) => m.renderScene(W, H, { chips: false }))
+    .catch(() => null)
+    .then((c) => {
+      if (c) return c.getContext("2d")!.getImageData(0, 0, W, H);
+      const f = document.createElement("canvas");
+      f.width = W;
+      f.height = H;
+      const ctx = f.getContext("2d")!;
+      drawSample(ctx, W, H);
+      return ctx.getImageData(0, 0, W, H);
+    });
+  return base;
+}
+
+function gradedImage(code: string): Promise<ImageData> | null {
+  const s = decode(code);
+  if (!s) return null;
+  let p = graded.get(code);
+  if (!p) {
+    p = baseImage().then((img) => {
+      const data = new Uint8ClampedArray(img.data);
+      applyGrade(data, s);
+      return new ImageData(data, W, H);
+    });
+    graded.set(code, p);
+  }
+  return p;
+}
+
+/** Preview for looks without a reference image: the 3D scene with the look applied. */
 function RenderedThumb({ code }: { code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const c = ref.current;
-    const s = decode(code);
-    if (!c || !s) return;
-    const ctx = c.getContext("2d")!;
-    drawSample(ctx, c.width, c.height);
-    const img = ctx.getImageData(0, 0, c.width, c.height);
-    applyGrade(img.data, s);
-    ctx.putImageData(img, 0, 0);
+    let live = true;
+    gradedImage(code)?.then((img) => {
+      if (live) ref.current?.getContext("2d")?.putImageData(img, 0, 0);
+    });
+    return () => {
+      live = false;
+    };
   }, [code]);
-  return <canvas ref={ref} width={480} height={219} className="h-full w-full object-cover" />;
+  return <canvas ref={ref} width={W} height={H} className="h-full w-full bg-panel-2 object-cover" />;
 }
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
@@ -64,6 +101,17 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     const t = setTimeout(() => setActive((a) => (a + 1) % LOOKS.length), DWELL * 1000);
     return () => clearTimeout(t);
   }, [playing, active]);
+
+  const strip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = strip.current;
+    const tab = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !tab) return;
+    // horizontal only, so autoplay never scrolls the page
+    const left = tab.offsetLeft - el.offsetLeft;
+    if (left < el.scrollLeft || left + tab.offsetWidth > el.scrollLeft + el.clientWidth)
+      el.scrollTo({ left: left - (el.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth" });
+  }, [active, reduce]);
 
   const pick = (i: number) => {
     setAuto(false);
@@ -128,7 +176,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
                 {look.image ? "Inspiration" : "Preview"}
               </span>
             </div>
-            <h3 className="mt-2 font-title text-5xl font-black uppercase leading-[0.9] tracking-wide sm:text-6xl lg:text-8xl">
+            <h3
+              className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
+                look.name.length > 12 ? "text-4xl sm:text-5xl lg:text-7xl" : "text-5xl sm:text-6xl lg:text-8xl"
+              }`}
+            >
               {look.name}
             </h3>
             <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
@@ -160,7 +212,8 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       <div
         role="tablist"
         aria-label="Looks"
-        className="mt-2 grid grid-cols-6 gap-1.5"
+        ref={strip}
+        className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") pick(active + 1);
           else if (e.key === "ArrowLeft") pick(active - 1);
@@ -181,7 +234,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             aria-controls="look-stage"
             tabIndex={i === active ? 0 : -1}
             onClick={() => pick(i)}
-            className={`group relative overflow-hidden border bg-black text-left transition-opacity ${
+            className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
               i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
             }`}
           >

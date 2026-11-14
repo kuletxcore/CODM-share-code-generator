@@ -428,14 +428,47 @@ export const LOOKS: Look[] = [
     image: "/looks/apex.webp",
   },
   {
-    // Approximated from a Black Ops 7 multiplayer video. Only its first seconds
-    // survived the compression cleanly: warm shadows/mids, no highlight cast.
-    // Lifted shadows and a slightly muted palette follow the whole video's tone.
+    // Black Ops 7 multiplayer. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. Casts disagree between videos, so they cancel out; muted highlights are what they share. (6 videos.)
     name: "2035",
-    note: "Black Ops 7 Multiplayer: lifted blacks, muted, warm mids",
+    note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_97_70_160_960_78_50_0_900_0_0_-20_800",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_992_40_0_960_767_20_-20_960_572_30_20_620",
     image: "/looks/2035.webp",
+  },
+  {
+    // Black Ops Royale on Avalon. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (4 videos.)
+    name: "Avalon",
+    note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040",
+  },
+  {
+    // Haven's Hollow by day. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
+    name: "Haven's Hollow",
+    note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060",
+  },
+  {
+    // Haunted Hollow (The Haunting) at night. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
+    name: "Haven's Hollow (Night)",
+    note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800",
+  },
+  {
+    // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
+    name: "Al Mazrah",
+    note: "MWII Warzone: dusty, desaturated, lifted shadows",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040",
+  },
+  {
+    // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
+    name: "Caldera",
+    note: "Vanguard Warzone Pacific: olive shadows, warm mids",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900",
   },
   {
     name: "Verdansk",
