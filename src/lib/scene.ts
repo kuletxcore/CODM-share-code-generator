@@ -3,7 +3,11 @@
  * sun, fog, shadows and depth, so a filter change reads the way it would in a
  * game. Rendered once into a 2D canvas, so the grade still runs on pixels.
  */
-export async function renderScene(w: number, h: number): Promise<HTMLCanvasElement | null> {
+export async function renderScene(
+  w: number,
+  h: number,
+  opts: { chips?: boolean } = {},
+): Promise<HTMLCanvasElement | null> {
   const THREE = await import("three");
   let renderer: InstanceType<typeof THREE.WebGLRenderer>;
   try {
@@ -219,11 +223,7 @@ export async function renderScene(w: number, h: number): Promise<HTMLCanvasEleme
     const ctx = out.getContext("2d")!;
     ctx.drawImage(renderer.domElement, 0, 0, w, h);
     // colour chips, handy for reading hue shifts
-    const chips = ["#e23b2e", "#f2a71b", "#8fd13f", "#27b36a", "#29b8d6", "#2f5fd0", "#7a3fd0", "#d93fa6", "#f2f2f2", "#8a8a8a", "#1e1e1e"];
-    chips.forEach((c, i) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(w * 0.04 + i * w * 0.042, h * 0.86, w * 0.036, h * 0.08);
-    });
+    if (opts.chips !== false) drawChips(ctx, w, h);
     scene.traverse((o) => {
       const m = o as InstanceType<typeof THREE.Mesh>;
       m.geometry?.dispose?.();
@@ -233,4 +233,12 @@ export async function renderScene(w: number, h: number): Promise<HTMLCanvasEleme
     renderer.dispose();
     renderer.forceContextLoss();
   }
+}
+
+function drawChips(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const chips = ["#e23b2e", "#f2a71b", "#8fd13f", "#27b36a", "#29b8d6", "#2f5fd0", "#7a3fd0", "#d93fa6", "#f2f2f2", "#8a8a8a", "#1e1e1e"];
+  chips.forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(w * 0.04 + i * w * 0.042, h * 0.86, w * 0.036, h * 0.08);
+  });
 }
