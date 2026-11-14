@@ -441,6 +441,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040",
+    image: "/looks/avalon.webp",
   },
   {
     // Haven's Hollow by day. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
@@ -448,6 +449,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060",
+    image: "/looks/havens-hollow.webp",
   },
   {
     // Haunted Hollow (The Haunting) at night. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
@@ -455,6 +457,7 @@ export const LOOKS: Look[] = [
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800",
+    image: "/looks/havens-hollow-night.webp",
   },
   {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
@@ -462,6 +465,7 @@ export const LOOKS: Look[] = [
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040",
+    image: "/looks/al-mazrah.webp",
   },
   {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
@@ -469,6 +473,7 @@ export const LOOKS: Look[] = [
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900",
+    image: "/looks/caldera.webp",
   },
   {
     name: "Verdansk",
