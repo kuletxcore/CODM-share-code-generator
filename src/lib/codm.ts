@@ -468,6 +468,16 @@ export const LOOKS: Look[] = [
     image: "/looks/al-mazrah.webp",
   },
   {
+    // MWII Warzone Zombie Royale (The Haunting) on Vondel at night. Derived from
+    // gameplay footage relative to the pooled daytime footage of all the games
+    // sampled. Videos disagree on cast (red vs blue) and agree on darker mids. (3 videos.)
+    name: "Vondead",
+    note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
+    image: "/looks/vondead.webp",
+  },
+  {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Caldera",
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
