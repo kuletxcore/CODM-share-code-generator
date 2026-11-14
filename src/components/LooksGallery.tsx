@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { LOOKS, applyGrade, decode, drawSample, type Look } from "@/lib/codm";
 
@@ -33,75 +33,25 @@ function RenderedThumb({ code }: { code: string }) {
   return <canvas ref={ref} width={480} height={219} className="h-full w-full object-cover" />;
 }
 
-function Card({
-  look,
-  index,
-  copied,
-  onCopy,
-  onEdit,
-}: {
-  look: Look;
-  index: number;
-  copied: boolean;
-  onCopy: () => void;
-  onEdit: () => void;
-}) {
-  return (
-    <motion.li
-      initial={{ opacity: 0, y: 14 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ delay: Math.min(index, 4) * 0.05 }}
-      className="cut group relative flex w-[78vw] max-w-[340px] shrink-0 snap-start flex-col overflow-hidden border border-line bg-panel/90 sm:w-auto sm:max-w-none"
-    >
-      <div className="relative aspect-[480/219] overflow-hidden bg-black">
-        {look.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={look.image}
-            alt={`${look.name} reference`}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <RenderedThumb code={look.code} />
-        )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 to-transparent" />
-        <span className="absolute left-2 top-2 bg-black/70 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest text-text">
-          {look.mode}
-        </span>
-        <span className="absolute right-2 top-2 bg-black/70 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
-          {look.image ? "Inspiration" : "Preview"}
-        </span>
-        <div className="absolute inset-x-3 bottom-2">
-          <h3 className="font-title text-2xl font-black uppercase leading-none tracking-wide">
-            {look.name}
-          </h3>
-          <p className="mt-1 text-xs text-text/80">{look.note}</p>
-        </div>
-      </div>
-      <div className="flex gap-1 p-2">
-        <button
-          onClick={onCopy}
-          className={`cut-sm flex-1 px-3 py-2.5 font-display text-base font-extrabold uppercase tracking-wider transition-colors ${
-            copied ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
-          }`}
-        >
-          {copied ? "Copied ✓" : "Copy code"}
-        </button>
-        <button
-          onClick={onEdit}
-          className="bg-panel-2 px-3 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-mute hover:bg-line hover:text-text"
-        >
-          Customize
-        </button>
-      </div>
-    </motion.li>
+const DWELL = 7; // seconds each look stays on stage while auto-playing
+
+function Art({ look }: { look: Look }) {
+  return look.image ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={look.image} alt="" className="h-full w-full object-cover" />
+  ) : (
+    <RenderedThumb code={look.code} />
   );
 }
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [active, setActive] = useState(0);
+  const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
+  const [hover, setHover] = useState(false);
+  const reduce = useReducedMotion();
+  const playing = auto && !hover && !reduce;
+  const look = LOOKS[active];
 
   useEffect(() => {
     if (!copied) return;
@@ -109,16 +59,30 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     return () => clearTimeout(t);
   }, [copied]);
 
+  useEffect(() => {
+    if (!playing) return;
+    const t = setTimeout(() => setActive((a) => (a + 1) % LOOKS.length), DWELL * 1000);
+    return () => clearTimeout(t);
+  }, [playing, active]);
+
+  const pick = (i: number) => {
+    setAuto(false);
+    setActive((i + LOOKS.length) % LOOKS.length);
+  };
+
   return (
-    <section aria-labelledby="looks-title" className="mt-8">
+    <section
+      aria-labelledby="looks-title"
+      className="mt-8"
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+    >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
             Pick a look
           </h2>
-          <p className="mt-1 text-sm text-mute">
-            Copy a code, paste it into CODM, done.
-          </p>
+          <p className="mt-1 text-sm text-mute">Copy a code, paste it into CODM, done.</p>
         </div>
         <ol className="flex gap-3 font-display text-xs font-bold uppercase tracking-widest text-mute">
           {["Copy", "Import in game", "Apply"].map((s, i) => (
@@ -130,21 +94,116 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         </ol>
       </div>
 
-      <ul className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
-        {LOOKS.map((look, i) => (
-          <Card
+      {/* stage: the selected look, full width */}
+      <div
+        role="tabpanel"
+        id="look-stage"
+        aria-live="polite"
+        className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
+      >
+        <AnimatePresence initial={false}>
+          <motion.div
             key={look.name}
-            look={look}
-            index={i}
-            copied={copied === look.code}
-            onCopy={() => {
-              copyText(look.code);
-              setCopied(look.code);
-            }}
-            onEdit={() => onEdit(look.code)}
-          />
+            className="absolute inset-0"
+            initial={{ opacity: 0, scale: reduce ? 1 : 1.12 }}
+            animate={{ opacity: 1, scale: 1, transition: { opacity: { duration: 0.7 }, scale: { duration: DWELL + 1, ease: "easeOut" } } }}
+            exit={{ opacity: 0, transition: { duration: 0.7 } }}
+          >
+            <Art look={look} />
+          </motion.div>
+        </AnimatePresence>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
+        <div className="pointer-events-none absolute inset-0 scanlines opacity-60" />
+
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:inset-y-0 sm:w-[58%] sm:justify-end sm:p-8">
+          <motion.div
+            key={look.name}
+            initial={reduce ? false : { opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
+              <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
+              <span className="bg-black/70 px-2 py-0.5 text-mute">
+                {look.image ? "Inspiration" : "Preview"}
+              </span>
+            </div>
+            <h3 className="mt-2 font-title text-5xl font-black uppercase leading-[0.9] tracking-wide sm:text-6xl lg:text-8xl">
+              {look.name}
+            </h3>
+            <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
+          </motion.div>
+          <div className="flex max-w-md gap-1">
+            <button
+              onClick={() => {
+                copyText(look.code);
+                setCopied(look.code);
+                setAuto(false);
+              }}
+              className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
+                copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
+              }`}
+            >
+              {copied === look.code ? "Copied ✓" : "Copy code"}
+            </button>
+            <button
+              onClick={() => onEdit(look.code)}
+              className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+            >
+              Customize
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* filmstrip */}
+      <div
+        role="tablist"
+        aria-label="Looks"
+        className="mt-2 grid grid-cols-6 gap-1.5"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") pick(active + 1);
+          else if (e.key === "ArrowLeft") pick(active - 1);
+          else return;
+          e.preventDefault();
+          const strip = e.currentTarget;
+          requestAnimationFrame(() =>
+            (strip.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
+          );
+        }}
+      >
+        {LOOKS.map((l, i) => (
+          <button
+            key={l.name}
+            role="tab"
+            id={`look-tab-${i}`}
+            aria-selected={i === active}
+            aria-controls="look-stage"
+            tabIndex={i === active ? 0 : -1}
+            onClick={() => pick(i)}
+            className={`group relative overflow-hidden border bg-black text-left transition-opacity ${
+              i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
+            }`}
+          >
+            <div className="aspect-[16/7] overflow-hidden">
+              <Art look={l} />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
+              {l.name}
+            </div>
+            {i === active && playing && (
+              <motion.span
+                key={`${active}-bar`}
+                className="absolute inset-x-0 bottom-0 h-[3px] origin-left bg-codm"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: DWELL, ease: "linear" }}
+              />
+            )}
+            {i === active && !playing && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-codm" />}
+          </button>
         ))}
-      </ul>
+      </div>
 
       <AnimatePresence>
         {copied && (
