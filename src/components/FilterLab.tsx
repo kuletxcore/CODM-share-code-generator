@@ -17,6 +17,7 @@ import {
   hueParts,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
+import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -235,10 +236,34 @@ function Preview({
   const [split, setSplit] = useState(0);
   const src = source ?? sample;
 
-  // Original pixels, read once per image.
+  // Grade on the GPU when WebGL is available; null = not tried yet.
+  const gpu = useRef<GradeGpu | null>(null);
+  const [gpuOk, setGpuOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    const c = view.current;
+    if (!c) return;
+    const g = createGradeGpu(c);
+    gpu.current = g;
+    setGpuOk(!!g);
+    return () => {
+      g?.dispose();
+      gpu.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    if (gpuOk && src) gpu.current?.setSource(src);
+  }, [gpuOk, src]);
+  useEffect(() => {
+    if (!gpuOk || !src) return;
+    const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
+    return () => cancelAnimationFrame(id);
+  }, [gpuOk, src, settings, split]);
+
+  // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
-    () => src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null,
-    [src],
+    () =>
+      gpuOk === false ? (src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null) : null,
+    [src, gpuOk],
   );
   // Filtered pixels, recomputed only when the image or settings change.
   const graded = useMemo(() => {
