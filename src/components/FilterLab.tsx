@@ -17,6 +17,7 @@ import {
   hueParts,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
+import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
 type Mode = "build" | "convert";
@@ -762,6 +763,7 @@ export default function FilterLab() {
 
       <Notes />
       <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <ImportGuide />
     </div>
   );
 }
@@ -899,16 +901,7 @@ function CodeBar({
   const [bad, setBad] = useState(false);
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch {
-      const t = document.createElement("textarea");
-      t.value = code;
-      document.body.appendChild(t);
-      t.select();
-      document.execCommand("copy");
-      t.remove();
-    }
+    await copyCode(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
