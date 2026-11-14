@@ -266,9 +266,11 @@ function Preview({
   }, [orig, graded, split]);
 
   return (
-    <div className="flex flex-col gap-3">
+    // Below xl the preview is pinned as a viewfinder so the result stays in sight
+    // while the sliders underneath scroll.
+    <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-2 border-b border-line bg-ink/90 px-4 pb-2 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8 xl:static xl:mx-0 xl:gap-3 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
       <div className="cut relative overflow-hidden border border-line bg-black">
-        <canvas ref={view} className="block aspect-video h-auto w-full object-contain" />
+        <canvas ref={view} className="mx-auto block aspect-video h-auto max-h-[27svh] w-full object-contain xl:max-h-none" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
           <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
@@ -530,7 +532,7 @@ export default function FilterLab() {
             </div>
 
             {/* right: preview + controls */}
-            <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+            <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
               <Preview
                 settings={settings}
                 source={source}
