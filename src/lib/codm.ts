@@ -206,6 +206,17 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
   }
 }
 
+/** The per-zone inputs applyGrade uses, flattened for the GPU version of the same maths. */
+export function gradeUniforms(s: Settings) {
+  const b = thresholds(s);
+  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  return {
+    bands: [b.s0, b.s1, b.h0, b.h1],
+    tint: zs.flatMap((z) => hueToRgb(z.hue)),
+    params: zs.flatMap((z) => [clamp(z.tint / 100, 0, 1), clamp(z.sat / 50, 0, 2), clamp(z.bri / 50, 0, 2)]),
+  };
+}
+
 // ---------- screenshot -> settings ----------
 
 type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
