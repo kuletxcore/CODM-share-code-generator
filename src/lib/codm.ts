@@ -486,10 +486,14 @@ export const LOOKS: Look[] = [
     image: "/looks/caldera.webp",
   },
   {
+    // Re-tuned from six MW 2019 Warzone videos on Verdansk, relative to the
+    // pooled daytime footage. All six show warm (not cool) shadows and richer
+    // mids; highlights sit close to typical footage. The earlier hand-made
+    // version (cool shadows, strong warm highlights) is PRESETS[1].
     name: "Verdansk",
-    note: "MW 2019: warm highlights, cool shadows",
+    note: "MW 2019: warm, richer mids",
     mode: "Advanced",
-    code: PRESETS[1].code,
+    code: "0_1_30_300_1000_1500_0_0_0_1000_117_30_0_900_94_30_0_1120_203_10_40_1020",
     image: "/looks/verdansk.webp",
   },
   {
