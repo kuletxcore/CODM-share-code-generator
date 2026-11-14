@@ -417,6 +417,16 @@ export const LOOKS: Look[] = [
     image: "/looks/apex.webp",
   },
   {
+    // Approximated from a Black Ops 7 multiplayer video. Only its first seconds
+    // survived the compression cleanly: warm shadows/mids, no highlight cast.
+    // Lifted shadows and a slightly muted palette follow the whole video's tone.
+    name: "2035",
+    note: "Black Ops 7 Multiplayer: lifted blacks, muted, warm mids",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_97_70_160_960_78_50_0_900_0_0_-20_800",
+    image: "/looks/2035.webp",
+  },
+  {
     name: "Verdansk",
     note: "MW 2019: warm highlights, cool shadows",
     mode: "Advanced",
