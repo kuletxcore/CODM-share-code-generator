@@ -160,7 +160,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       <div
         role="tablist"
         aria-label="Looks"
-        className="mt-2 grid grid-cols-5 gap-1.5"
+        className="mt-2 grid grid-cols-6 gap-1.5"
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") pick(active + 1);
           else if (e.key === "ArrowLeft") pick(active - 1);
