@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
+  DEFAULT_CODE,
   decode,
   defaultSettings,
   encode,
@@ -152,6 +153,7 @@ export default function FilterLab() {
   const [intensity, setIntensity] = useState(100);
   const intensityBaseRef = useRef<Settings | null>(null);
   const [shareCard, setShareCard] = useState<{ code: string; title: string; key: number } | null>(null);
+  const [incomingShare, setIncomingShare] = useState<{ code: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 5-Slot localStorage Armory + A/B split compare slot
@@ -259,6 +261,10 @@ export default function FilterLab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+    if (m[1] !== DEFAULT_CODE) {
+      const matched = LOOKS.find((l) => l.code === m[1])?.name ?? "Shared Custom Filter";
+      setIncomingShare({ code: m[1], name: matched });
+    }
   }, []);
   useEffect(() => {
     window.history.replaceState(null, "", `#c=${code}`);
@@ -433,6 +439,54 @@ export default function FilterLab() {
           </p>
         </div>
       </header>
+
+      {/* Deep-link / Mobile QR landing conversion banner */}
+      <AnimatePresence>
+        {incomingShare && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="cut mt-5 flex flex-wrap items-center justify-between gap-3 border-2 border-codm bg-codm/10 px-4 py-3 backdrop-blur-md"
+          >
+            <div className="min-w-0">
+              <p className="font-display text-[11px] font-bold uppercase tracking-[0.25em] text-codm">
+                Shared Filter Loaded From Link / QR
+              </p>
+              <p className="mt-0.5 font-display text-xl font-extrabold uppercase tracking-wide text-text">
+                {incomingShare.name}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void copyCode(incomingShare.code, incomingShare.name)}
+                className="cut-sm bg-codm px-4 py-2 font-display text-base font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+              >
+                Copy Code for CODM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("build");
+                  document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="border border-line bg-black/60 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider text-text hover:border-codm"
+              >
+                Inspect in Studio ↓
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss shared filter banner"
+                onClick={() => setIncomingShare(null)}
+                className="px-2 py-1 font-mono text-sm text-mute hover:text-text"
+              >
+                ×
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <LooksGallery
         onEdit={(c) => {
