@@ -22,6 +22,7 @@ import ColorWheel from "@/components/ColorWheel";
 import RangeScrubber from "@/components/RangeScrubber";
 import TacticalMacros from "@/components/TacticalMacros";
 import LoadoutRack from "@/components/LoadoutRack";
+import OpticsTelemetry from "@/components/OpticsTelemetry";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
@@ -426,6 +427,35 @@ export default function FilterLab() {
     [],
   );
 
+  const handleAutoFixVisibility = useCallback(
+    (status: "crush" | "clip" | "both") => {
+      resetIntensityAnchor();
+      setAdvanced(true);
+      commitSettings((s) => {
+        const next = { ...s, zones: { ...s.zones } };
+        if (status === "crush" || status === "both") {
+          next.zones.shadows = {
+            ...s.zones.shadows,
+            bri: Math.min(72, Math.max(54, Math.round(s.zones.shadows.bri + 10))),
+            tint: Math.min(s.zones.shadows.tint, 28),
+          };
+          next.zones.midtones = {
+            ...s.zones.midtones,
+            bri: Math.min(64, Math.max(48, Math.round(s.zones.midtones.bri + 4))),
+          };
+        }
+        if (status === "clip" || status === "both") {
+          next.zones.highlights = {
+            ...s.zones.highlights,
+            bri: Math.max(36, Math.min(48, Math.round(s.zones.highlights.bri - 10))),
+          };
+        }
+        return next;
+      });
+    },
+    [resetIntensityAnchor, commitSettings],
+  );
+
   const upload = useCallback(async (f: File) => {
     try {
       setSource(await fileToCanvas(f, 1280));
@@ -623,17 +653,24 @@ export default function FilterLab() {
 
             {/* right: preview + controls */}
             <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
-              <PreviewCanvas
-                settings={settings}
-                compareSettings={compareSettings}
-                compareLabel={activeCompareSlot?.name}
-                source={source}
-                zoneMask={maskPinned || scrubMask}
-                onToggleZoneMask={() => setMaskPinned((v) => !v)}
-                onUpload={upload}
-                onClear={() => setSource(null)}
-                onActiveCanvasChange={setActiveCanvas}
-              />
+              <div className="flex flex-col gap-4">
+                <PreviewCanvas
+                  settings={settings}
+                  compareSettings={compareSettings}
+                  compareLabel={activeCompareSlot?.name}
+                  source={source}
+                  zoneMask={maskPinned || scrubMask}
+                  onToggleZoneMask={() => setMaskPinned((v) => !v)}
+                  onUpload={upload}
+                  onClear={() => setSource(null)}
+                  onActiveCanvasChange={setActiveCanvas}
+                />
+                <OpticsTelemetry
+                  activeCanvas={activeCanvas}
+                  settings={settings}
+                  onAutoFixVisibility={handleAutoFixVisibility}
+                />
+              </div>
 
               <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
                 <AnimatePresence mode="wait">
