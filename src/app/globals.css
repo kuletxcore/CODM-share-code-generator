@@ -339,10 +339,25 @@ input[type="range"].slider:focus-visible::-moz-range-thumb {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,\n  *::before,\n  *::after {\n    animation-duration: 0.01ms !important;\n    transition-duration: 0.01ms !important;\n  }\n  body::before {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::before {
     animation: none;
   }
   .scanlines {
     animation: none;
+  }
+  .sound-wave-bar {
+    animation: none !important;
+  }
+  .recoil-active {
+    animation: none !important;
+  }
+  .recoil-pulse {
+    animation: none !important;
   }
 }

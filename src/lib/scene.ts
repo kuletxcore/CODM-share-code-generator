@@ -303,8 +303,9 @@ export async function renderScene(
       ctx.stroke();
     }
 
+    // Cleaned up duplicate definitions in previous iteration
 
-function drawChips(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    function drawChips(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const chips = ["#e23b2e", "#f2a71b", "#8fd13f", "#27b36a", "#29b8d6", "#2f5fd0", "#7a3fd0", "#d93fa6", "#f2f2f2", "#8a8a8a", "#1e1e1e"];
   chips.forEach((c, i) => {
     ctx.fillStyle = c;
