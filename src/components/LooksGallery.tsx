@@ -3,19 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { LOOKS, applyGrade, decode, drawSample, type Look } from "@/lib/codm";
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const t = document.createElement("textarea");
-    t.value = text;
-    document.body.appendChild(t);
-    t.select();
-    document.execCommand("copy");
-    t.remove();
-  }
-}
+import { copyCode } from "@/components/ImportGuide";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -72,10 +60,16 @@ function RenderedThumb({ code }: { code: string }) {
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
 
-function Art({ look }: { look: Look }) {
+function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
   return look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={look.image} alt="" className="h-full w-full object-cover" />
+    <img
+      src={thumb ? look.image.replace("/looks/", "/looks/thumb/") : look.image}
+      alt=""
+      loading={thumb ? "lazy" : undefined}
+      decoding="async"
+      className="h-full w-full object-cover"
+    />
   ) : (
     <RenderedThumb code={look.code} />
   );
@@ -188,7 +182,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           <div className="flex max-w-md gap-1">
             <button
               onClick={() => {
-                copyText(look.code);
+                copyCode(look.code, look.name);
                 setCopied(look.code);
                 setAuto(false);
               }}
@@ -239,7 +233,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             }`}
           >
             <div className="aspect-[16/7] overflow-hidden">
-              <Art look={l} />
+              <Art look={l} thumb />
             </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
               {l.name}
@@ -258,25 +252,6 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         ))}
       </div>
 
-      <AnimatePresence>
-        {copied && (
-          <motion.div
-            role="status"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="cut fixed inset-x-4 bottom-36 z-30 mx-auto max-w-xl border border-codm bg-ink/95 p-4 shadow-2xl backdrop-blur lg:bottom-24"
-          >
-            <p className="font-display text-lg font-extrabold uppercase tracking-wide text-codm">
-              Code copied
-            </p>
-            <p className="mt-1 text-sm text-text/90">
-              In CODM: Settings → Audio and Graphics → Graphic Style → Import → Go, pick a Custom
-              slot, paste, then Apply.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </section>
   );
 }
