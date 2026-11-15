@@ -300,6 +300,145 @@ export function analyse(
   return s;
 }
 
+function subsampleBuffer(src: Uint8ClampedArray, maxSamples = 640): Uint8ClampedArray {
+  const totalPx = Math.floor(src.length / 4);
+  if (totalPx <= maxSamples) return new Uint8ClampedArray(src);
+  const stride = Math.max(1, Math.floor(totalPx / maxSamples));
+  const count = Math.ceil(totalPx / stride);
+  const out = new Uint8ClampedArray(count * 4);
+  let o = 0;
+  for (let p = 0; p < totalPx && o < out.length; p += stride) {
+    const i = p * 4;
+    out[o++] = src[i];
+    out[o++] = src[i + 1];
+    out[o++] = src[i + 2];
+    out[o++] = 255;
+  }
+  return out;
+}
+
+function syntheticNeutralBuffer(): Uint8ClampedArray {
+  // Representative balanced sRGB samples spanning shadows, midtones & highlights
+  const out = new Uint8ClampedArray(256 * 4);
+  for (let i = 0; i < 256; i++) {
+    const l = (i + 0.5) / 256;
+    const angle = (i * 2.39996) % (Math.PI * 2);
+    const sat = l < 0.25 ? 0.28 : l < 0.72 ? 0.3 : 0.14;
+    const c = l * sat;
+    const r = clamp(l + Math.cos(angle) * c * 0.7, 0, 1);
+    const g = clamp(l + Math.cos(angle - 2.094) * c * 0.65, 0, 1);
+    const b = clamp(l + Math.cos(angle + 2.094) * c * 0.7, 0, 1);
+    out[i * 4] = Math.round(r * 255);
+    out[i * 4 + 1] = Math.round(g * 255);
+    out[i * 4 + 2] = Math.round(b * 255);
+    out[i * 4 + 3] = 255;
+  }
+  return out;
+}
+
+function statsError(a: ZoneStat[], b: ZoneStat[]): number {
+  let err = 0;
+  const weights = [0.95, 1.35, 1.0]; // midtones weigh slightly heavier visually
+  for (let i = 0; i < 3; i++) {
+    const dr = a[i].r - b[i].r;
+    const dg = a[i].g - b[i].g;
+    const db = a[i].b - b[i].b;
+    const ds = a[i].sat - b[i].sat;
+    const dl = a[i].l - b[i].l;
+    // Perceptually weighted RGB + saturation + luminance difference
+    const zoneErr =
+      2.2 * dr * dr + 3.4 * dg * dg + 1.6 * db * db + 0.85 * ds * ds + 1.8 * dl * dl;
+    err += zoneErr * weights[i];
+  }
+  return err;
+}
+
+/**
+ * Iterative perceptual solver: starts from `analyse()` and refines Shadows,
+ * Midtones and Highlights by running the actual `applyGrade` transform against
+ * a compact sample buffer to minimize perceptual tonal error.
+ */
+export function optimizeGrade(
+  target: Uint8ClampedArray,
+  base: Uint8ClampedArray | null,
+): { settings: Settings; matchScore: number; baseError: number; finalError: number } {
+  const best = analyse(target, base);
+  const bands = thresholds(best);
+  const targetStats = zoneStats(target, bands);
+  const srcSample = base ? subsampleBuffer(base, 540) : syntheticNeutralBuffer();
+  const scratch = new Uint8ClampedArray(srcSample.length);
+
+  const evalSettings = (cand: Settings) => {
+    scratch.set(srcSample);
+    applyGrade(scratch, cand);
+    return statsError(zoneStats(scratch, bands), targetStats);
+  };
+
+  const baseError = evalSettings(defaultSettings());
+  let bestErr = evalSettings(best);
+
+  const zoneKeys: ZoneKey[] = ["shadows", "midtones", "highlights"];
+  const passes = [
+    { hue: 24, val: 10 },
+    { hue: 10, val: 4 },
+    { hue: 4, val: 2 },
+  ];
+
+  for (const step of passes) {
+    for (const k of zoneKeys) {
+      const z = best.zones[k];
+      // Hue refinement
+      for (const dir of [-1, 1]) {
+        const origHue = z.hue;
+        z.hue = (origHue + dir * step.hue + 360) % 360;
+        const e = evalSettings(best);
+        if (e < bestErr) {
+          bestErr = e;
+        } else {
+          z.hue = origHue;
+        }
+      }
+      // Tint, Saturation, Brightness refinement (bounded to playable CODM ranges)
+      const fields: { key: "tint" | "sat" | "bri"; lo: number; hi: number }[] = [
+        { key: "tint", lo: 0, hi: base ? 68 : 48 },
+        { key: "sat", lo: 15, hi: 85 },
+        { key: "bri", lo: 24, hi: 76 },
+      ];
+      for (const f of fields) {
+        for (const dir of [-1, 1]) {
+          const orig = z[f.key];
+          const candVal = clamp(orig + dir * step.val, f.lo, f.hi);
+          if (candVal === orig) continue;
+          z[f.key] = candVal;
+          const e = evalSettings(best);
+          if (e < bestErr) {
+            bestErr = e;
+          } else {
+            z[f.key] = orig;
+          }
+        }
+      }
+    }
+  }
+
+  // Round cleanly to integer slider units
+  for (const k of zoneKeys) {
+    best.zones[k] = {
+      hue: Math.round(best.zones[k].hue) % 360,
+      tint: Math.round(best.zones[k].tint),
+      sat: Math.round(best.zones[k].sat),
+      bri: Math.round(best.zones[k].bri),
+    };
+  }
+
+  // Convert RMS tonal error into an intuitive 40..99% confidence score
+  const rms = Math.sqrt(bestErr / 3);
+  const rawScore = Math.round(clamp(100 - rms * 145, 38, 99));
+  const matchScore = base ? rawScore : Math.min(89, rawScore);
+
+  return { settings: best, matchScore, baseError, finalError: bestErr };
+}
+
 // ---------- presets ----------
 
 export const PRESETS: { name: string; note: string; code: string }[] = [

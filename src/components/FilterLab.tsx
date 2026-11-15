@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
-  analyse,
   decode,
   defaultSettings,
   encode,
@@ -23,6 +22,7 @@ import RangeScrubber from "@/components/RangeScrubber";
 import TacticalMacros from "@/components/TacticalMacros";
 import LoadoutRack from "@/components/LoadoutRack";
 import OpticsTelemetry from "@/components/OpticsTelemetry";
+import ScreenshotConverter from "@/components/ScreenshotConverter";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
@@ -86,16 +86,6 @@ function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
   });
 }
 
-function pixels(c: HTMLCanvasElement, maxW = 320) {
-  const scale = Math.min(1, maxW / c.width);
-  const t = document.createElement("canvas");
-  t.width = Math.max(1, r(c.width * scale));
-  t.height = Math.max(1, r(c.height * scale));
-  const ctx = t.getContext("2d")!;
-  ctx.drawImage(c, 0, 0, t.width, t.height);
-  return ctx.getImageData(0, 0, t.width, t.height).data;
-}
-
 /* ---------- small UI pieces ---------- */
 
 function Slider({
@@ -139,66 +129,6 @@ function Slider({
           if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
         }}
         className="w-full border border-line bg-black/40 px-1.5 py-1 text-right font-mono text-sm tabular-nums"
-      />
-    </label>
-  );
-}
-
-function DropZone({
-  title,
-  hint,
-  canvas,
-  onFile,
-  optional,
-}: {
-  title: string;
-  hint: string;
-  canvas: HTMLCanvasElement | null;
-  onFile: (f: File) => void;
-  optional?: boolean;
-}) {
-  const [over, setOver] = useState(false);
-  const url = useMemo(() => canvas?.toDataURL("image/jpeg", 0.8), [canvas]);
-  return (
-    <label
-      onDragOver={(e) => {
-        e.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const f = e.dataTransfer.files[0];
-        if (f) onFile(f);
-      }}
-      className={`cut group relative flex aspect-video cursor-pointer flex-col justify-end overflow-hidden border bg-black/40 p-4 transition-colors ${
-        over ? "border-codm" : "border-line hover:border-mute"
-      }`}
-    >
-      {url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
-      )}
-      {url && <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />}
-      <div className="relative">
-        <div className="font-display text-xl font-extrabold uppercase tracking-wide">
-          {title}
-          {optional && (
-            <span className="ml-2 align-middle text-xs font-medium text-mute">optional</span>
-          )}
-        </div>
-        <p className="mt-1 max-w-sm text-sm text-mute">{url ? "Click or drop to replace." : hint}</p>
-      </div>
-      <input
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-          e.target.value = "";
-        }}
       />
     </label>
   );
@@ -873,11 +803,13 @@ export default function FilterLab() {
             </div>
           </motion.section>
         ) : (
-          <Converter
+          <ScreenshotConverter
             key="convert"
-            onApply={(s) => {
+            onApply={(s, baseImg) => {
               resetIntensityAnchor();
+              setAdvanced(true);
               commitSettings(s);
+              if (baseImg) setSource(baseImg);
               setMode("build");
             }}
             onError={setError}
@@ -896,123 +828,6 @@ export default function FilterLab() {
       />
       <ImportGuide />
     </div>
-  );
-}
-
-/* ---------- converter ---------- */
-
-function Converter({
-  onApply,
-  onError,
-}: {
-  onApply: (s: Settings) => void;
-  onError: (m: string | null) => void;
-}) {
-  const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
-  const [base, setBase] = useState<HTMLCanvasElement | null>(null);
-
-  const result = useMemo(
-    () => (target ? analyse(pixels(target), base ? pixels(base) : null) : null),
-    [target, base],
-  );
-
-  const load = (set: (c: HTMLCanvasElement) => void) => async (f: File) => {
-    try {
-      set(await fileToCanvas(f, 960));
-      onError(null);
-    } catch (e) {
-      onError((e as Error).message);
-    }
-  };
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
-      className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <DropZone
-            title="Reference look"
-            hint="A screenshot with the colours you want, from any game or photo."
-            canvas={target}
-            onFile={load(setTarget)}
-          />
-          <DropZone
-            title="Your screen"
-            hint="CODM on the default filter. A similar scene to the reference makes the match much closer."
-            canvas={base}
-            onFile={load(setBase)}
-            optional
-          />
-        </div>
-        <p className="text-sm text-mute">
-          Images stay in your browser. The converter measures the colour cast, saturation and
-          brightness of the shadows, midtones and highlights, then picks slider values that push
-          your screen towards the reference. Treat it as a starting point and fine-tune by eye.
-        </p>
-      </div>
-
-      <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
-        <h2 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h2>
-        {!result ? (
-          <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>
-        ) : (
-          <>
-            {!base && (
-              <p className="border-l-2 border-codm bg-codm/10 px-3 py-2 text-xs">
-                No baseline screenshot, so the values are toned down. Add one for a closer match.
-              </p>
-            )}
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left font-display uppercase tracking-wider text-mute">
-                  <th className="py-1 font-bold"></th>
-                  <th className="font-bold">Hue</th>
-                  <th className="font-bold">Tint</th>
-                  <th className="font-bold">Sat</th>
-                  <th className="font-bold">Bri</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono tabular-nums">
-                {(ZONE_TABS).map((k) => {
-                  const z = result.zones[k];
-                  return (
-                    <tr key={k} className="border-t border-line">
-                      <td className="py-2 font-display font-bold uppercase tracking-wide">
-                        <span
-                          className="mr-2 inline-block h-2.5 w-2.5 rotate-45"
-                          style={{ background: hsl(z.hue) }}
-                        />
-                        {PANEL_INFO[k].label}
-                      </td>
-                      <td>
-                        {SWATCH_NAMES[hueParts(z.hue).swatch]} {r(hueParts(z.hue).pos)}
-                      </td>
-                      <td>{r(z.tint)}</td>
-                      <td>{r(z.sat)}</td>
-                      <td>{r(z.bri)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <code className="block break-all bg-black/50 p-3 font-mono text-xs text-codm">
-              {encode(result)}
-            </code>
-            <button
-              onClick={() => onApply(result)}
-              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
-            >
-              Open in generator
-            </button>
-          </>
-        )}
-      </div>
-    </motion.section>
   );
 }
 
