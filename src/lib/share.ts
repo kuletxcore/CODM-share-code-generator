@@ -173,7 +173,7 @@ async function ensureFonts() {
     '900 60px "Hitmarker Normal"',
     '900 60px "Hitmarker Condensed"',
     '700 30px "Hitmarker Condensed"',
-    '500 20px "JetBrains Mono"',
+    '500 20px "Obel Mono"',
     '400 18px "Hitmarker Text"',
     '500 18px "Hitmarker Text"',
   ];
@@ -229,7 +229,7 @@ function drawPlate(ctx: CanvasRenderingContext2D, code: string, w: number, h: nu
   ctx.save();
   ctx.globalAlpha = 0.07;
   ctx.fillStyle = "#ffffff";
-  ctx.font = '500 74px "JetBrains Mono", monospace';
+  ctx.font = '500 74px "Obel Mono", monospace';
   const lines = wrapText(ctx, code.replace(/_/g, " "), w * 0.92, 5);
   lines.forEach((line, i) => ctx.fillText(line, 44, 150 + i * 86));
   ctx.restore();
@@ -297,7 +297,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   ctx.fillRect(-6, -6, 12, 12);
   ctx.restore();
   ctx.fillStyle = "#ffea3b";
-  ctx.font = '500 15px "JetBrains Mono", monospace';
+  ctx.font = '500 15px "Obel Mono", monospace';
   spaced(ctx, "FAN-MADE FILTER LAB", 848, 68, 3.4);
 
   const name = (p.name ?? "Custom grade").toUpperCase();
@@ -324,7 +324,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   // share code block: two lines split on a character budget so neither runs long
   const codeY = 322;
   ctx.fillStyle = "#8e948b";
-  ctx.font = '500 11px "JetBrains Mono", monospace';
+  ctx.font = '500 11px "Obel Mono", monospace';
   spaced(ctx, "SHARE CODE", PX, codeY, 2.6);
   ctx.fillStyle = "rgba(255,255,255,0.05)";
   ctx.fillRect(PX, codeY + 12, PW, 64);
@@ -350,7 +350,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
     PW - 16,
     18,
     12,
-    (s) => `500 ${s}px "JetBrains Mono", monospace`,
+    (s) => `500 ${s}px "Obel Mono", monospace`,
   );
   ctx.fillText(lineA, PX + 16, codeY + 38);
   ctx.fillText(lineB, PX + 16, codeY + 64);
@@ -363,7 +363,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   ctx.fillRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
   drawQr(ctx, qr, qrX, qrY, qrSize, { quiet: 2 });
   ctx.fillStyle = "#ffea3b";
-  ctx.font = '500 12px "JetBrains Mono", monospace';
+  ctx.font = '500 12px "Obel Mono", monospace';
   spaced(ctx, "SCAN TO LOAD", qrX + 170, qrY + 22, 2.2);
   ctx.fillStyle = "#9aa094";
   ctx.font = '400 15px "Hitmarker Text", system-ui, sans-serif';
@@ -374,7 +374,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   const host = typeof window === "undefined" ? "" : window.location.host;
   if (host) {
     ctx.fillStyle = "#8e948b";
-    ctx.font = '500 10px "JetBrains Mono", monospace';
+    ctx.font = '500 10px "Obel Mono", monospace';
     spaced(ctx, host.toUpperCase(), PX + 170, CARD_H - 48, 1.6);
   }
 

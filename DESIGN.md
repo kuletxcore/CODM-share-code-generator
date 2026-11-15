@@ -19,7 +19,7 @@ An unofficial, fan-made tool for Call of Duty: Mobile colour filter share codes.
 | Dark theme only (`ink #0a0b0a`) | CODM's own menus are dark and the site is used next to the game; a light page would flash between apps. No theme toggle is shipped, so there is no second mode to keep working. |
 | CODM yellow `#ffea3b` as the single accent | Taken from the official wordmark. Used for the primary action on each screen (Copy code, Copy, Done), the active tab or chip, focus rings and the compare divider. Nothing else is yellow. |
 | Lime `#a6e22e` for "selected row" and "done" | The selected-row gradient of the MW4 mode list. Also marks completed import steps and the copied state. |
-| Hitmarker type family | The Call of Duty brand typeface (Condensed for UI, Text for body, Normal Black for titles), supplied by the owner and self-hosted. JetBrains Mono only for share codes, so the 22 numbers line up and read as data. |
+| Hitmarker type family | The Call of Duty brand typeface (Condensed for UI, Text for body, Normal Black for titles), supplied by the owner and self-hosted. Obel Mono (SIL OFL 1.1, chosen by the owner) only for share codes and readouts, so the 22 numbers line up and read as data; self-hosted, subset to ASCII, licence at `public/fonts/ObelMono-OFL.txt`. |
 | Cut corners (`.cut`, `.cut-sm`) | The clipped corner of CoD menu panels and buttons. The identity motif, applied to panels, primary buttons and the stage. |
 | Scanlines on the stage and tonal scope | A faint HUD texture on the two surfaces that show game imagery, nowhere else. |
 | Smoke background (three.js) | Moves slowly behind everything like a menu screen. 24 fps, paused while a pointer is down or the tab is hidden, a third of the resolution on touch screens. |
@@ -51,7 +51,7 @@ The tonal scope adds two functional colours for the Range handles: shadows `#8fc
 | Section titles, look names | Hitmarker Normal Black, uppercase | 30 to 36px; look names 36 to 96px on the stage, one step smaller for names over 12 characters |
 | Controls, labels, buttons | Hitmarker Condensed Bold, uppercase | 14 to 18px |
 | Body and descriptions | Hitmarker Text | 14 to 16px |
-| Share codes | JetBrains Mono | 12 to 14px |
+| Share codes, numeric readouts | Obel Mono, weight 500 | 12 to 14px |
 
 Wide letter spacing is used only for the "Unofficial fan-made tool" marker and small eyebrow labels (tonal range, share code), matching CoD menu labels. Body copy is sentence case.
 

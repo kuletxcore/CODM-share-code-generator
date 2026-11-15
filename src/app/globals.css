@@ -45,6 +45,14 @@
   font-display: swap;
 }
 
+/* Obel Mono (SIL OFL 1.1, no Reserved Font Name), subset to ASCII for share codes. Licence: /fonts/ObelMono-OFL.txt */
+@font-face {
+  font-family: "Obel Mono";
+  src: url("/fonts/ObelMono-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @theme {
   --color-ink: #0a0b0a;
   --color-panel: #121412;
@@ -60,7 +68,7 @@
   --font-display: "Hitmarker Condensed", "Saira Condensed", "Arial Narrow", sans-serif;
   --font-sans: "Hitmarker Text", "Barlow", system-ui, sans-serif;
   --font-title: "Hitmarker Normal", "Hitmarker Condensed", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Obel Mono", ui-monospace, monospace;
 }
 
 html {
