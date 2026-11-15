@@ -537,11 +537,14 @@ export function drawSample(ctx: CanvasRenderingContext2D, w: number, h: number) 
 
 // ---------- looks gallery ----------
 
+export type LookTag = "warzone" | "mp" | "warm" | "night" | "crisp" | "classic";
+
 export type Look = {
   name: string;
   note: string;
   mode: "Simple" | "Advanced";
   code: string;
+  tags: LookTag[];
   /** Reference image the look is based on (not a CODM capture). */
   image?: string;
 };
@@ -555,6 +558,7 @@ export const LOOKS: Look[] = [
     note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040",
+    tags: ["warzone", "warm"],
     image: "/looks/hajin.webp",
   },
   {
@@ -564,6 +568,7 @@ export const LOOKS: Look[] = [
     note: "MW4 Multiplayer: hazy daylight, golden mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
+    tags: ["mp", "warm", "crisp"],
     image: "/looks/apex.webp",
   },
   {
@@ -572,6 +577,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_992_40_0_960_767_20_-20_960_572_30_20_620",
+    tags: ["mp", "crisp"],
     image: "/looks/2035.webp",
   },
   {
@@ -580,6 +586,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040",
+    tags: ["warzone", "warm"],
     image: "/looks/avalon.webp",
   },
   {
@@ -588,6 +595,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060",
+    tags: ["warzone", "warm", "crisp"],
     image: "/looks/havens-hollow.webp",
   },
   {
@@ -596,6 +604,7 @@ export const LOOKS: Look[] = [
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800",
+    tags: ["warzone", "night"],
     image: "/looks/havens-hollow-night.webp",
   },
   {
@@ -604,6 +613,7 @@ export const LOOKS: Look[] = [
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040",
+    tags: ["warzone", "crisp"],
     image: "/looks/al-mazrah.webp",
   },
   {
@@ -614,6 +624,7 @@ export const LOOKS: Look[] = [
     note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
+    tags: ["warzone", "night"],
     image: "/looks/vondead.webp",
   },
   {
@@ -622,6 +633,7 @@ export const LOOKS: Look[] = [
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900",
+    tags: ["warzone", "warm", "classic"],
     image: "/looks/caldera.webp",
   },
   {
@@ -633,6 +645,7 @@ export const LOOKS: Look[] = [
     note: "MW 2019: warm, richer mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_117_30_0_900_94_30_0_1120_203_10_40_1020",
+    tags: ["warzone", "classic", "warm"],
     image: "/looks/verdansk.webp",
   },
   {
@@ -640,6 +653,7 @@ export const LOOKS: Look[] = [
     note: "Black Ops Cold War colour grade",
     mode: "Advanced",
     code: PRESETS[2].code,
+    tags: ["mp", "classic", "crisp"],
     image: "/looks/cold-war.webp",
   },
   {
@@ -647,5 +661,6 @@ export const LOOKS: Look[] = [
     note: "The in-game reset state",
     mode: "Simple",
     code: DEFAULT_CODE,
+    tags: ["mp", "crisp"],
   },
 ];

@@ -10,9 +10,11 @@ import {
   drawSample,
   hueParts,
   type Look,
+  type LookTag,
   type Zone,
 } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
+import FilterRecommender from "@/components/FilterRecommender";
 
 // One render of the 3D scene shared by every card/stage preview; each
 // look's graded pixels are cached so it is graded once.
@@ -52,7 +54,7 @@ export function getGalleryGradedImage(code: string): Promise<ImageData> | null {
   return p;
 }
 
-/** Preview for looks without a reference image: the 3D scene with the look applied. */
+/** Preview for looks without a reference image (or when comparing on the same 3D scene). */
 function RenderedThumb({ code }: { code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -183,8 +185,18 @@ function LiveStageSplit({
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
 
-function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
-  return look.image ? (
+const FILTER_CHIPS: { id: "all" | LookTag; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "warm", label: "Warm & Sunlit" },
+  { id: "crisp", label: "Crisp / Visibility" },
+  { id: "warzone", label: "Warzone" },
+  { id: "mp", label: "Multiplayer" },
+  { id: "night", label: "Night & Dark" },
+  { id: "classic", label: "Classics" },
+];
+
+function Art({ look, thumb = false, forceScene = false }: { look: Look; thumb?: boolean; forceScene?: boolean }) {
+  return !forceScene && look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={thumb ? look.image.replace("/looks/", "/looks/thumb/") : look.image}
@@ -214,7 +226,7 @@ function zoneSummary(z: Zone): { color: string; label: string; delta: string } {
   };
 }
 
-function LookDnaStrip({ code }: { code: string }) {
+function LookDnaStrip({ code, compact = false }: { code: string; compact?: boolean }) {
   const dna = useMemo(() => {
     const s = decode(code);
     if (!s) return null;
@@ -227,23 +239,24 @@ function LookDnaStrip({ code }: { code: string }) {
 
   if (!dna) return null;
   return (
-    <div
-      className="flex flex-wrap gap-1.5"
-      aria-label="Filter tonal breakdown"
-    >
+    <div className="flex flex-wrap gap-1.5" aria-label="Filter tonal breakdown">
       {dna.map((z) => (
         <div
           key={z.key}
-          className="flex items-center gap-1.5 border border-white/10 bg-black/65 px-2 py-1 backdrop-blur-sm"
+          className={`flex items-center gap-1.5 border border-white/10 bg-black/65 backdrop-blur-sm ${
+            compact ? "px-1.5 py-0.5" : "px-2 py-1"
+          }`}
         >
           <span
-            className="h-2.5 w-2.5 shrink-0 rotate-45 border border-white/30"
+            className="h-2 w-2 shrink-0 rotate-45 border border-white/30"
             style={{ background: z.color }}
           />
           <span className="font-display text-[10px] font-bold uppercase tracking-widest text-mute">
             {z.key}
           </span>
-          <span className="font-mono text-[11px] text-text/95">{z.delta}</span>
+          <span className="font-mono text-[10px] text-text/95">
+            {compact ? z.label : z.delta}
+          </span>
         </div>
       ))}
     </div>
@@ -276,14 +289,26 @@ export default function LooksGallery({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [burstKey, setBurstKey] = useState(0);
+  const [activeTag, setActiveTag] = useState<"all" | LookTag>("all");
+  const [layout, setLayout] = useState<"stage" | "grid">("stage");
+  const [gridSameScene, setGridSameScene] = useState(true);
+  const [showFinder, setShowFinder] = useState(false);
+
+  const visibleLooks = useMemo(
+    () => (activeTag === "all" ? LOOKS : LOOKS.filter((l) => l.tags.includes(activeTag))),
+    [activeTag],
+  );
+
   const [active, setActive] = useState(0);
+  const safeActive = Math.min(active, Math.max(0, visibleLooks.length - 1));
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
   const [stageView, setStageView] = useState<"inspiration" | "live">("inspiration");
   const [heroSplit, setHeroSplit] = useState(0.42);
   const reduce = useReducedMotion();
-  const playing = auto && !hover && !reduce && stageView === "inspiration";
-  const look = LOOKS[active];
+  const playing =
+    auto && !hover && !reduce && layout === "stage" && stageView === "inspiration" && visibleLooks.length > 1;
+  const look = visibleLooks[safeActive] ?? LOOKS[0];
   const effectiveView = look.image ? stageView : "live";
 
   useEffect(() => {
@@ -294,9 +319,12 @@ export default function LooksGallery({
 
   useEffect(() => {
     if (!playing) return;
-    const t = setTimeout(() => setActive((a) => (a + 1) % LOOKS.length), DWELL * 1000);
+    const t = setTimeout(
+      () => setActive((a) => (a + 1) % visibleLooks.length),
+      DWELL * 1000,
+    );
     return () => clearTimeout(t);
-  }, [playing, active]);
+  }, [playing, safeActive, visibleLooks.length]);
 
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -306,12 +334,23 @@ export default function LooksGallery({
     // horizontal only, so autoplay never scrolls the page
     const left = tab.offsetLeft - el.offsetLeft;
     if (left < el.scrollLeft || left + tab.offsetWidth > el.scrollLeft + el.clientWidth)
-      el.scrollTo({ left: left - (el.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth" });
-  }, [active, reduce]);
+      el.scrollTo({
+        left: left - (el.clientWidth - tab.offsetWidth) / 2,
+        behavior: reduce ? "auto" : "smooth",
+      });
+  }, [safeActive, reduce]);
 
   const pick = (i: number) => {
     setAuto(false);
-    setActive((i + LOOKS.length) % LOOKS.length);
+    setActive((i + visibleLooks.length) % visibleLooks.length);
+  };
+
+  const selectByName = (name: string) => {
+    setAuto(false);
+    setActiveTag("all");
+    const idx = LOOKS.findIndex((l) => l.name === name);
+    if (idx >= 0) setActive(idx);
+    setLayout("stage");
   };
 
   return (
@@ -321,236 +360,417 @@ export default function LooksGallery({
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
     >
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
             Pick a look
           </h2>
           <p className="mt-1 text-sm text-mute">
-            Compare inspiration vs live filter grade, copy a code, paste it into CODM.
+            Filter by vibe, compare live on the same 3D scene, or let us match your setup.
           </p>
         </div>
-        <ol className="flex gap-3 font-display text-xs font-bold uppercase tracking-widest text-mute">
-          {["Copy", "Import in game", "Apply"].map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5">
-              <span className="grid h-5 w-5 place-items-center bg-codm text-[11px] text-black">{i + 1}</span>
-              {s}
-            </li>
-          ))}
-        </ol>
-      </div>
 
-      {/* stage: the selected look, full width */}
-      <div
-        role="tabpanel"
-        id="look-stage"
-        aria-live="polite"
-        className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
-      >
-        {effectiveView === "live" ? (
-          <div className="absolute inset-0">
-            <LiveStageSplit
-              code={look.code}
-              split={heroSplit}
-              onSplitChange={setHeroSplit}
-              onInteract={() => setAuto(false)}
-            />
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={look.name}
-              className="absolute inset-0"
-              initial={{ opacity: 0, scale: reduce ? 1 : 1.1 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                transition: { opacity: { duration: 0.65 }, scale: { duration: DWELL + 1, ease: "easeOut" } },
-              }}
-              exit={{ opacity: 0, transition: { duration: 0.65 } }}
-            >
-              <Art look={look} />
-            </motion.div>
-          </AnimatePresence>
-        )}
-
-        <div
-          className={`pointer-events-none absolute inset-0 ${
-            effectiveView === "live"
-              ? "bg-gradient-to-t from-black/90 via-black/25 to-transparent"
-              : "bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent"
-          }`}
-        />
-        <div className="pointer-events-none absolute inset-0 scanlines opacity-55" />
-
-        {/* top-right stage controls: view switcher + slide counter */}
-        <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-5 sm:top-5">
-          {look.image && (
-            <div
-              role="group"
-              aria-label="Stage view mode"
-              className="flex border border-white/15 bg-ink/85 p-0.5 backdrop-blur-md"
-            >
-              {(
-                [
-                  ["inspiration", "Inspiration"],
-                  ["live", "Live Filter"],
-                ] as const
-              ).map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={stageView === v}
-                  onClick={() => {
-                    setAuto(false);
-                    setStageView(v);
-                  }}
-                  className={`px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
-                    stageView === v
-                      ? "bg-codm text-black"
-                      : "text-mute hover:text-text"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="hidden items-center border border-white/15 bg-ink/80 backdrop-blur-md sm:flex">
-            <button
-              type="button"
-              aria-label="Previous look"
-              onClick={() => pick(active - 1)}
-              className="px-2.5 py-1 font-display text-sm font-bold text-mute hover:bg-white/10 hover:text-text"
-            >
-              ‹
-            </button>
-            <span className="px-2 font-mono text-[11px] tabular-nums text-mute">
-              {String(active + 1).padStart(2, "0")}/{String(LOOKS.length).padStart(2, "0")}
-            </span>
-            <button
-              type="button"
-              aria-label="Next look"
-              onClick={() => pick(active + 1)}
-              className="px-2.5 py-1 font-display text-sm font-bold text-mute hover:bg-white/10 hover:text-text"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2.5 p-4 sm:inset-y-0 sm:w-[62%] sm:justify-end sm:p-7">
-          <motion.div
-            key={look.name}
-            initial={reduce ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: "easeOut" }}
-          >
-            <div className="flex flex-wrap items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
-              <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
-              <span className="bg-black/75 px-2 py-0.5 text-mute">
-                {effectiveView === "live" ? "Live 3D Grade · Approx." : "Inspiration"}
-              </span>
-            </div>
-            <h3
-              className={`mt-1.5 font-title font-black uppercase leading-[0.9] tracking-wide ${
-                look.name.length > 12 ? "text-3xl sm:text-5xl lg:text-6xl" : "text-4xl sm:text-6xl lg:text-7xl"
-              }`}
-            >
-              {look.name}
-            </h3>
-            <p className="mt-1.5 max-w-lg text-xs text-text/90 sm:text-sm">{look.note}</p>
-          </motion.div>
-
-          <LookDnaStrip code={look.code} />
-
-          <div className="pointer-events-auto flex max-w-md gap-1.5 pt-0.5">
-            <button
-              onClick={() => {
-                copyCode(look.code, look.name);
-                setCopied(look.code);
-                setBurstKey((k) => k + 1);
-                setAuto(false);
-              }}
-              className={`cut-sm relative flex-1 overflow-visible px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
-                copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
-              }`}
-            >
-              {copied === look.code ? "Copied ✓" : "Copy code"}
-              {burstKey > 0 && copied === look.code && <HitmarkerBurst key={burstKey} />}
-            </button>
-            <button
-              onClick={() => onEdit(look.code)}
-              className="border border-white/15 bg-black/75 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text backdrop-blur-sm hover:border-codm hover:bg-line"
-            >
-              Customize
-            </button>
-            {onShareCard && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAuto(false);
-                  onShareCard(look.code, look.name);
-                }}
-                title="Download PNG Loadout Card or scan QR to phone"
-                className="border border-white/15 bg-black/75 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-codm backdrop-blur-sm hover:border-codm hover:bg-line"
-              >
-                Card / QR
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* filmstrip */}
-      <div
-        role="tablist"
-        aria-label="Looks"
-        ref={strip}
-        className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") pick(active + 1);
-          else if (e.key === "ArrowLeft") pick(active - 1);
-          else return;
-          e.preventDefault();
-          const el = e.currentTarget;
-          requestAnimationFrame(() =>
-            (el.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
-          );
-        }}
-      >
-        {LOOKS.map((l, i) => (
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            key={l.name}
-            role="tab"
-            id={`look-tab-${i}`}
-            aria-selected={i === active}
-            aria-controls="look-stage"
-            tabIndex={i === active ? 0 : -1}
-            onClick={() => pick(i)}
-            className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
-              i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
+            type="button"
+            aria-expanded={showFinder}
+            onClick={() => {
+              setAuto(false);
+              setShowFinder((v) => !v);
+            }}
+            className={`cut-sm px-3.5 py-1.5 font-display text-xs font-extrabold uppercase tracking-wider transition-colors ${
+              showFinder
+                ? "bg-codm text-black"
+                : "border border-codm/70 bg-codm/10 text-codm hover:bg-codm hover:text-black"
             }`}
           >
-            <div className="aspect-[16/7] overflow-hidden">
-              <Art look={l} thumb />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
-              {l.name}
-            </div>
-            {i === active && playing && (
-              <motion.span
-                key={`${active}-bar`}
-                className="absolute inset-x-0 bottom-0 h-[3px] origin-left bg-codm"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: DWELL, ease: "linear" }}
-              />
-            )}
-            {i === active && !playing && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-codm" />}
+            ⚡ Match My Setup
           </button>
-        ))}
+
+          <div
+            role="group"
+            aria-label="Gallery layout"
+            className="flex border border-line bg-panel/90 p-0.5"
+          >
+            {(
+              [
+                ["stage", "Stage"],
+                ["grid", "Compare Grid"],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={layout === m}
+                onClick={() => {
+                  setAuto(false);
+                  setLayout(m);
+                }}
+                className={`px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+                  layout === m ? "bg-codm text-black" : "text-mute hover:text-text"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* 3-Tap Filter Recommender Drawer */}
+      <AnimatePresence>
+        {showFinder && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <FilterRecommender onSelectLook={selectByName} onEdit={onEdit} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mood Filter Pills + Grid Same-Scene Toggle */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter looks by style">
+          {FILTER_CHIPS.map((chip) => {
+            const count =
+              chip.id === "all"
+                ? LOOKS.length
+                : LOOKS.filter((l) => l.tags.includes(chip.id as LookTag)).length;
+            const activeChip = activeTag === chip.id;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                aria-pressed={activeChip}
+                onClick={() => {
+                  setAuto(false);
+                  setActiveTag(chip.id);
+                  setActive(0);
+                }}
+                className={`px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+                  activeChip
+                    ? "bg-white/15 text-codm ring-1 ring-inset ring-codm/70"
+                    : "bg-panel-2/70 text-mute hover:bg-line hover:text-text"
+                }`}
+              >
+                {chip.label}{" "}
+                <span className="font-mono text-[10px] opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {layout === "grid" && (
+          <div className="flex border border-line bg-panel p-0.5" role="group" aria-label="Grid preview source">
+            <button
+              type="button"
+              aria-pressed={gridSameScene}
+              onClick={() => setGridSameScene(true)}
+              className={`px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider ${
+                gridSameScene ? "bg-lime text-black" : "text-mute hover:text-text"
+              }`}
+            >
+              Same 3D Scene
+            </button>
+            <button
+              type="button"
+              aria-pressed={!gridSameScene}
+              onClick={() => setGridSameScene(false)}
+              className={`px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider ${
+                !gridSameScene ? "bg-codm text-black" : "text-mute hover:text-text"
+              }`}
+            >
+              Inspiration Photos
+            </button>
+          </div>
+        )}
+      </div>
+
+      {layout === "stage" ? (
+        <>
+          {/* stage: the selected look, full width */}
+          <div
+            role="tabpanel"
+            id="look-stage"
+            aria-live="polite"
+            className="cut relative mt-3 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
+          >
+            {effectiveView === "live" ? (
+              <div className="absolute inset-0">
+                <LiveStageSplit
+                  code={look.code}
+                  split={heroSplit}
+                  onSplitChange={setHeroSplit}
+                  onInteract={() => setAuto(false)}
+                />
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={look.name}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0, scale: reduce ? 1 : 1.1 }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                    transition: {
+                      opacity: { duration: 0.65 },
+                      scale: { duration: DWELL + 1, ease: "easeOut" },
+                    },
+                  }}
+                  exit={{ opacity: 0, transition: { duration: 0.65 } }}
+                >
+                  <Art look={look} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            <div
+              className={`pointer-events-none absolute inset-0 ${
+                effectiveView === "live"
+                  ? "bg-gradient-to-t from-black/90 via-black/25 to-transparent"
+                  : "bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent"
+              }`}
+            />
+            <div className="pointer-events-none absolute inset-0 scanlines opacity-55" />
+
+            {/* top-right stage controls: view switcher + slide counter */}
+            <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-5 sm:top-5">
+              {look.image && (
+                <div
+                  role="group"
+                  aria-label="Stage view mode"
+                  className="flex border border-white/15 bg-ink/85 p-0.5 backdrop-blur-md"
+                >
+                  {(
+                    [
+                      ["inspiration", "Inspiration"],
+                      ["live", "Live Filter"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={stageView === v}
+                      onClick={() => {
+                        setAuto(false);
+                        setStageView(v);
+                      }}
+                      className={`px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+                        stageView === v ? "bg-codm text-black" : "text-mute hover:text-text"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="hidden items-center border border-white/15 bg-ink/80 backdrop-blur-md sm:flex">
+                <button
+                  type="button"
+                  aria-label="Previous look"
+                  onClick={() => pick(safeActive - 1)}
+                  className="px-2.5 py-1 font-display text-sm font-bold text-mute hover:bg-white/10 hover:text-text"
+                >
+                  ‹
+                </button>
+                <span className="px-2 font-mono text-[11px] tabular-nums text-mute">
+                  {String(safeActive + 1).padStart(2, "0")}/{String(visibleLooks.length).padStart(2, "0")}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next look"
+                  onClick={() => pick(safeActive + 1)}
+                  className="px-2.5 py-1 font-display text-sm font-bold text-mute hover:bg-white/10 hover:text-text"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2.5 p-4 sm:inset-y-0 sm:w-[62%] sm:justify-end sm:p-7">
+              <motion.div
+                key={look.name}
+                initial={reduce ? false : { opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+              >
+                <div className="flex flex-wrap items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
+                  <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
+                  <span className="bg-black/75 px-2 py-0.5 text-mute">
+                    {effectiveView === "live" ? "Live 3D Grade · Approx." : "Inspiration"}
+                  </span>
+                </div>
+                <h3
+                  className={`mt-1.5 font-title font-black uppercase leading-[0.9] tracking-wide ${
+                    look.name.length > 12 ? "text-3xl sm:text-5xl lg:text-6xl" : "text-4xl sm:text-6xl lg:text-7xl"
+                  }`}
+                >
+                  {look.name}
+                </h3>
+                <p className="mt-1.5 max-w-lg text-xs text-text/90 sm:text-sm">{look.note}</p>
+              </motion.div>
+
+              <LookDnaStrip code={look.code} />
+
+              <div className="pointer-events-auto flex max-w-md gap-1.5 pt-0.5">
+                <button
+                  onClick={() => {
+                    copyCode(look.code, look.name);
+                    setCopied(look.code);
+                    setBurstKey((k) => k + 1);
+                    setAuto(false);
+                  }}
+                  className={`cut-sm relative flex-1 overflow-visible px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
+                    copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
+                  }`}
+                >
+                  {copied === look.code ? "Copied ✓" : "Copy code"}
+                  {burstKey > 0 && copied === look.code && <HitmarkerBurst key={burstKey} />}
+                </button>
+                <button
+                  onClick={() => onEdit(look.code)}
+                  className="border border-white/15 bg-black/75 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text backdrop-blur-sm hover:border-codm hover:bg-line"
+                >
+                  Customize
+                </button>
+                {onShareCard && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuto(false);
+                      onShareCard(look.code, look.name);
+                    }}
+                    title="Download PNG Loadout Card or scan QR to phone"
+                    className="border border-white/15 bg-black/75 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-codm backdrop-blur-sm hover:border-codm hover:bg-line"
+                  >
+                    Card / QR
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* filmstrip */}
+          <div
+            role="tablist"
+            aria-label="Looks"
+            ref={strip}
+            className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") pick(safeActive + 1);
+              else if (e.key === "ArrowLeft") pick(safeActive - 1);
+              else return;
+              e.preventDefault();
+              const el = e.currentTarget;
+              requestAnimationFrame(() =>
+                (el.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
+              );
+            }}
+          >
+            {visibleLooks.map((l, i) => (
+              <button
+                key={l.name}
+                role="tab"
+                id={`look-tab-${i}`}
+                aria-selected={i === safeActive}
+                aria-controls="look-stage"
+                tabIndex={i === safeActive ? 0 : -1}
+                onClick={() => pick(i)}
+                className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
+                  i === safeActive ? "border-codm" : "border-line opacity-60 hover:opacity-100"
+                }`}
+              >
+                <div className="aspect-[16/7] overflow-hidden">
+                  <Art look={l} thumb />
+                </div>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
+                  {l.name}
+                </div>
+                {i === safeActive && playing && (
+                  <motion.span
+                    key={`${safeActive}-bar`}
+                    className="absolute inset-x-0 bottom-0 h-[3px] origin-left bg-codm"
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: DWELL, ease: "linear" }}
+                  />
+                )}
+                {i === safeActive && !playing && (
+                  <span className="absolute inset-x-0 bottom-0 h-[3px] bg-codm" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        /* Apples-to-apples Compare All Grid */
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleLooks.map((l) => (
+            <article
+              key={l.name}
+              className="cut group flex flex-col overflow-hidden border border-line bg-panel/85 transition-colors hover:border-codm"
+            >
+              <div className="relative aspect-[16/9] overflow-hidden bg-black">
+                <Art look={l} thumb={!gridSameScene} forceScene={gridSameScene} />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+                <div className="absolute left-2.5 top-2.5 flex gap-1.5 font-display text-[10px] font-bold uppercase tracking-widest">
+                  <span className="bg-codm px-1.5 py-0.5 text-black">{l.mode}</span>
+                  {gridSameScene && (
+                    <span className="bg-black/75 px-1.5 py-0.5 text-lime">Live 3D Grade</span>
+                  )}
+                </div>
+                <h3 className="absolute bottom-2 left-3 font-title text-2xl font-black uppercase leading-none tracking-wide text-text">
+                  {l.name}
+                </h3>
+              </div>
+
+              <div className="flex flex-1 flex-col justify-between gap-2.5 p-3">
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-mute">{l.note}</p>
+                  <LookDnaStrip code={l.code} compact />
+                </div>
+
+                <div className="flex gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      copyCode(l.code, l.name);
+                      setCopied(l.code);
+                    }}
+                    className={`cut-sm flex-1 px-3 py-2 font-display text-sm font-extrabold uppercase tracking-wider transition-colors ${
+                      copied === l.code
+                        ? "bg-lime text-black"
+                        : "bg-codm text-black hover:bg-codm-light"
+                    }`}
+                  >
+                    {copied === l.code ? "Copied ✓" : "Copy"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(l.code)}
+                    className="border border-line bg-panel-2 px-3 py-2 font-display text-xs font-bold uppercase tracking-wider text-text hover:border-codm"
+                  >
+                    Edit
+                  </button>
+                  {onShareCard && (
+                    <button
+                      type="button"
+                      onClick={() => onShareCard(l.code, l.name)}
+                      className="border border-line bg-black/50 px-2.5 py-2 font-display text-xs font-bold uppercase tracking-wider text-codm hover:border-codm"
+                    >
+                      QR
+                    </button>
+                  )}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
