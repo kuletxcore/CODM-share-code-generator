@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyse,
   decode,
@@ -19,6 +19,8 @@ import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import ColorWheel from "@/components/ColorWheel";
 import RangeScrubber from "@/components/RangeScrubber";
+import TacticalMacros from "@/components/TacticalMacros";
+import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -211,7 +213,14 @@ export default function FilterLab() {
   const [activeCanvas, setActiveCanvas] = useState<HTMLCanvasElement | null>(null);
   const [maskPinned, setMaskPinned] = useState(false);
   const [scrubMask, setScrubMask] = useState(false);
+  const [intensity, setIntensity] = useState(100);
+  const intensityBaseRef = useRef<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const resetIntensityAnchor = useCallback(() => {
+    intensityBaseRef.current = null;
+    setIntensity(100);
+  }, []);
 
   const code = useMemo(() => encode(settings), [settings]);
 
@@ -230,17 +239,45 @@ export default function FilterLab() {
   }, [code]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
-  const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
-    setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
-  }, []);
+  const setZone = useCallback(
+    (k: ZoneKey, patch: Partial<Zone>) => {
+      resetIntensityAnchor();
+      setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+    },
+    [resetIntensityAnchor],
+  );
 
-  const loadCode = useCallback((c: string) => {
-    const s = decode(c);
-    if (!s) return false;
-    setSettings(s);
-    setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
-    return true;
-  }, []);
+  const loadCode = useCallback(
+    (c: string) => {
+      const s = decode(c);
+      if (!s) return false;
+      resetIntensityAnchor();
+      setSettings(s);
+      setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+      return true;
+    },
+    [resetIntensityAnchor],
+  );
+
+  const handleIntensityChange = useCallback(
+    (pct: number) => {
+      if (!intensityBaseRef.current) {
+        intensityBaseRef.current = settings;
+      }
+      setIntensity(pct);
+      setSettings(scaleIntensity(intensityBaseRef.current, pct));
+    },
+    [settings],
+  );
+
+  const handleApplyMacro = useCallback(
+    (id: MacroId) => {
+      resetIntensityAnchor();
+      setAdvanced(true);
+      setSettings((s) => applyMacro(s, id));
+    },
+    [resetIntensityAnchor],
+  );
 
   const upload = useCallback(async (f: File) => {
     try {
@@ -414,6 +451,11 @@ export default function FilterLab() {
                 })}
               </ul>
 
+              <TacticalMacros
+                intensity={intensity}
+                onIntensityChange={handleIntensityChange}
+                onApplyMacro={handleApplyMacro}
+              />
             </div>
 
             {/* right: preview + controls */}
