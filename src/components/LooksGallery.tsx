@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { LOOKS, applyGrade, decode, drawSample, type Look } from "@/lib/codm";
+import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
 
 // One render of the 3D scene shared by every card without an image; each
@@ -66,7 +66,10 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
     <img
       src={thumb ? look.image.replace("/looks/", "/looks/thumb/") : look.image}
       alt=""
+      width={thumb ? 352 : 960}
+      height={thumb ? 161 : 439}
       loading={thumb ? "lazy" : undefined}
+      fetchPriority={thumb ? "low" : "high"}
       decoding="async"
       className="h-full w-full object-cover"
     />
@@ -77,12 +80,14 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [game, setGame] = useState<Game | null>(null);
+  const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
   const reduce = useReducedMotion();
   const playing = auto && !hover && !reduce;
-  const look = LOOKS[active];
+  const look = shown[Math.min(active, shown.length - 1)];
 
   useEffect(() => {
     if (!copied) return;
@@ -92,9 +97,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
 
   useEffect(() => {
     if (!playing) return;
-    const t = setTimeout(() => setActive((a) => (a + 1) % LOOKS.length), DWELL * 1000);
+    const t = setTimeout(() => setActive((a) => (a + 1) % shown.length), DWELL * 1000);
     return () => clearTimeout(t);
-  }, [playing, active]);
+  }, [playing, active, shown.length]);
 
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -105,11 +110,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     const left = tab.offsetLeft - el.offsetLeft;
     if (left < el.scrollLeft || left + tab.offsetWidth > el.scrollLeft + el.clientWidth)
       el.scrollTo({ left: left - (el.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth" });
-  }, [active, reduce]);
+  }, [active, reduce, game]);
 
   const pick = (i: number) => {
     setAuto(false);
-    setActive((i + LOOKS.length) % LOOKS.length);
+    setActive((i + shown.length) % shown.length);
   };
 
   return (
@@ -124,16 +129,31 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
             Pick a look
           </h2>
-          <p className="mt-1 text-sm text-mute">Copy a code, paste it into CODM, done.</p>
+          <p className="mt-1 text-sm text-mute">Copy a code and the steps to import it in CODM follow.</p>
         </div>
-        <ol className="flex gap-3 font-display text-xs font-bold uppercase tracking-widest text-mute">
-          {["Copy", "Import in game", "Apply"].map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5">
-              <span className="grid h-5 w-5 place-items-center bg-codm text-[11px] text-black">{i + 1}</span>
-              {s}
-            </li>
+        <div
+          role="group"
+          aria-label="Filter looks by game"
+          className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:flex-wrap sm:px-0"
+        >
+          {[null, ...GAMES.filter((g) => LOOKS.some((l) => l.game === g))].map((g) => (
+            <button
+              key={g ?? "all"}
+              aria-pressed={game === g}
+              onClick={() => {
+                setGame(g);
+                setActive(0);
+              }}
+              className={`min-h-11 shrink-0 border px-3 font-display text-sm font-bold uppercase tracking-wide transition-colors ${
+                game === g
+                  ? "border-codm bg-codm text-black"
+                  : "border-line bg-panel/80 text-mute hover:border-mute hover:text-text"
+              }`}
+            >
+              {g ?? "All"}
+            </button>
           ))}
-        </ol>
+        </div>
       </div>
 
       {/* stage: the selected look, full width */}
@@ -182,7 +202,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           <div className="flex max-w-md gap-1">
             <button
               onClick={() => {
-                copyCode(look.code, look.name);
+                copyCode(look.code, look.name, { note: look.note, image: look.image });
                 setCopied(look.code);
                 setAuto(false);
               }}
@@ -219,7 +239,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           );
         }}
       >
-        {LOOKS.map((l, i) => (
+        {shown.map((l, i) => (
           <button
             key={l.name}
             role="tab"

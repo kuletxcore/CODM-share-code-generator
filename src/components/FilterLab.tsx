@@ -18,10 +18,11 @@ import {
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
+import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
 type Mode = "build" | "convert";
-type Panel = ZoneKey | "range";
+type Panel = ZoneKey;
 
 
 const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
@@ -41,14 +42,10 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
     label: "Simple",
     desc: "The game's simple Customize Color screen (Preset #1–#5), which colours the whole image. Advanced mode's Shadows, Midtones and Highlights apply on top of it. The code carries the selected slot and its colour.",
   },
-  range: {
-    label: "Range",
-    desc: "Where shadows stop and highlights begin. Drag the shadows handle right to push the shadow colour into darker midtones; drag the highlights handle left to spread the highlight colour down.",
-  },
 };
 
 const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
-const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights", "range"];
+const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights"];
 
 const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
 /** True when the code carries Advanced (shadows / midtones / highlights) values. */
@@ -57,7 +54,7 @@ const usesAdvanced = (s: Settings) => !ZONE_TABS.every((k) => flat(s.zones[k]));
 const r = Math.round;
 const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
 
-/* ---------- image helpers ---------- */
+// Image helpers
 
 function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
@@ -98,7 +95,7 @@ function sampleCanvas() {
   return c;
 }
 
-/* ---------- small UI pieces ---------- */
+// Small UI pieces
 
 function Slider({
   label,
@@ -140,7 +137,7 @@ function Slider({
           const v = Number(e.target.value);
           if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
         }}
-        className="w-full border border-line bg-black/40 px-1.5 py-1 text-right font-mono text-sm tabular-nums"
+        className="h-9 w-full border border-line bg-black/40 px-1.5 text-right font-mono text-sm tabular-nums pointer-coarse:h-11"
       />
     </label>
   );
@@ -206,20 +203,21 @@ function DropZone({
   );
 }
 
-/* ---------- preview ---------- */
+// Preview
 
 function Preview({
   settings,
   source,
   onUpload,
   onClear,
+  view,
 }: {
   settings: Settings;
   source: HTMLCanvasElement | null;
   onUpload: (f: File) => void;
   onClear: () => void;
+  view: React.RefObject<HTMLCanvasElement | null>;
 }) {
-  const view = useRef<HTMLCanvasElement>(null);
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
   useEffect(() => {
@@ -235,6 +233,7 @@ function Preview({
     };
   }, []);
   const [split, setSplit] = useState(0);
+  const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
@@ -308,11 +307,34 @@ function Preview({
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
     // while the sliders underneath scroll.
     <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-2 border-b border-line bg-ink/90 px-4 pb-2 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8 xl:static xl:mx-0 xl:gap-3 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
-      <div className="cut relative overflow-hidden border border-line bg-black">
-        <canvas ref={view} className="mx-auto block aspect-video h-auto max-h-[27svh] w-full object-contain xl:max-h-none" />
+      <div
+        className="cut relative mx-auto w-fit max-w-full cursor-ew-resize touch-pan-y overflow-hidden border border-line bg-black xl:w-auto"
+        onPointerDown={(e) => {
+          wipe.current = { x: e.clientX, y: e.clientY, on: false };
+        }}
+        onPointerMove={(e) => {
+          const w = wipe.current;
+          if (!w) return;
+          // only a deliberate sideways pull starts the wipe, so vertical scrolls pass through
+          if (!w.on) {
+            const dx = Math.abs(e.clientX - w.x),
+              dy = Math.abs(e.clientY - w.y);
+            if (dx < 8 || dx < dy) return;
+            w.on = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }
+          const r = e.currentTarget.getBoundingClientRect();
+          setSplit(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
+        }}
+        onPointerUp={() => (wipe.current = null)}
+        onPointerCancel={() => (wipe.current = null)}
+        onDoubleClick={() => setSplit(0)}
+      >
+        <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
           <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
+          {split === 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Drag to compare</span>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -329,7 +351,7 @@ function Preview({
             onChange={(e) => setSplit(Number(e.target.value) / 100)}
           />
         </label>
-        <label className="cut-sm cursor-pointer bg-panel-2 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider hover:bg-line">
+        <label className="cut-sm inline-flex min-h-11 cursor-pointer items-center bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line">
           Use my screenshot
           <input
             type="file"
@@ -355,10 +377,9 @@ function Preview({
   );
 }
 
-/* ---------- main ---------- */
-
 export default function FilterLab() {
   const [mode, setMode] = useState<Mode>("build");
+  const view = useRef<HTMLCanvasElement>(null);
   const [advanced, setAdvanced] = useState(true);
   const [tab, setPanel] = useState<Panel>("highlights");
   // Simple mode has one screen; Advanced never shows it.
@@ -408,20 +429,22 @@ export default function FilterLab() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
       {/* top bar */}
-      <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
+      <header className="flex flex-wrap items-end justify-between gap-4 pt-5 sm:pt-10">
         <div>
+        <div className="flex items-center gap-3 sm:block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/codm-logo.svg"
             alt="Call of Duty: Mobile"
             width={1442}
             height={479}
-            className="mb-4 h-10 w-auto sm:h-12"
+            className="h-10 w-auto shrink-0 sm:mb-4 sm:h-12"
           />
+          <div className="min-w-0 border-l border-line pl-3 sm:border-0 sm:pl-0">
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-codm"
+            className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.18em] text-codm sm:text-xs sm:tracking-[0.3em]"
           >
             <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
             Unofficial fan-made tool
@@ -430,11 +453,13 @@ export default function FilterLab() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="font-title text-5xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
+            className="font-title text-3xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
           >
             Filter Lab
           </motion.h1>
-          <p className="mt-2 max-w-xl text-mute">
+          </div>
+        </div>
+          <p className="mt-3 max-w-xl text-sm text-mute sm:mt-2 sm:text-base">
             Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
             your own.
           </p>
@@ -510,7 +535,7 @@ export default function FilterLab() {
                   aria-checked={advanced}
                   aria-label="Advanced mode"
                   onClick={() => setAdvanced((v) => !v)}
-                  className={`relative h-7 w-14 shrink-0 border transition-colors ${
+                  className={`relative h-7 w-14 shrink-0 border transition-colors before:absolute before:-inset-2 before:content-[''] ${
                     advanced ? "border-codm bg-codm/25" : "border-line bg-black/50"
                   }`}
                 >
@@ -533,7 +558,7 @@ export default function FilterLab() {
               <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
                 {ADVANCED_PANELS.map((p) => {
                   const active = p === panel;
-                  const z = p !== "range" ? settings.zones[p] : null;
+                  const z = settings.zones[p];
                   return (
                     <li key={p}>
                       <button
@@ -572,14 +597,39 @@ export default function FilterLab() {
 
             {/* right: preview + controls */}
             <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
-              <Preview
-                settings={settings}
-                source={source}
-                onUpload={upload}
-                onClear={() => setSource(null)}
-              />
+              <div className="contents xl:flex xl:flex-col xl:gap-4">
+                <Preview
+                  settings={settings}
+                  source={source}
+                  onUpload={upload}
+                  onClear={() => setSource(null)}
+                  view={view}
+                />
+                {advanced && (
+                  <div className="isolate flex flex-col gap-2 overflow-hidden px-3">
+                    <TonalScope
+                      viewRef={view}
+                      settings={settings}
+                      onRange={(r) =>
+                        setSettings((s) => ({
+                          ...s,
+                          ...(r.shadowPos !== undefined && { shadowPos: r.shadowPos, shadowEdge: r.shadowPos + 100 }),
+                          ...(r.highlightPos !== undefined && {
+                            highlightPos: r.highlightPos,
+                            highlightEdge: r.highlightPos + 100,
+                          }),
+                        }))
+                      }
+                    />
+                    <p className="text-xs text-mute">
+                      The in-game Range bar. Drag the blue handle to set where shadows end and the
+                      amber one to set where highlights begin; the game writes each one the same way.
+                    </p>
+                  </div>
+                )}
+              </div>
 
-              <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
+              <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={panel}
@@ -617,41 +667,7 @@ export default function FilterLab() {
                       <p className="mt-2 text-sm leading-relaxed text-mute">{PANEL_INFO[panel].desc}</p>
                     </div>
 
-                    {panel === "range" ? (
-                      <div className="flex flex-col gap-3">
-                        <Slider
-                          label="Shadows"
-                          value={settings.shadowPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.min(v * 10, s.highlightPos);
-                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <Slider
-                          label="Highlights"
-                          value={settings.highlightPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#777,#fff)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.max(v * 10, s.shadowPos);
-                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <p className="text-xs text-mute">
-                          The two handles of the in-game Range bar, as a percentage of its width.
-                          Moving a handle writes it the same way the game does.
-                        </p>
-                      </div>
-                    ) : (
-                      (() => {
+                    {                      (() => {
                         const k = panel;
                         const z = settings.zones[k];
                         const hp = hueParts(z.hue, hueHint[k]);
@@ -686,7 +702,7 @@ export default function FilterLab() {
                                     setHueHint((h) => ({ ...h, [k]: i }));
                                     setZone(k, { hue: hueFrom(i, hp.pos) });
                                   }}
-                                  className={`relative h-10 border-2 transition-transform hover:scale-105 ${
+                                  className={`relative h-11 border-2 transition-transform hover:scale-105 ${
                                     hp.swatch === i ? "border-white" : "border-black/50"
                                   }`}
                                   style={{ background: hsl(i * 45, 100, 50) }}
@@ -736,14 +752,13 @@ export default function FilterLab() {
                             />
                             <button
                               onClick={() => setZone(k, { hue: 0, tint: 0, sat: 50, bri: 50 })}
-                              className="self-start font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+                              className="inline-flex min-h-11 items-center self-start font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
                             >
                               Reset {PANEL_INFO[k].label}
                             </button>
                           </div>
                         );
-                      })()
-                    )}
+                      })()}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -768,7 +783,7 @@ export default function FilterLab() {
   );
 }
 
-/* ---------- converter ---------- */
+// Converter
 
 function Converter({
   onApply,
@@ -825,7 +840,7 @@ function Converter({
         </p>
       </div>
 
-      <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
+      <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
         <h2 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h2>
         {!result ? (
           <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>
@@ -885,7 +900,7 @@ function Converter({
   );
 }
 
-/* ---------- code bar ---------- */
+// Code bar
 
 function CodeBar({
   code,
@@ -945,20 +960,20 @@ function CodeBar({
             placeholder="Paste a code to edit it"
             aria-label="Paste a share code"
             aria-invalid={bad}
-            className={`w-full min-w-0 border bg-black/50 px-3 py-2 font-mono text-sm lg:w-64 ${
+            className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
               bad ? "border-red-500" : "border-line"
             }`}
           />
           <button
             type="submit"
-            className="bg-panel-2 px-3 py-2 font-display font-bold uppercase tracking-wider hover:bg-line"
+            className="min-h-11 bg-panel-2 px-3 font-display font-bold uppercase tracking-wider hover:bg-line"
           >
             Load
           </button>
           <button
             type="button"
             onClick={onReset}
-            className="px-2 py-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
+            className="min-h-11 px-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
           >
             Reset
           </button>
@@ -973,7 +988,7 @@ function CodeBar({
   );
 }
 
-/* ---------- notes + disclaimer ---------- */
+// Notes + disclaimer
 
 function Notes() {
   return (
