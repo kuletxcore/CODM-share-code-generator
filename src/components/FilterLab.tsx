@@ -14,7 +14,7 @@ import {
   type Zone,
   type ZoneKey,
 } from "@/lib/codm";
-import { fileToCanvas } from "@/lib/image";
+import { fileToCanvas, sampleCanvas } from "@/lib/image";
 import Editor from "@/components/Editor";
 import LooksRail from "@/components/LooksRail";
 import MatchScreenshot from "@/components/MatchScreenshot";
@@ -37,6 +37,25 @@ export default function FilterLab() {
   const [hoverZone, setHoverZone] = useState<ZoneKey | null>(null);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [origin, setOrigin] = useState<Look | null>(null);
+
+  // One image drives the whole bench: the monitor grades it and every shelf
+  // tile shows a look applied to it. Starts flat, then the lit 3D scene lands.
+  const [sample, setSample] = useState<HTMLCanvasElement | null>(() =>
+    typeof document === "undefined" ? null : sampleCanvas(),
+  );
+  useEffect(() => {
+    let live = true;
+    import("@/lib/scene")
+      .then((m) => m.renderScene(960, 540))
+      .then((c) => {
+        if (live && c) setSample(c);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  const frame = source ?? sample;
   const [error, setError] = useState<string | null>(null);
 
   const code = useMemo(() => encode(settings), [settings]);
@@ -160,7 +179,8 @@ export default function FilterLab() {
             className="lg:col-start-1 lg:row-start-1"
             settings={settings}
             onRange={setRange}
-            source={source}
+            src={frame}
+            hasUpload={!!source}
             onUpload={upload}
             onClear={() => setSource(null)}
             title={origin ? origin.name : "Your grade"}
@@ -177,6 +197,7 @@ export default function FilterLab() {
 
           <LooksRail
             className="lg:col-start-1 lg:row-start-2"
+            src={frame}
             activeCode={code}
             onPick={(l) => loadCode(l.code)}
           />

@@ -1,20 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { SWATCH_NAMES, applyGrade, drawSample, hueParts, type Settings, type ZoneKey } from "@/lib/codm";
+import { SWATCH_NAMES, applyGrade, hueParts, type Settings, type ZoneKey } from "@/lib/codm";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { luminanceHistogram, pixels } from "@/lib/image";
 import ToneMap from "@/components/ToneMap";
 
 /**
- * The bench's monitor: one live, graded image with a drag-to-compare divider,
- * the tone map underneath it, and the share code docked to its edge.
+ * The bench's monitor: one live, graded image, the tone map underneath it, and
+ * the share code docked to its edge.
+ *
+ * Grading and comparing are deliberately separate: the canvas only ever holds
+ * the fully graded frame, and the original is a snapshot layered over it and
+ * clipped at the divider. So the wipe always shows the true before/after, and
+ * dragging it costs no GPU work at all.
  */
 
 type Props = {
   settings: Settings;
   onRange: (patch: { shadowPos?: number; highlightPos?: number }) => void;
-  source: HTMLCanvasElement | null;
+  /** The frame being graded: the visitor's screenshot, or the sample scene. */
+  src: HTMLCanvasElement | null;
+  hasUpload: boolean;
   onUpload: (f: File) => void;
   onClear: () => void;
   title: string;
@@ -33,6 +40,8 @@ const ZONE_LABEL: Record<string, string> = {
   midtones: "Mids",
   highlights: "Highlights",
 };
+
+const r = Math.round;
 
 /** The code in plain words: what each tone group is actually set to. */
 function ToneSummary({
@@ -61,7 +70,9 @@ function ToneSummary({
             onFocus={() => onHover(k)}
             onBlur={() => onHover(null)}
             className={`flex flex-col gap-0.5 border px-2 py-1.5 text-left transition-colors ${
-              hover === k ? "border-codm/70 bg-white/[0.06]" : "border-line bg-black/30 hover:bg-white/[0.05]"
+              hover === k
+                ? "border-codm/70 bg-white/[0.06]"
+                : "border-line bg-black/30 hover:bg-white/[0.05]"
             }`}
           >
             <span className="flex items-center gap-1.5 font-display text-[10px] font-bold uppercase tracking-[0.16em] text-mute">
@@ -84,20 +95,11 @@ function ToneSummary({
   );
 }
 
-function sampleCanvas() {
-  const c = document.createElement("canvas");
-  c.width = 960;
-  c.height = 540;
-  drawSample(c.getContext("2d")!, c.width, c.height);
-  return c;
-}
-
-const r = Math.round;
-
 export default function Monitor({
   settings,
   onRange,
-  source,
+  src,
+  hasUpload,
   onUpload,
   onClear,
   title,
@@ -110,27 +112,12 @@ export default function Monitor({
   className = "",
 }: Props) {
   const view = useRef<HTMLCanvasElement>(null);
+  const before = useRef<HTMLCanvasElement>(null);
   const frame = useRef<HTMLDivElement>(null);
-  const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
   const [split, setSplit] = useState(0);
   const dragging = useRef(false);
-  const src = source ?? sample;
 
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
-  useEffect(() => {
-    let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
-      .then((c) => {
-        if (live && c) setSample(c);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  // Grade on the GPU when WebGL is available; null = not tried yet.
+  // Grade on the GPU when WebGL can actually run the shader; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
   const [gpuOk, setGpuOk] = useState<boolean | null>(null);
   useEffect(() => {
@@ -144,19 +131,23 @@ export default function Monitor({
       gpu.current = null;
     };
   }, []);
+
   useEffect(() => {
     if (gpuOk && src) gpu.current?.setSource(src);
   }, [gpuOk, src]);
+
   useEffect(() => {
     if (!gpuOk || !src) return;
-    const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
+    const id = requestAnimationFrame(() => gpu.current?.render(settings));
     return () => cancelAnimationFrame(id);
-  }, [gpuOk, src, settings, split]);
+  }, [gpuOk, src, settings]);
 
   // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
     () =>
-      gpuOk === false ? (src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null) : null,
+      gpuOk === false
+        ? (src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null)
+        : null,
     [src, gpuOk],
   );
   const graded = useMemo(() => {
@@ -173,25 +164,22 @@ export default function Monitor({
       const { width: w, height: h } = orig;
       if (c.width !== w) c.width = w;
       if (c.height !== h) c.height = h;
-      const out = new ImageData(new Uint8ClampedArray(graded), w, h);
-      const x = Math.min(w, r(w * split));
-      if (x > 0) {
-        for (let y = 0; y < h; y++) {
-          const row = y * w * 4;
-          out.data.set(orig.data.subarray(row, row + x * 4), row);
-          for (let dx = Math.max(0, x - 2); dx < Math.min(w, x + 1); dx++) {
-            const i = row + dx * 4;
-            out.data[i] = 255;
-            out.data[i + 1] = 234;
-            out.data[i + 2] = 59;
-            out.data[i + 3] = 255;
-          }
-        }
-      }
-      c.getContext("2d")!.putImageData(out, 0, 0);
+      c.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(graded), w, h), 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
+  }, [orig, graded]);
+
+  // The untouched frame, kept aside so the wipe compares real pixels.
+  useEffect(() => {
+    const c = before.current;
+    if (!c || !src) return;
+    const id = requestAnimationFrame(() => {
+      if (c.width !== src.width) c.width = src.width;
+      if (c.height !== src.height) c.height = src.height;
+      c.getContext("2d")!.drawImage(src, 0, 0);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [src]);
 
   // The tone map reads the image's own luminance, not the grade: measured once
   // per source, from a downscaled copy (deferred a frame so it never blocks paint).
@@ -208,31 +196,31 @@ export default function Monitor({
     return () => cancelAnimationFrame(id);
   }, [src]);
 
-  const setSplitAt = (clientX: number) => {
+  const splitAt = (clientX: number) => {
     const b = frame.current?.getBoundingClientRect();
-    if (!b) return;
+    if (!b || b.width === 0) return;
     setSplit(Math.min(1, Math.max(0, (clientX - b.left) / b.width)));
   };
 
-  const sweep = `${title}-${status}`;
+  const compare = () => setSplit((v) => (v > 0.01 ? 0 : 0.5));
+  const sweep = `${title}-${status}-${gpuOk === false ? "cpu" : "gpu"}`;
 
   return (
     // On phones the root dissolves (max-lg:contents) so the sticky frame's
     // parent is the whole bench, and the preview keeps pinning while you tune.
     <div className={`flex min-w-0 flex-col gap-3 max-lg:contents ${className}`}>
-      {/* sticky viewfinder on small screens, so the result never leaves sight */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-line/70 bg-ink/92 px-4 pb-2 pt-1.5 backdrop-blur-md sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="cut relative bg-black p-[3px] ring-1 ring-line">
           <div
             ref={frame}
             onPointerDown={(e) => {
-              if ((e.target as HTMLElement).closest("[data-no-compare]")) return;
+              if ((e.target as HTMLElement).closest?.("[data-no-compare]")) return;
               dragging.current = true;
               e.currentTarget.setPointerCapture(e.pointerId);
-              setSplitAt(e.clientX);
+              splitAt(e.clientX);
             }}
             onPointerMove={(e) => {
-              if (dragging.current) setSplitAt(e.clientX);
+              if (dragging.current) splitAt(e.clientX);
             }}
             onPointerUp={(e) => {
               dragging.current = false;
@@ -244,9 +232,17 @@ export default function Monitor({
             onDoubleClick={() => setSplit(0)}
             className="relative cursor-ew-resize touch-pan-y select-none overflow-hidden bg-black"
           >
+            {/* graded frame: always the full grade, never a pass-through */}
             <canvas
               ref={view}
-              className="mx-auto block h-auto max-h-[27svh] w-full object-contain lg:max-h-[min(56svh,620px)]"
+              className="relative block aspect-video h-auto max-h-[27svh] w-full object-contain lg:max-h-[min(56svh,620px)]"
+            />
+            {/* the original, revealed from the left as you drag */}
+            <canvas
+              ref={before}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 block h-full w-full object-contain"
+              style={{ clipPath: `inset(0 ${(1 - split) * 100}% 0 0)` }}
             />
 
             {/* camera brackets, so the frame reads as a monitor and not a card */}
@@ -264,7 +260,11 @@ export default function Monitor({
             ))}
 
             {/* a quick sweep whenever the grade on screen changes */}
-            <span key={sweep} className="sweep pointer-events-none absolute inset-y-0 w-1/3" aria-hidden />
+            <span
+              key={sweep}
+              className="sweep pointer-events-none absolute inset-y-0 w-1/3"
+              aria-hidden
+            />
 
             <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
               <div className="flex flex-col items-start gap-1">
@@ -289,12 +289,28 @@ export default function Monitor({
                   className="pointer-events-none absolute inset-y-0 w-px bg-codm"
                   style={{ left: `${split * 100}%` }}
                 />
-                <span
-                  className="pointer-events-none absolute top-1/2 grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center bg-codm/90 font-mono text-[10px] font-bold text-black"
+                <div
+                  role="slider"
+                  tabIndex={0}
+                  aria-label="Comparison split"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={r(split * 100)}
+                  onKeyDown={(e) => {
+                    const step = e.shiftKey ? 0.2 : 0.05;
+                    if (e.key === "ArrowLeft") setSplit((v) => Math.max(0, v - step));
+                    else if (e.key === "ArrowRight") setSplit((v) => Math.min(1, v + step));
+                    else if (e.key === "Home") setSplit(0);
+                    else if (e.key === "End") setSplit(1);
+                    else return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="absolute top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize place-items-center bg-codm font-mono text-[11px] font-bold text-black outline-offset-2"
                   style={{ left: `${split * 100}%` }}
                 >
                   ‹›
-                </span>
+                </div>
                 <span className="pointer-events-none absolute bottom-3 left-3 bg-black/75 px-2 py-0.5 font-display text-[10px] font-bold uppercase tracking-[0.18em] text-text/80">
                   original
                 </span>
@@ -327,11 +343,11 @@ export default function Monitor({
           <span className="font-display font-bold uppercase tracking-wider text-text/80">
             Drag across the frame
           </span>{" "}
-          to compare with the original · {source ? "your screenshot" : "sample scene"}
+          to compare with the original · {hasUpload ? "your screenshot" : "sample scene"}
         </p>
         <div className="order-1 ml-auto flex items-center gap-2 lg:order-2">
           <button
-            onClick={() => setSplit((v) => (v > 0.01 ? 0 : 0.5))}
+            onClick={compare}
             aria-pressed={split > 0.01}
             className={`cut-sm px-3 py-1.5 font-display text-xs font-bold uppercase tracking-wider ${
               split > 0.01 ? "bg-codm text-black" : "bg-panel-2 text-text hover:bg-line"
@@ -352,7 +368,7 @@ export default function Monitor({
               }}
             />
           </label>
-          {source && (
+          {hasUpload && (
             <button
               onClick={onClear}
               className="font-display text-xs font-bold uppercase tracking-wider text-mute hover:text-text"

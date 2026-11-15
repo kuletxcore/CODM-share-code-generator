@@ -1,4 +1,5 @@
 /** Small canvas helpers shared by the preview and the screenshot matcher. */
+import { drawSample } from "@/lib/codm";
 
 /** Read a dropped image into a canvas, downscaled so its width is at most `maxW`. */
 export function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
@@ -49,4 +50,32 @@ export function luminanceHistogram(data: Uint8ClampedArray, bins = 48) {
   for (let b = 0; b < bins; b++) max = Math.max(max, out[b]);
   if (max > 0) for (let b = 0; b < bins; b++) out[b] /= max;
   return out;
+}
+
+/** Flat 2D fallback scene, used until (or instead of) the lit 3D one is ready. */
+export function sampleCanvas() {
+  const c = document.createElement("canvas");
+  c.width = 960;
+  c.height = 540;
+  drawSample(c.getContext("2d")!, c.width, c.height);
+  return c;
+}
+
+const bases = new WeakMap<HTMLCanvasElement, ImageData>();
+
+/** A small cover-cropped copy of `src`, measured once per image. */
+export function thumbnailBase(src: HTMLCanvasElement, w = 256, h = 160) {
+  const hit = bases.get(src);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  const s = Math.max(w / src.width, h / src.height);
+  const dw = src.width * s;
+  const dh = src.height * s;
+  ctx.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  const data = ctx.getImageData(0, 0, w, h);
+  bases.set(src, data);
+  return data;
 }

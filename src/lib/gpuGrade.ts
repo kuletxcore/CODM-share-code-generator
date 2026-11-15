@@ -1,10 +1,17 @@
-import { gradeUniforms, type Settings } from "@/lib/codm";
+import { defaultSettings, gradeUniforms, type Settings } from "@/lib/codm";
 
 /*
  * applyGrade from codm.ts, run as a WebGL fragment shader. Same maths per
  * pixel, so the preview updates every frame while a slider moves instead of
  * redoing ~half a million pixels on the main thread. The CPU version stays
  * as the fallback.
+ *
+ * The shader only ever draws the fully graded image: the before/after wipe is
+ * a clipped copy of the original layered over it on the page, so comparison
+ * can never be confused with grading. On first use the pipeline is proved to
+ * actually change pixels before it is trusted, so a driver that links the
+ * program but draws nothing falls back to the CPU instead of showing a
+ * preview that silently never loads the filter.
  */
 
 const VERT = `
@@ -23,8 +30,6 @@ uniform sampler2D uTex;
 uniform vec4 uBands;
 uniform vec3 uTint[4];
 uniform vec3 uP[4];
-uniform vec2 uSize;
-uniform float uSplitX;
 
 float luma(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 float smoothB(float a, float b, float x){
@@ -45,12 +50,6 @@ vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
 }
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
-  float col = floor(vUv.x * uSize.x);
-  if (uSplitX > 0.0 && col >= uSplitX - 2.0 && col <= uSplitX) {
-    gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
-    return;
-  }
-  if (col < uSplitX) { gl_FragColor = vec4(c, 1.0); return; }
   float l0 = luma(c);
   float ws = 1.0 - smoothB(uBands.x, uBands.y, l0);
   float wh = smoothB(uBands.z, uBands.w, l0) * (1.0 - ws);
@@ -64,7 +63,7 @@ void main(){
 
 export type GradeGpu = {
   setSource: (src: HTMLCanvasElement) => void;
-  render: (s: Settings, split: number) => void;
+  render: (s: Settings) => void;
   dispose: () => void;
 };
 
@@ -109,9 +108,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
   const u = (n: string) => gl.getUniformLocation(prog, n);
   const uBands = u("uBands"),
     uTint = u("uTint"),
-    uP = u("uP"),
-    uSize = u("uSize"),
-    uSplitX = u("uSplitX");
+    uP = u("uP");
   let w = 1,
     h = 1;
 
@@ -122,14 +119,11 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.viewport(0, 0, w, h);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     },
-    render(s, split) {
+    render(s) {
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
       gl.uniform3fv(uP, g.params);
-      gl.uniform2f(uSize, w, h);
-      // same rounding as the CPU compositor: original left of round(w * split)
-      gl.uniform1f(uSplitX, Math.min(w, Math.round(w * split)));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {
@@ -140,17 +134,53 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
   };
 }
 
-let supported: boolean | null = null;
+/**
+ * Runs the real pipeline once on a mid grey and reads the pixel back. A driver
+ * that compiles and links but draws nothing leaves the buffer at the clear
+ * colour, so this is the difference between a preview that grades and one that
+ * quietly shows the untouched image.
+ */
+function selfTest(): boolean {
+  const probe = document.createElement("canvas");
+  probe.width = 8;
+  probe.height = 8;
+  const g = init(probe);
+  if (!g) return false;
+  try {
+    const grey = document.createElement("canvas");
+    grey.width = 8;
+    grey.height = 8;
+    const ctx = grey.getContext("2d");
+    if (!ctx) return false;
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0, 0, 8, 8);
 
-/** Builds the GPU grader on `canvas`, or returns null (canvas untouched) if WebGL can't run it. */
-export function createGradeGpu(canvas: HTMLCanvasElement): GradeGpu | null {
-  if (supported === null) {
-    // probe on a throwaway canvas: once a canvas has a WebGL context it can't fall back to 2D
-    const probe = document.createElement("canvas");
-    const g = init(probe);
-    supported = !!g;
-    g?.dispose();
-    (probe.getContext("webgl") as WebGLRenderingContext | null)?.getExtension("WEBGL_lose_context")?.loseContext();
+    // global (whole-image) group set to double brightness: 0x80 must come back bright
+    const s = defaultSettings();
+    s.zones.global = { hue: 0, tint: 0, sat: 50, bri: 100 };
+    g.setSource(grey);
+    g.render(s);
+
+    const gl = probe.getContext("webgl") as WebGLRenderingContext | null;
+    if (!gl) return false;
+    const px = new Uint8Array(4);
+    gl.readPixels(3, 3, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return px[3] > 0 && px[0] > 180;
+  } catch {
+    return false;
+  } finally {
+    g.dispose();
+    (probe.getContext("webgl") as WebGLRenderingContext | null)
+      ?.getExtension("WEBGL_lose_context")
+      ?.loseContext();
   }
-  return supported ? init(canvas) : null;
+}
+
+let gpuOk: boolean | null = null;
+
+/** Builds the GPU grader on `canvas`, or returns null (canvas untouched) if WebGL can't run the grade. */
+export function createGradeGpu(canvas: HTMLCanvasElement): GradeGpu | null {
+  // probe on throwaway canvases: once a canvas has a WebGL context it can't fall back to 2D
+  if (gpuOk === null) gpuOk = selfTest();
+  return gpuOk ? init(canvas) : null;
 }
