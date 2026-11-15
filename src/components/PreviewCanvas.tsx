@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyGrade, drawSample, type Settings } from "@/lib/codm";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { SCENES, type SceneId } from "@/lib/scene";
 
 type ViewMode = "split" | "full" | "side";
 
@@ -36,25 +37,34 @@ export default function PreviewCanvas({
   const [sample, setSample] = useState<HTMLCanvasElement | null>(() =>
     typeof document === "undefined" ? null : sampleCanvas(),
   );
+  const [sceneId, setSceneId] = useState<SceneId>("woodland");
+  const [chips, setChips] = useState(true);
+  const [renderedKey, setRenderedKey] = useState<string>("");
   const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [split, setSplit] = useState(0.36);
   const [peeking, setPeeking] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const draggingSplit = useRef(false);
 
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
+  const desiredKey = `${sceneId}:${chips}`;
+  const renderingScene = !source && renderedKey !== "" && renderedKey !== desiredKey;
+
+  // Render the selected lit 3D tactical lighting environment (cached per map).
   useEffect(() => {
     let live = true;
     import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
+      .then((m) => m.renderScene(960, 540, { sceneId, chips }))
       .then((c) => {
-        if (live && c) setSample(c);
+        if (live && c) {
+          setSample(c);
+          setRenderedKey(`${sceneId}:${chips}`);
+        }
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, []);
+  }, [sceneId, chips]);
 
   const src = source ?? sample;
 
@@ -364,6 +374,13 @@ export default function PreviewCanvas({
           </>
         )}
 
+        {/* Scene rendering pill */}
+        {renderingScene && (
+          <div className="pointer-events-none absolute bottom-3 right-3 z-20 border border-codm/50 bg-ink/90 px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-widest text-codm backdrop-blur-sm">
+            Switching map…
+          </div>
+        )}
+
         {/* Drag-over drop target */}
         {dragOver && (
           <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-ink/85 backdrop-blur-sm">
@@ -377,16 +394,54 @@ export default function PreviewCanvas({
         )}
       </div>
 
-      {/* Bottom preview actions */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <span className="hidden text-xs text-mute sm:inline">
-          {viewMode === "split"
-            ? "Drag across preview to wipe · Hold Space to peek · Drop or Ctrl+V your screenshot"
-            : "Hold Space to peek original · Drop or Ctrl+V any CODM screenshot"}
-        </span>
+      {/* Bottom preview actions: 4-map lighting rig + screenshot upload */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Test map lighting">
+          <span className="mr-1 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
+            Map
+          </span>
+          {SCENES.map((sc) => {
+            const active = !source && sceneId === sc.id;
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                title={sc.desc}
+                aria-pressed={active}
+                onClick={() => {
+                  if (source) onClear();
+                  setSceneId(sc.id);
+                }}
+                className={`px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+                  active
+                    ? "bg-codm/20 text-codm ring-1 ring-inset ring-codm/70"
+                    : "bg-panel-2/70 text-mute hover:bg-line hover:text-text"
+                }`}
+              >
+                {sc.short}
+              </button>
+            );
+          })}
+          {!source && (
+            <button
+              type="button"
+              aria-pressed={chips}
+              onClick={() => setChips((v) => !v)}
+              title="Toggle 11-swatch colour calibration bar"
+              className={`ml-1 px-2 py-1 font-display text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                chips
+                  ? "border border-line bg-black/50 text-text"
+                  : "border border-transparent bg-transparent text-mute hover:text-text"
+              }`}
+            >
+              Chips {chips ? "On" : "Off"}
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <label className="cut-sm cursor-pointer bg-panel-2 px-3 py-1.5 font-display text-sm font-bold uppercase tracking-wider hover:bg-line">
-            Use my screenshot
+          <label className="cut-sm cursor-pointer bg-panel-2 px-3 py-1.5 font-display text-xs font-bold uppercase tracking-wider hover:bg-line">
+            {source ? "Replace screenshot" : "My screenshot"}
             <input
               type="file"
               accept="image/*"
@@ -402,9 +457,9 @@ export default function PreviewCanvas({
             <button
               type="button"
               onClick={onClear}
-              className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+              className="font-display text-xs font-bold uppercase tracking-wider text-mute hover:text-text"
             >
-              Sample scene
+              Back to 3D maps
             </button>
           )}
         </div>
