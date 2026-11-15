@@ -6,6 +6,7 @@ import type { Settings, Zone, ZoneKey } from "@/lib/codm";
 import Preview from "@/components/Preview";
 import TunePanel, { type PanelKey } from "@/components/TunePanel";
 import { copyCode } from "@/components/ImportGuide";
+import ShareCard from "@/components/ShareCard";
 
 /**
  * Editing is a mode, not a page. It opens from any look on the board with the
@@ -15,6 +16,7 @@ import { copyCode } from "@/components/ImportGuide";
 export default function Darkroom({
   name,
   edited,
+  note,
   code,
   settings,
   setSettings,
@@ -33,6 +35,7 @@ export default function Darkroom({
 }: {
   name: string;
   edited: boolean;
+  note?: string;
   code: string;
   settings: Settings;
   setSettings: React.Dispatch<React.SetStateAction<Settings>>;
@@ -50,6 +53,7 @@ export default function Darkroom({
   focusPaste: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [share, setShare] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -111,6 +115,17 @@ export default function Darkroom({
           {code}
         </code>
         <button
+          onClick={() => setShare(true)}
+          title="Share this look as an image with the code on it"
+          className="cut-sm shrink-0 border border-line bg-panel-2 px-2.5 py-2 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line sm:px-4"
+        >
+          <span className="hidden sm:inline">Share card</span>
+          <span aria-hidden className="sm:hidden">
+            Card
+          </span>
+          <span className="sr-only sm:hidden">Share this look as a card</span>
+        </button>
+        <button
           onClick={copy}
           className={`cut-sm shrink-0 px-3 py-2 font-display text-sm font-extrabold uppercase tracking-wider text-black transition-colors sm:px-4 ${
             copied ? "bg-lime" : "bg-codm hover:bg-codm-light"
@@ -143,6 +158,13 @@ export default function Darkroom({
           />
         </div>
       </div>
+
+      {share && (
+        <ShareCard
+          input={{ frame: source, settings, name, note, code }}
+          onClose={() => setShare(false)}
+        />
+      )}
     </motion.div>
   );
 }

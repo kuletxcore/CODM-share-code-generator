@@ -7,6 +7,11 @@ Live: https://codm.kuletxcore.workers.dev
 - **Look board**: all 12 ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) side by side, every tile being that code graded onto the *same* frame — so the choice is a comparison rather than a slideshow. Drop in your own screenshot and all twelve re-grade onto it (the generator below picks up the same frame). Each tile has a one-tap Copy and opens the look in the generator when clicked; the `Stills` toggle shows the reference footage each look was built from, and the colour strip under each tile is that code's shadow/mid/highlight signature.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Editor (the darkroom)**: opens from any tile or from the header as a full-screen mode — large preview with a compare wipe, the code and Copy in the header, and the controls under it. Simple colours the whole image; Advanced colours shadows, midtones and highlights and exposes the in-game Range handles. Paste a code to load one. Closing keeps your build as a "Your look" tile at the front of the board, so browsing other looks doesn't throw it away. The URL hash holds the current code, so links are shareable.
+- **Look card** — *Share card* in the editor renders the graded frame, the look's
+  name, its three tone colours and the 22-number code into one 1200×630 PNG, saved,
+  copied or shared through the system sheet. A code on its own shows nobody what it
+  does; the card is the thing you post.
+
 - **Match a screenshot**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
 ## Share code format

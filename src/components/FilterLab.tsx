@@ -197,6 +197,7 @@ export default function FilterLab() {
         <Darkroom
           name={name}
           edited={!!origin && edited}
+          note={origin?.note}
           code={code}
           settings={settings}
           setSettings={setSettings}
