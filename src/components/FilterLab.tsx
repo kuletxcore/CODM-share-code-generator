@@ -8,6 +8,7 @@ import {
   defaultSettings,
   encode,
   extractShareCode,
+  findClosestLook,
   LOOKS,
   type Settings,
   type Zone,
@@ -28,6 +29,7 @@ import ScreenshotConverter from "@/components/ScreenshotConverter";
 import BlendLab from "@/components/BlendLab";
 import ShareCardModal from "@/components/ShareCardModal";
 import CodeDnaBar, { type DnaTarget } from "@/components/CodeDnaBar";
+import CommandHud, { ShortcutsModal } from "@/components/CommandHud";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
@@ -418,8 +420,107 @@ export default function FilterLab() {
     }
   }, []);
 
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [hudToast, setHudToast] = useState<string | null>(null);
+  const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashHud = useCallback((msg: string) => {
+    setHudToast(msg);
+    if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
+    hudTimerRef.current = setTimeout(() => setHudToast(null), 1800);
+  }, []);
+
+  const closestLook = useMemo(() => findClosestLook(settings), [settings]);
+  const activeFilterLabel = closestLook.exact
+    ? closestLook.look.name
+    : `Custom · ≈ ${closestLook.look.name} (${closestLook.similarity}%)`;
+
+  const openCurrentShareCard = useCallback(() => {
+    const label = closestLook.exact ? closestLook.look.name : "Custom Filter";
+    setShareCard({ code, title: label, key: Date.now() });
+  }, [code, closestLook]);
+
+  const jumpToStudioMode = useCallback((m: Mode) => {
+    setMode(m);
+    document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  // Power-user keyboard shortcuts (1-4 zones, G simple, M zone mask, C copy, Q QR/card, R shuffle, ? help)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) {
+        return;
+      }
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+        e.preventDefault();
+        setShortcutsOpen((v) => !v);
+        return;
+      }
+      if (shortcutsOpen || shareCard) return;
+      const k = e.key.toLowerCase();
+      if (k === "1") {
+        handleJumpToPanel("shadows");
+        flashHud("Panel · Shadows");
+      } else if (k === "2") {
+        handleJumpToPanel("midtones");
+        flashHud("Panel · Midtones");
+      } else if (k === "3") {
+        handleJumpToPanel("highlights");
+        flashHud("Panel · Highlights");
+      } else if (k === "4") {
+        handleJumpToPanel("range");
+        flashHud("Panel · Range Curve");
+      } else if (k === "g") {
+        handleJumpToPanel("global");
+        flashHud("Mode · Simple Global");
+      } else if (k === "m") {
+        setMaskPinned((v) => {
+          flashHud(!v ? "Zone Mask ON" : "Zone Mask OFF");
+          return !v;
+        });
+      } else if (k === "c") {
+        void copyCode(code, activeFilterLabel);
+        flashHud("Copied share code ✓");
+      } else if (k === "q") {
+        openCurrentShareCard();
+      } else if (k === "r") {
+        handleApplyMacro("shuffle");
+        flashHud("Surprise Shuffle applied");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    shortcutsOpen,
+    shareCard,
+    code,
+    activeFilterLabel,
+    handleJumpToPanel,
+    openCurrentShareCard,
+    handleApplyMacro,
+    flashHud,
+  ]);
+
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
+    <div id="top" className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-44 sm:px-8">
+      <CommandHud
+        activeLabel={activeFilterLabel}
+        code={code}
+        mode={mode}
+        canUndo={hist.past.length > 0}
+        canRedo={hist.future.length > 0}
+        onSelectLooks={() =>
+          document.getElementById("looks-title")?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+        onSelectMode={jumpToStudioMode}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onShareCard={openCurrentShareCard}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
+
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
         <div>
@@ -448,9 +549,42 @@ export default function FilterLab() {
             Filter Lab
           </motion.h1>
           <p className="mt-2 max-w-xl text-mute">
-            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
-            your own.
+            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, blend two
+            looks, convert a screenshot, or dial in your own.
           </p>
+        </div>
+
+        {/* Fast studio launchers for returning power users */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => jumpToStudioMode("build")}
+            className="border border-line bg-panel/80 px-3 py-2 font-display text-xs font-bold uppercase tracking-wider text-text backdrop-blur-sm hover:border-codm hover:text-codm"
+          >
+            Generator ↓
+          </button>
+          <button
+            type="button"
+            onClick={() => jumpToStudioMode("blend")}
+            className="border border-line bg-panel/80 px-3 py-2 font-display text-xs font-bold uppercase tracking-wider text-text backdrop-blur-sm hover:border-codm hover:text-codm"
+          >
+            Blend Lab ↓
+          </button>
+          <button
+            type="button"
+            onClick={() => jumpToStudioMode("convert")}
+            className="border border-line bg-panel/80 px-3 py-2 font-display text-xs font-bold uppercase tracking-wider text-text backdrop-blur-sm hover:border-codm hover:text-codm"
+          >
+            Screenshot → Code ↓
+          </button>
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            title="Keyboard shortcuts (?)"
+            className="hidden border border-line bg-black/60 px-2.5 py-2 font-mono text-xs font-bold text-mute hover:border-codm hover:text-codm sm:inline-block"
+          >
+            [?] Hotkeys
+          </button>
         </div>
       </header>
 
@@ -511,7 +645,7 @@ export default function FilterLab() {
         onShareCard={(c, name) => setShareCard({ code: c, title: name, key: Date.now() })}
       />
 
-      <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
+      <div id="editor" className="mt-12 flex scroll-mt-16 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
         <nav aria-label="Mode" className="flex flex-wrap gap-1">
           {(
@@ -911,10 +1045,7 @@ export default function FilterLab() {
         settings={settings}
         onLoad={loadCode}
         onJumpToPanel={handleJumpToPanel}
-        onShareCard={() => {
-          const matched = LOOKS.find((l) => l.code === code)?.name;
-          setShareCard({ code, title: matched ?? "Custom Filter", key: Date.now() });
-        }}
+        onShareCard={openCurrentShareCard}
         onReset={() => {
           resetIntensityAnchor();
           commitSettings(defaultSettings());
@@ -928,6 +1059,21 @@ export default function FilterLab() {
         sourceCanvas={activeCanvas}
         onClose={() => setShareCard(null)}
       />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <AnimatePresence>
+        {hudToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none fixed bottom-28 left-1/2 z-40 -translate-x-1/2 border border-codm bg-ink/95 px-4 py-1.5 font-display text-xs font-extrabold uppercase tracking-[0.2em] text-codm shadow-xl backdrop-blur-md"
+          >
+            {hudToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <ImportGuide />
     </div>
   );

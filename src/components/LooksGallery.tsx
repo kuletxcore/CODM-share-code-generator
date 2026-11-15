@@ -362,7 +362,7 @@ export default function LooksGallery({
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
+          <h2 id="looks-title" className="scroll-mt-16 font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
             Pick a look
           </h2>
           <p className="mt-1 text-sm text-mute">

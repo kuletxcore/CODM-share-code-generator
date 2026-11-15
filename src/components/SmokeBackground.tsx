@@ -50,7 +50,11 @@ export default function SmokeBackground() {
       if (disposed || !el) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try {
-        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+        renderer = new THREE.WebGLRenderer({
+          antialias: false,
+          alpha: false,
+          powerPreference: "low-power",
+        });
       } catch {
         return; // no WebGL: the CSS background stays
       }
@@ -92,12 +96,28 @@ export default function SmokeBackground() {
       const FRAME = 1000 / 24; // smoke drifts slowly, 24fps is indistinguishable
       let clock = 0; // animation time only advances while the smoke is actually drawn
       const loop = (now: number) => {
+        if (document.hidden || disposed) {
+          raf = 0;
+          return;
+        }
         raf = requestAnimationFrame(loop);
-        if (busy || document.hidden || now - last < FRAME) return;
+        if (busy || now - last < FRAME) return;
         clock += Math.min(now - last, 100) / 1000;
         last = now;
         uniforms.uTime.value = clock;
         renderer.render(scene, camera);
+      };
+      const onVis = () => {
+        if (still || disposed) return;
+        if (document.hidden) {
+          if (raf) {
+            cancelAnimationFrame(raf);
+            raf = 0;
+          }
+        } else if (!raf) {
+          last = performance.now();
+          raf = requestAnimationFrame(loop);
+        }
       };
       uniforms.uTime.value = 0;
       renderer.render(scene, camera);
@@ -106,7 +126,8 @@ export default function SmokeBackground() {
       window.addEventListener("pointerdown", down, { passive: true });
       window.addEventListener("pointerup", up, { passive: true });
       window.addEventListener("pointercancel", up, { passive: true });
-      if (!still) raf = requestAnimationFrame(loop);
+      document.addEventListener("visibilitychange", onVis);
+      if (!still && !document.hidden) raf = requestAnimationFrame(loop);
 
       cleanup = () => {
         cancelAnimationFrame(raf);
@@ -114,6 +135,7 @@ export default function SmokeBackground() {
         window.removeEventListener("pointerdown", down);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", up);
+        document.removeEventListener("visibilitychange", onVis);
         mesh.geometry.dispose();
         mat.dispose();
         renderer.dispose();

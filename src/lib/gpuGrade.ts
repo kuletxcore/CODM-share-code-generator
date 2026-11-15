@@ -120,7 +120,13 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);
   gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  // Shaders are no longer needed once linked into the program.
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    gl.deleteProgram(prog);
+    return null;
+  }
   gl.useProgram(prog);
 
   const buf = gl.createBuffer();
@@ -154,12 +160,14 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
 
   return {
     setSource(src) {
+      if (gl.isContextLost()) return;
       w = canvas.width = src.width;
       h = canvas.height = src.height;
       gl.viewport(0, 0, w, h);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     },
     render(s, split, opts) {
+      if (gl.isContextLost()) return;
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
@@ -179,6 +187,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {
+      if (gl.isContextLost()) return;
       gl.deleteTexture(tex);
       gl.deleteBuffer(buf);
       gl.deleteProgram(prog);
