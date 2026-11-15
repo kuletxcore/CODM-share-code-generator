@@ -23,10 +23,11 @@ import TacticalMacros from "@/components/TacticalMacros";
 import LoadoutRack from "@/components/LoadoutRack";
 import OpticsTelemetry from "@/components/OpticsTelemetry";
 import ScreenshotConverter from "@/components/ScreenshotConverter";
+import BlendLab from "@/components/BlendLab";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
-type Mode = "build" | "convert";
+type Mode = "build" | "blend" | "convert";
 type Panel = ZoneKey | "range";
 
 
@@ -441,10 +442,11 @@ export default function FilterLab() {
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
-        <nav aria-label="Mode" className="flex gap-1">
+        <nav aria-label="Mode" className="flex flex-wrap gap-1">
           {(
             [
               ["build", "Generator"],
+              ["blend", "Blend Lab"],
               ["convert", "Screenshot → Code"],
             ] as const
           ).map(([m, label]) => (
@@ -802,6 +804,21 @@ export default function FilterLab() {
             </div>
             </div>
           </motion.section>
+        ) : mode === "blend" ? (
+          <BlendLab
+            key="blend"
+            currentSettings={settings}
+            slots={slots}
+            source={source}
+            onUpload={upload}
+            onClearSource={() => setSource(null)}
+            onApply={(fused) => {
+              resetIntensityAnchor();
+              setAdvanced(true);
+              commitSettings(fused);
+              setMode("build");
+            }}
+          />
         ) : (
           <ScreenshotConverter
             key="convert"
