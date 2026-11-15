@@ -215,6 +215,76 @@ export async function renderScene(
     gun.rotation.set(0.04, 0.2, 0);
     camera.add(gun);
 
+    // BOLD CHANGE 2: Dynamic Cyber-Tactical HUD Overlay in 3D Scene
+    // We add a floating 3D HUD grid and glowing data points that react to the camera
+    const hudGroup = new THREE.Group();
+    
+    // 1. Floating Grid Plane (Tactical Map)
+    const gridGeo = new THREE.PlaneGeometry(400, 400, 20, 20);
+    gridGeo.rotateX(-Math.PI / 2);
+    const gridMat = new THREE.MeshBasicMaterial({
+      color: 0xffea3b, // Codm Yellow
+      wireframe: true,
+      transparent: true,
+      opacity: 0.15,
+      blending: THREE.AdditiveBlending
+    });
+    const grid = new THREE.Mesh(gridGeo, gridMat);
+    grid.position.set(0, -0.5, -120);
+    hudGroup.add(grid);
+
+    // 2. Floating Data Points (Cubes that pulse)
+    const dataPoints = [];
+    for(let i=0; i<12; i++) {
+      const dpGeo = new THREE.BoxGeometry(2, 2, 2);
+      const dpMat = new THREE.MeshStandardMaterial({
+        color: 0xffea3b,
+        emissive: 0xffea3b,
+        emissiveIntensity: 2,
+        transparent: true,
+        opacity: 0.8
+      });
+      const dp = new THREE.Mesh(dpGeo, dpMat);
+      const angle = (i / 12) * Math.PI * 2;
+      dp.position.set(Math.cos(angle) * 80, 10 + Math.sin(i) * 5, Math.sin(angle) * 80 - 120);
+      hudGroup.add(dp);
+      dataPoints.push(dp);
+    }
+    scene.add(hudGroup);
+
+    const camera = new THREE.PerspectiveCamera(58, w / h, 0.1, 900);
+    camera.position.set(0, 2.4, 30);
+    camera.lookAt(3, 6.5, -40);
+    scene.add(camera);
+
+    // dark foreground silhouette (deep shadows, like a held weapon)
+    const dark = new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.55, metalness: 0.4 });
+    const gun = new THREE.Group();
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 2.4), dark);
+    stock.position.set(0, 0, 0);
+    gun.add(stock);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.6, 10), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.1, -2.4);
+    gun.add(barrel);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.4), dark);
+    grip.position.set(0, -0.5, 0.2);
+    grip.rotation.x = 0.25;
+    gun.add(grip);
+    gun.position.set(0.95, -0.72, -1.7);
+    gun.rotation.set(0.04, 0.2, 0);
+    camera.add(gun);
+
+    // Animation loop for the HUD elements before rendering the single frame
+    const clock = new THREE.Clock();
+    const elapsed = clock.getElapsedTime();
+    hudGroup.rotation.y = elapsed * 0.1;
+    dataPoints.forEach((p, i) => {
+      const scale = 1 + Math.sin(elapsed * 3 + i) * 0.3;
+      p.scale.set(scale, scale, scale);
+      p.position.y += Math.sin(elapsed * 2 + i) * 0.1;
+    });
+
     renderer.render(scene, camera);
 
     const out = document.createElement("canvas");
@@ -222,6 +292,16 @@ export async function renderScene(
     out.height = h;
     const ctx = out.getContext("2d")!;
     ctx.drawImage(renderer.domElement, 0, 0, w, h);
+    
+    // BOLD CHANGE 2 PART 2: Add HUD scanline overlay directly on the 2D canvas
+    ctx.strokeStyle = "rgba(255, 234, 59, 0.1)";
+    ctx.lineWidth = 1;
+    for(let y=0; y<h; y+=4) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
     // colour chips, handy for reading hue shifts
     if (opts.chips !== false) drawChips(ctx, w, h);
     scene.traverse((o) => {
