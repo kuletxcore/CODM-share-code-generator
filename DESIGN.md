@@ -75,8 +75,8 @@ States are set where the content breaks, not by device:
 
 - **Look stage and filmstrip.** One look fills the stage with a slow push-in; the filmstrip below switches looks (click or arrow keys) and auto-plays every 7 s until the visitor picks one, hovers or copies. Reduced motion turns off autoplay and the zoom.
 - **Game chips.** Filter the looks by the game they come from (MW4, Black Ops 7, MWII, Vanguard, MW 2019, Cold War). Games are facts checked against sources, unlike mood labels.
-- **Generator.** Simple/Advanced switch, a zone list, and controls that mirror the in-game Customize Color screen exactly: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness, and the two Range handles. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
-- **Tonal scope.** In the Range panel: a luminance histogram of the preview with the two Range handles on top, so the handles stop being blind numbers. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End).
+- **Generator.** Simple/Advanced switch, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
+- **Tone map (the in-game Range bar).** Directly under the preview in Advanced mode: a luminance histogram of what the preview shows, with the two Range handles on top. It replaces the old Range panel and its two sliders, so the split between zones is always in view while any zone is edited. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End); each handle writes edge = handle + 100, as the game does. Hidden in Simple mode, where the range does not apply. On phones it scrolls with the controls, so the pinned viewfinder stays the same height.
 - **Preview.** The look applied to a lit three.js scene or to the visitor's own screenshot, graded on the GPU. Drag sideways across it (or use the Compare slider) to see the original; the drag only starts after a deliberate sideways pull so vertical scrolling still works on phones. Double-click resets the split.
 - **Import guide.** Opens after any copy and stays until Done or Esc: the seven in-game steps as a checklist, the code with Copy again, a QR that opens this page with the code on a phone (shown from `sm` up, since a phone visitor is already on their phone), and Save look card. "Skip the steps next time" switches to a short toast.
 - **Look card.** A 1200 by 630 PNG with the look's image, name, code and a QR back to the site, marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise.
@@ -116,7 +116,7 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | Picked | From | Why |
 |---|---|---|
 | QR hand-off to a phone and the look card | d55d3f96 (cards also in 947ec79d and 2cad37b9) | The code has to end up on a phone; on desktop that hop was missing. Code-split, so it costs nothing until used. |
-| Tonal scope behind the Range handles | d55d3f96 (similar tone map in ed32f292) | Makes the least understood control visible. |
+| Tone map in place of the Range sliders, under the preview | d55d3f96 and ed32f292 | Makes the least understood control visible, and keeps it in view while editing any zone. The owner asked for it to replace the Range bar sliders. |
 | Drag across the preview to compare, after a deliberate pull | ed32f292, d55d3f96, 2cad37b9 | Three remakes converged on it; the pull threshold keeps phone scrolling intact. |
 | GPU self-test before trusting the shader | ed32f292 | Cheap guard against a preview that silently never grades. |
 | Filter chips for the looks | 49aa1fc3 and 2cad37b9 (as moods) | Twelve looks need a filter; game names replace subjective mood tags. |

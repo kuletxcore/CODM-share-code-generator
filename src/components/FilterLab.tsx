@@ -22,7 +22,7 @@ import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
 type Mode = "build" | "convert";
-type Panel = ZoneKey | "range";
+type Panel = ZoneKey;
 
 
 const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
@@ -42,14 +42,10 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
     label: "Simple",
     desc: "The game's simple Customize Color screen (Preset #1–#5), which colours the whole image. Advanced mode's Shadows, Midtones and Highlights apply on top of it. The code carries the selected slot and its colour.",
   },
-  range: {
-    label: "Range",
-    desc: "Where shadows stop and highlights begin. Drag the shadows handle right to push the shadow colour into darker midtones; drag the highlights handle left to spread the highlight colour down.",
-  },
 };
 
 const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
-const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights", "range"];
+const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights"];
 
 const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
 /** True when the code carries Advanced (shadows / midtones / highlights) values. */
@@ -562,7 +558,7 @@ export default function FilterLab() {
               <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
                 {ADVANCED_PANELS.map((p) => {
                   const active = p === panel;
-                  const z = p !== "range" ? settings.zones[p] : null;
+                  const z = settings.zones[p];
                   return (
                     <li key={p}>
                       <button
@@ -601,13 +597,37 @@ export default function FilterLab() {
 
             {/* right: preview + controls */}
             <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
-              <Preview
-                settings={settings}
-                source={source}
-                onUpload={upload}
-                onClear={() => setSource(null)}
-                view={view}
-              />
+              <div className="contents xl:flex xl:flex-col xl:gap-4">
+                <Preview
+                  settings={settings}
+                  source={source}
+                  onUpload={upload}
+                  onClear={() => setSource(null)}
+                  view={view}
+                />
+                {advanced && (
+                  <div className="isolate flex flex-col gap-2 overflow-hidden px-3">
+                    <TonalScope
+                      viewRef={view}
+                      settings={settings}
+                      onRange={(r) =>
+                        setSettings((s) => ({
+                          ...s,
+                          ...(r.shadowPos !== undefined && { shadowPos: r.shadowPos, shadowEdge: r.shadowPos + 100 }),
+                          ...(r.highlightPos !== undefined && {
+                            highlightPos: r.highlightPos,
+                            highlightEdge: r.highlightPos + 100,
+                          }),
+                        }))
+                      }
+                    />
+                    <p className="text-xs text-mute">
+                      The in-game Range bar. Drag the blue handle to set where shadows end and the
+                      amber one to set where highlights begin; the game writes each one the same way.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
                 <AnimatePresence mode="wait">
@@ -647,55 +667,7 @@ export default function FilterLab() {
                       <p className="mt-2 text-sm leading-relaxed text-mute">{PANEL_INFO[panel].desc}</p>
                     </div>
 
-                    {panel === "range" ? (
-                      <div className="flex flex-col gap-3">
-                        <TonalScope
-                          viewRef={view}
-                          settings={settings}
-                          onRange={(r) =>
-                            setSettings((s) => ({
-                              ...s,
-                              ...(r.shadowPos !== undefined && { shadowPos: r.shadowPos, shadowEdge: r.shadowPos + 100 }),
-                              ...(r.highlightPos !== undefined && {
-                                highlightPos: r.highlightPos,
-                                highlightEdge: r.highlightPos + 100,
-                              }),
-                            }))
-                          }
-                        />
-                        <Slider
-                          label="Shadows"
-                          value={settings.shadowPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.min(v * 10, s.highlightPos);
-                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <Slider
-                          label="Highlights"
-                          value={settings.highlightPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#777,#fff)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.max(v * 10, s.shadowPos);
-                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <p className="text-xs text-mute">
-                          The two handles of the in-game Range bar, as a percentage of its width.
-                          Moving a handle writes it the same way the game does.
-                        </p>
-                      </div>
-                    ) : (
-                      (() => {
+                    {                      (() => {
                         const k = panel;
                         const z = settings.zones[k];
                         const hp = hueParts(z.hue, hueHint[k]);
@@ -786,8 +758,7 @@ export default function FilterLab() {
                             </button>
                           </div>
                         );
-                      })()
-                    )}
+                      })()}
                   </motion.div>
                 </AnimatePresence>
               </div>
