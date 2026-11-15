@@ -24,6 +24,7 @@ import LoadoutRack from "@/components/LoadoutRack";
 import OpticsTelemetry from "@/components/OpticsTelemetry";
 import ScreenshotConverter from "@/components/ScreenshotConverter";
 import BlendLab from "@/components/BlendLab";
+import ShareCardModal from "@/components/ShareCardModal";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
@@ -150,6 +151,7 @@ export default function FilterLab() {
   const [scrubMask, setScrubMask] = useState(false);
   const [intensity, setIntensity] = useState(100);
   const intensityBaseRef = useRef<Settings | null>(null);
+  const [shareCard, setShareCard] = useState<{ code: string; title: string; key: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 5-Slot localStorage Armory + A/B split compare slot
@@ -438,6 +440,7 @@ export default function FilterLab() {
           setMode("build");
           document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
+        onShareCard={(c, name) => setShareCard({ code: c, title: name, key: Date.now() })}
       />
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
@@ -838,10 +841,22 @@ export default function FilterLab() {
       <CodeBar
         code={code}
         onLoad={loadCode}
+        onShareCard={() => {
+          const matched = LOOKS.find((l) => l.code === code)?.name;
+          setShareCard({ code, title: matched ?? "Custom Filter", key: Date.now() });
+        }}
         onReset={() => {
           resetIntensityAnchor();
           commitSettings(defaultSettings());
         }}
+      />
+      <ShareCardModal
+        key={shareCard?.key ?? 0}
+        open={!!shareCard}
+        code={shareCard?.code ?? code}
+        defaultTitle={shareCard?.title ?? "Custom Filter"}
+        sourceCanvas={activeCanvas}
+        onClose={() => setShareCard(null)}
       />
       <ImportGuide />
     </div>
@@ -853,10 +868,12 @@ export default function FilterLab() {
 function CodeBar({
   code,
   onLoad,
+  onShareCard,
   onReset,
 }: {
   code: string;
   onLoad: (c: string) => boolean;
+  onShareCard: () => void;
   onReset: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -872,7 +889,7 @@ function CodeBar({
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
@@ -884,8 +901,16 @@ function CodeBar({
             {code}
           </output>
           <button
+            type="button"
+            onClick={onShareCard}
+            title="Download Tactical PNG Filter Card or scan QR to phone"
+            className="border border-line bg-panel-2 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider text-codm hover:border-codm hover:bg-line"
+          >
+            Card / QR
+          </button>
+          <button
             onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+            className="cut-sm relative min-w-24 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light sm:min-w-28"
           >
             {copied ? "Copied" : "Copy"}
           </button>

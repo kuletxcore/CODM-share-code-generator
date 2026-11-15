@@ -267,7 +267,13 @@ function HitmarkerBurst() {
   );
 }
 
-export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+export default function LooksGallery({
+  onEdit,
+  onShareCard,
+}: {
+  onEdit: (code: string) => void;
+  onShareCard?: (code: string, name: string) => void;
+}) {
   const [copied, setCopied] = useState<string | null>(null);
   const [burstKey, setBurstKey] = useState(0);
   const [active, setActive] = useState(0);
@@ -479,6 +485,19 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             >
               Customize
             </button>
+            {onShareCard && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuto(false);
+                  onShareCard(look.code, look.name);
+                }}
+                title="Download PNG Loadout Card or scan QR to phone"
+                className="border border-white/15 bg-black/75 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-codm backdrop-blur-sm hover:border-codm hover:bg-line"
+              >
+                Card / QR
+              </button>
+            )}
           </div>
         </div>
       </div>
