@@ -252,29 +252,6 @@ export async function renderScene(
     }
     scene.add(hudGroup);
 
-    const camera = new THREE.PerspectiveCamera(58, w / h, 0.1, 900);
-    camera.position.set(0, 2.4, 30);
-    camera.lookAt(3, 6.5, -40);
-    scene.add(camera);
-
-    // dark foreground silhouette (deep shadows, like a held weapon)
-    const dark = new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.55, metalness: 0.4 });
-    const gun = new THREE.Group();
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 2.4), dark);
-    stock.position.set(0, 0, 0);
-    gun.add(stock);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.6, 10), dark);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.1, -2.4);
-    gun.add(barrel);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.4), dark);
-    grip.position.set(0, -0.5, 0.2);
-    grip.rotation.x = 0.25;
-    gun.add(grip);
-    gun.position.set(0.95, -0.72, -1.7);
-    gun.rotation.set(0.04, 0.2, 0);
-    camera.add(gun);
-
     // Animation loop for the HUD elements before rendering the single frame
     const clock = new THREE.Clock();
     const elapsed = clock.getElapsedTime();
