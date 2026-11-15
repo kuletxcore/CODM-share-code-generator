@@ -1,12 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   analyse,
   decode,
   defaultSettings,
   encode,
+  LOOKS,
   type Settings,
   type Zone,
   type ZoneKey,
@@ -20,7 +21,9 @@ import PreviewCanvas from "@/components/PreviewCanvas";
 import ColorWheel from "@/components/ColorWheel";
 import RangeScrubber from "@/components/RangeScrubber";
 import TacticalMacros from "@/components/TacticalMacros";
+import LoadoutRack from "@/components/LoadoutRack";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
+import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -217,10 +220,99 @@ export default function FilterLab() {
   const intensityBaseRef = useRef<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 5-Slot localStorage Armory + A/B split compare slot
+  const slots = useSyncExternalStore(subscribeSlots, getClientSlots, getServerSlots);
+  const [compareSlotIndex, setCompareSlotIndex] = useState<number | null>(null);
+  const activeCompareSlot = compareSlotIndex !== null ? slots[compareSlotIndex] : null;
+  const compareSettings = useMemo(
+    () => (activeCompareSlot ? decode(activeCompareSlot.code) : null),
+    [activeCompareSlot],
+  );
+
+  // Undo / Redo history with smart stroke coalescing (50 steps)
+  const [hist, setHist] = useState<{ past: Settings[]; future: Settings[] }>({
+    past: [],
+    future: [],
+  });
+  const histRef = useRef(hist);
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  useEffect(() => {
+    histRef.current = hist;
+  }, [hist]);
+  const lastCoalesceRef = useRef(0);
+
   const resetIntensityAnchor = useCallback(() => {
     intensityBaseRef.current = null;
     setIntensity(100);
   }, []);
+
+  const commitSettings = useCallback(
+    (updater: Settings | ((prev: Settings) => Settings), opts?: { coalesce?: boolean }) => {
+      const prev = settingsRef.current;
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (encode(prev) === encode(next)) return;
+      const now = Date.now();
+      const shouldRecord = !opts?.coalesce || now - lastCoalesceRef.current > 420;
+      if (opts?.coalesce) lastCoalesceRef.current = now;
+      else lastCoalesceRef.current = 0;
+      settingsRef.current = next;
+      setSettings(next);
+      if (shouldRecord) {
+        const nextHist = { past: [...histRef.current.past.slice(-49), prev], future: [] };
+        histRef.current = nextHist;
+        setHist(nextHist);
+      }
+    },
+    [],
+  );
+
+  const handleUndo = useCallback(() => {
+    const h = histRef.current;
+    if (!h.past.length) return;
+    resetIntensityAnchor();
+    const prev = h.past[h.past.length - 1];
+    const curr = settingsRef.current;
+    const nextHist = { past: h.past.slice(0, -1), future: [curr, ...h.future.slice(0, 49)] };
+    histRef.current = nextHist;
+    settingsRef.current = prev;
+    setHist(nextHist);
+    setSettings(prev);
+  }, [resetIntensityAnchor]);
+
+  const handleRedo = useCallback(() => {
+    const h = histRef.current;
+    if (!h.future.length) return;
+    resetIntensityAnchor();
+    const next = h.future[0];
+    const curr = settingsRef.current;
+    const nextHist = { past: [...h.past.slice(-49), curr], future: h.future.slice(1) };
+    histRef.current = nextHist;
+    settingsRef.current = next;
+    setHist(nextHist);
+    setSettings(next);
+  }, [resetIntensityAnchor]);
+
+  // Ctrl/Cmd+Z & Ctrl/Cmd+Shift+Z keyboard undo/redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      if (e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
+      } else if (e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleUndo, handleRedo]);
 
   const code = useMemo(() => encode(settings), [settings]);
 
@@ -235,16 +327,19 @@ export default function FilterLab() {
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
   }, []);
   useEffect(() => {
-    history.replaceState(null, "", `#c=${code}`);
+    window.history.replaceState(null, "", `#c=${code}`);
   }, [code]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback(
     (k: ZoneKey, patch: Partial<Zone>) => {
       resetIntensityAnchor();
-      setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+      commitSettings(
+        (s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }),
+        { coalesce: true },
+      );
     },
-    [resetIntensityAnchor],
+    [resetIntensityAnchor, commitSettings],
   );
 
   const loadCode = useCallback(
@@ -252,11 +347,11 @@ export default function FilterLab() {
       const s = decode(c);
       if (!s) return false;
       resetIntensityAnchor();
-      setSettings(s);
+      commitSettings(s);
       setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
       return true;
     },
-    [resetIntensityAnchor],
+    [resetIntensityAnchor, commitSettings],
   );
 
   const handleIntensityChange = useCallback(
@@ -265,18 +360,70 @@ export default function FilterLab() {
         intensityBaseRef.current = settings;
       }
       setIntensity(pct);
-      setSettings(scaleIntensity(intensityBaseRef.current, pct));
+      commitSettings(scaleIntensity(intensityBaseRef.current, pct), { coalesce: true });
     },
-    [settings],
+    [settings, commitSettings],
   );
 
   const handleApplyMacro = useCallback(
     (id: MacroId) => {
       resetIntensityAnchor();
       setAdvanced(true);
-      setSettings((s) => applyMacro(s, id));
+      commitSettings((s) => applyMacro(s, id));
     },
-    [resetIntensityAnchor],
+    [resetIntensityAnchor, commitSettings],
+  );
+
+  const handleSaveSlot = useCallback(
+    (index: number) => {
+      const matchedLook = LOOKS.find((l) => l.code === code)?.name;
+      const existing = slots[index];
+      const next = [...slots];
+      next[index] = {
+        name: existing?.name || matchedLook || `Custom #${index + 1}`,
+        code,
+        updatedAt: Date.now(),
+      };
+      saveSlots(next);
+    },
+    [slots, code],
+  );
+
+  const handleRenameSlot = useCallback(
+    (index: number, name: string) => {
+      const cur = slots[index];
+      if (!cur) return;
+      const next = [...slots];
+      next[index] = { ...cur, name };
+      saveSlots(next);
+    },
+    [slots],
+  );
+
+  const handleLoadSlot = useCallback(
+    (index: number) => {
+      const cur = slots[index];
+      if (!cur) return;
+      loadCode(cur.code);
+    },
+    [slots, loadCode],
+  );
+
+  const handleDeleteSlot = useCallback(
+    (index: number) => {
+      const next = [...slots];
+      next[index] = null;
+      saveSlots(next);
+      if (compareSlotIndex === index) setCompareSlotIndex(null);
+    },
+    [slots, compareSlotIndex],
+  );
+
+  const handleToggleCompare = useCallback(
+    (index: number) => {
+      setCompareSlotIndex((cur) => (cur === index ? null : index));
+    },
+    [],
   );
 
   const upload = useCallback(async (f: File) => {
@@ -376,8 +523,24 @@ export default function FilterLab() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]"
+            className="flex flex-col"
           >
+            <LoadoutRack
+              slots={slots}
+              activeCode={code}
+              compareSlotIndex={compareSlotIndex}
+              canUndo={hist.past.length > 0}
+              canRedo={hist.future.length > 0}
+              undoCount={hist.past.length}
+              onSaveSlot={handleSaveSlot}
+              onRenameSlot={handleRenameSlot}
+              onLoadSlot={handleLoadSlot}
+              onDeleteSlot={handleDeleteSlot}
+              onToggleCompare={handleToggleCompare}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+            />
+            <div className="mt-5 grid gap-6 lg:grid-cols-[300px_1fr]">
             {/* left list, like the mode selector */}
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between gap-3 bg-white/[0.035] px-4 py-3">
@@ -462,6 +625,8 @@ export default function FilterLab() {
             <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
               <PreviewCanvas
                 settings={settings}
+                compareSettings={compareSettings}
+                compareLabel={activeCompareSlot?.name}
                 source={source}
                 zoneMask={maskPinned || scrubMask}
                 onToggleZoneMask={() => setMaskPinned((v) => !v)}
@@ -516,16 +681,20 @@ export default function FilterLab() {
                           maskPinned={maskPinned}
                           onToggleMask={() => setMaskPinned((v) => !v)}
                           onScrubMask={setScrubMask}
-                          onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
-                          onReset={() =>
-                            setSettings((s) => ({
+                          onChange={(patch) => {
+                            resetIntensityAnchor();
+                            commitSettings((s) => ({ ...s, ...patch }), { coalesce: true });
+                          }}
+                          onReset={() => {
+                            resetIntensityAnchor();
+                            commitSettings((s) => ({
                               ...s,
                               shadowPos: 30,
                               shadowEdge: 300,
                               highlightPos: 1000,
                               highlightEdge: 1500,
-                            }))
-                          }
+                            }));
+                          }}
                         />
                         <div className="flex flex-col gap-2 border-t border-line/70 pt-3">
                           <Slider
@@ -664,12 +833,14 @@ export default function FilterLab() {
                 </AnimatePresence>
               </div>
             </div>
+            </div>
           </motion.section>
         ) : (
           <Converter
             key="convert"
             onApply={(s) => {
-              setSettings(s);
+              resetIntensityAnchor();
+              commitSettings(s);
               setMode("build");
             }}
             onError={setError}
@@ -678,7 +849,14 @@ export default function FilterLab() {
       </AnimatePresence>
 
       <Notes />
-      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <CodeBar
+        code={code}
+        onLoad={loadCode}
+        onReset={() => {
+          resetIntensityAnchor();
+          commitSettings(defaultSettings());
+        }}
+      />
       <ImportGuide />
     </div>
   );

@@ -19,6 +19,8 @@ function sampleCanvas() {
 
 export default function PreviewCanvas({
   settings,
+  compareSettings = null,
+  compareLabel,
   source,
   zoneMask = false,
   onToggleZoneMask,
@@ -27,6 +29,8 @@ export default function PreviewCanvas({
   onActiveCanvasChange,
 }: {
   settings: Settings;
+  compareSettings?: Settings | null;
+  compareLabel?: string;
   source: HTMLCanvasElement | null;
   zoneMask?: boolean;
   onToggleZoneMask?: () => void;
@@ -153,19 +157,29 @@ export default function PreviewCanvas({
   useEffect(() => {
     if (!gpuOk || !src) return;
     const id = requestAnimationFrame(() =>
-      gpu.current?.render(settings, effectiveSplit, { mask: zoneMask && !peeking }),
+      gpu.current?.render(settings, effectiveSplit, {
+        mask: zoneMask && !peeking,
+        left: peeking ? null : compareSettings,
+      }),
     );
     return () => cancelAnimationFrame(id);
-  }, [gpuOk, src, settings, effectiveSplit, zoneMask, peeking]);
+  }, [gpuOk, src, settings, compareSettings, effectiveSplit, zoneMask, peeking]);
 
-  // Draw the untouched original canvas when in Side-by-Side ("2-Up") mode
+  // Draw the left reference canvas when in Side-by-Side ("2-Up") mode
   useEffect(() => {
     if (viewMode !== "side" || !src || !rawSide.current) return;
     const c = rawSide.current;
     c.width = src.width;
     c.height = src.height;
-    c.getContext("2d")?.drawImage(src, 0, 0);
-  }, [viewMode, src]);
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(src, 0, 0);
+    if (compareSettings) {
+      const img = ctx.getImageData(0, 0, c.width, c.height);
+      applyGrade(img.data, compareSettings);
+      ctx.putImageData(img, 0, 0);
+    }
+  }, [viewMode, src, compareSettings]);
 
   // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
@@ -175,6 +189,13 @@ export default function PreviewCanvas({
         : null,
     [src, gpuOk],
   );
+  const leftPixels = useMemo(() => {
+    if (!orig) return null;
+    if (!compareSettings || peeking) return orig.data;
+    const data = new Uint8ClampedArray(orig.data);
+    applyGrade(data, compareSettings);
+    return data;
+  }, [orig, compareSettings, peeking]);
   // Filtered pixels, recomputed only when the image or settings change.
   const graded = useMemo(() => {
     if (!orig) return null;
@@ -206,7 +227,7 @@ export default function PreviewCanvas({
 
   useEffect(() => {
     const c = view.current;
-    if (!c || !orig || !graded) return;
+    if (!c || !orig || !graded || !leftPixels) return;
     const id = requestAnimationFrame(() => {
       const { width: w, height: h } = orig;
       if (c.width !== w) c.width = w;
@@ -216,7 +237,7 @@ export default function PreviewCanvas({
       if (x > 0) {
         for (let y = 0; y < h; y++) {
           const row = y * w * 4;
-          out.data.set(orig.data.subarray(row, row + x * 4), row);
+          out.data.set(leftPixels.subarray(row, row + x * 4), row);
           if (x < w) {
             for (let dx = Math.max(0, x - 1); dx <= Math.min(w - 1, x); dx++) {
               const i = row + dx * 4;
@@ -231,7 +252,7 @@ export default function PreviewCanvas({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, effectiveSplit, zoneMask, peeking]);
+  }, [orig, graded, leftPixels, effectiveSplit, zoneMask, peeking]);
 
   const setSplitFromClientX = useCallback((clientX: number) => {
     const el = frameRef.current;
@@ -351,8 +372,12 @@ export default function PreviewCanvas({
                 ref={rawSide}
                 className="mx-auto block aspect-video h-auto max-h-[27svh] w-full object-contain xl:max-h-none"
               />
-              <span className="pointer-events-none absolute left-2 top-2 bg-black/80 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
-                Original
+              <span
+                className={`pointer-events-none absolute left-2 top-2 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-widest ${
+                  compareSettings ? "bg-lime text-black" : "bg-black/80 text-mute"
+                }`}
+              >
+                {compareSettings ? `A · ${compareLabel ?? "Slot"}` : "Original"}
               </span>
             </div>
           )}
@@ -415,7 +440,15 @@ export default function PreviewCanvas({
           <>
             <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
               {(peeking || (viewMode === "split" && split > 0.14)) && (
-                <span className="bg-black/80 px-2 py-0.5 text-mute">Original</span>
+                <span
+                  className={
+                    !peeking && compareSettings
+                      ? "bg-lime px-2 py-0.5 text-black"
+                      : "bg-black/80 px-2 py-0.5 text-mute"
+                  }
+                >
+                  {!peeking && compareSettings ? `A · ${compareLabel ?? "Slot"}` : "Original"}
+                </span>
               )}
               {!peeking && viewMode === "full" && (
                 <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
@@ -423,7 +456,7 @@ export default function PreviewCanvas({
             </div>
             {!peeking && viewMode === "split" && split < 0.84 && (
               <span className="pointer-events-none absolute right-3 top-3 bg-codm px-2 py-0.5 font-display text-xs font-bold uppercase tracking-widest text-black">
-                Filtered · approx.
+                {compareSettings ? "B · Current" : "Filtered · approx."}
               </span>
             )}
           </>

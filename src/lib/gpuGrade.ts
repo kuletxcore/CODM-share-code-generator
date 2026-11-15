@@ -3,8 +3,8 @@ import { gradeUniforms, type Settings } from "@/lib/codm";
 /*
  * applyGrade from codm.ts, run as a WebGL fragment shader. Same maths per
  * pixel, so the preview updates every frame while a slider moves instead of
- * redoing ~half a million pixels on the main thread. The CPU version stays
- * as the fallback.
+ * redoing ~half a million pixels on the main thread. Also supports optional
+ * false-colour tonal zone mask and dual-filter A/B split comparison.
  */
 
 const VERT = `
@@ -23,6 +23,10 @@ uniform sampler2D uTex;
 uniform vec4 uBands;
 uniform vec3 uTint[4];
 uniform vec3 uP[4];
+uniform float uHasLeft;
+uniform vec4 uBandsL;
+uniform vec3 uTintL[4];
+uniform vec3 uPL[4];
 uniform vec2 uSize;
 uniform float uSplitX;
 uniform float uMask;
@@ -44,6 +48,28 @@ vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
   n = vec3(l2) + (n - vec3(l2)) * sm;
   return n * (1.0 + (p.z - 1.0) * k);
 }
+vec3 gradeRight(vec3 c){
+  float l0 = luma(c);
+  float ws = 1.0 - smoothB(uBands.x, uBands.y, l0);
+  float wh = smoothB(uBands.z, uBands.w, l0) * (1.0 - ws);
+  float wm = max(0.0, 1.0 - ws - wh);
+  c = zone(c, uTint[0], uP[0], ws);
+  c = zone(c, uTint[1], uP[1], wm);
+  c = zone(c, uTint[2], uP[2], wh);
+  c = zone(c, uTint[3], uP[3], 1.0);
+  return clamp(c, 0.0, 1.0);
+}
+vec3 gradeLeft(vec3 c){
+  float l0 = luma(c);
+  float ws = 1.0 - smoothB(uBandsL.x, uBandsL.y, l0);
+  float wh = smoothB(uBandsL.z, uBandsL.w, l0) * (1.0 - ws);
+  float wm = max(0.0, 1.0 - ws - wh);
+  c = zone(c, uTintL[0], uPL[0], ws);
+  c = zone(c, uTintL[1], uPL[1], wm);
+  c = zone(c, uTintL[2], uPL[2], wh);
+  c = zone(c, uTintL[3], uPL[3], 1.0);
+  return clamp(c, 0.0, 1.0);
+}
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
   float col = floor(vUv.x * uSize.x);
@@ -61,21 +87,16 @@ void main(){
     gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
     return;
   }
-  if (col < uSplitX) { gl_FragColor = vec4(c, 1.0); return; }
-  float l0 = luma(c);
-  float ws = 1.0 - smoothB(uBands.x, uBands.y, l0);
-  float wh = smoothB(uBands.z, uBands.w, l0) * (1.0 - ws);
-  float wm = max(0.0, 1.0 - ws - wh);
-  c = zone(c, uTint[0], uP[0], ws);
-  c = zone(c, uTint[1], uP[1], wm);
-  c = zone(c, uTint[2], uP[2], wh);
-  c = zone(c, uTint[3], uP[3], 1.0);
-  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+  if (col < uSplitX) {
+    gl_FragColor = vec4(uHasLeft > 0.5 ? gradeLeft(c) : c, 1.0);
+    return;
+  }
+  gl_FragColor = vec4(gradeRight(c), 1.0);
 }`;
 
 export type GradeGpu = {
   setSource: (src: HTMLCanvasElement) => void;
-  render: (s: Settings, split: number, opts?: { mask?: boolean }) => void;
+  render: (s: Settings, split: number, opts?: { mask?: boolean; left?: Settings | null }) => void;
   dispose: () => void;
 };
 
@@ -121,6 +142,10 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
   const uBands = u("uBands"),
     uTint = u("uTint"),
     uP = u("uP"),
+    uHasLeft = u("uHasLeft"),
+    uBandsL = u("uBandsL"),
+    uTintL = u("uTintL"),
+    uPL = u("uPL"),
     uSize = u("uSize"),
     uSplitX = u("uSplitX"),
     uMask = u("uMask");
@@ -139,8 +164,16 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
       gl.uniform3fv(uP, g.params);
+      if (opts?.left) {
+        const glf = gradeUniforms(opts.left);
+        gl.uniform1f(uHasLeft, 1.0);
+        gl.uniform4fv(uBandsL, glf.bands);
+        gl.uniform3fv(uTintL, glf.tint);
+        gl.uniform3fv(uPL, glf.params);
+      } else {
+        gl.uniform1f(uHasLeft, 0.0);
+      }
       gl.uniform2f(uSize, w, h);
-      // same rounding as the CPU compositor: original left of round(w * split)
       gl.uniform1f(uSplitX, Math.min(w, Math.round(w * split)));
       gl.uniform1f(uMask, opts?.mask ? 1.0 : 0.0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
