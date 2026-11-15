@@ -302,18 +302,7 @@ export async function renderScene(
       ctx.lineTo(w, y);
       ctx.stroke();
     }
-    // colour chips, handy for reading hue shifts
-    if (opts.chips !== false) drawChips(ctx, w, h);
-    scene.traverse((o) => {
-      const m = o as InstanceType<typeof THREE.Mesh>;
-      m.geometry?.dispose?.();
-    });
-    return out;
-  } finally {
-    renderer.dispose();
-    renderer.forceContextLoss();
-  }
-}
+
 
 function drawChips(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const chips = ["#e23b2e", "#f2a71b", "#8fd13f", "#27b36a", "#29b8d6", "#2f5fd0", "#7a3fd0", "#d93fa6", "#f2f2f2", "#8a8a8a", "#1e1e1e"];

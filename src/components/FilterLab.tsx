@@ -235,6 +235,7 @@ function Preview({
     };
   }, []);
   const [split, setSplit] = useState(0);
+  const [pulse, setPulse] = useState(false);
   const src = source ?? sample;
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
@@ -259,6 +260,22 @@ function Preview({
     const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
     return () => cancelAnimationFrame(id);
   }, [gpuOk, src, settings, split]);
+
+  // Audio-Reactive / Haptic Feedback Simulation ("Tactical Pulse")
+  useEffect(() => {
+    if (!gpuOk || !src) return;
+    let interval: number | null = null;
+    const triggerPulse = () => {
+      setPulse(true);
+      interval = window.setTimeout(() => setPulse(false), 150); // 150ms recoil simulation
+    };
+    // Simulate audio-reactive trigger (e.g. based on frequency peaks)
+    const audioInterval = window.setInterval(triggerPulse, 600); // ~100 BPM
+    return () => {
+      if (interval) window.clearTimeout(interval);
+      window.clearInterval(audioInterval);
+    };
+  }, [gpuOk, src]);
 
   // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
@@ -308,7 +325,7 @@ function Preview({
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
     // while the sliders underneath scroll.
     <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-2 border-b border-line bg-ink/90 px-4 pb-2 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8 xl:static xl:mx-0 xl:gap-3 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
-      <div className="cut relative overflow-hidden border border-line bg-black">
+      <div className={`cut relative overflow-hidden border border-line bg-black ${pulse ? 'recoil-active recoil-pulse' : ''}`}>
         <canvas ref={view} className="mx-auto block aspect-video h-auto max-h-[27svh] w-full object-contain xl:max-h-none" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
@@ -329,6 +346,12 @@ function Preview({
             onChange={(e) => setSplit(Number(e.target.value) / 100)}
           />
         </label>
+        {/* Tactical Pulse Audio-Reactive Sound Wave */}
+        <div className="sound-wave">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="sound-wave-bar" style={{ animationDelay: `${i * 0.1}s` }} />
+          ))}
+        </div>
         <label className="cut-sm cursor-pointer bg-panel-2 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider hover:bg-line">
           Use my screenshot
           <input
