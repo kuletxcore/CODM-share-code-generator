@@ -1,4 +1,4 @@
-import { gradeUniforms, type Settings } from "@/lib/codm";
+import { defaultSettings, gradeUniforms, type Settings } from "@/lib/codm";
 
 /*
  * applyGrade from codm.ts, run as a WebGL fragment shader. Same maths per
@@ -142,13 +142,32 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
 
 let supported: boolean | null = null;
 
+// Some drivers link the program and then draw nothing; grade a grey pixel red and read it back.
+function drawsGrade(g: GradeGpu, probe: HTMLCanvasElement): boolean {
+  const src = document.createElement("canvas");
+  src.width = src.height = 2;
+  const ctx = src.getContext("2d");
+  if (!ctx) return false;
+  ctx.fillStyle = "#808080";
+  ctx.fillRect(0, 0, 2, 2);
+  g.setSource(src);
+  const s = defaultSettings();
+  s.zones.global = { hue: 0, tint: 100, sat: 50, bri: 50 };
+  g.render(s, 0);
+  const gl = probe.getContext("webgl");
+  if (!gl) return false;
+  const px = new Uint8Array(4);
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return px[0] > px[2] + 40;
+}
+
 /** Builds the GPU grader on `canvas`, or returns null (canvas untouched) if WebGL can't run it. */
 export function createGradeGpu(canvas: HTMLCanvasElement): GradeGpu | null {
   if (supported === null) {
     // probe on a throwaway canvas: once a canvas has a WebGL context it can't fall back to 2D
     const probe = document.createElement("canvas");
     const g = init(probe);
-    supported = !!g;
+    supported = !!g && drawsGrade(g, probe);
     g?.dispose();
     (probe.getContext("webgl") as WebGLRenderingContext | null)?.getExtension("WEBGL_lose_context")?.loseContext();
   }

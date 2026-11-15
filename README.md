@@ -57,3 +57,7 @@ Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hit
 ## Disclaimer
 
 A fan-made project. Not affiliated with, endorsed by or connected to Activision, TiMi Studio Group or Tencent. Call of Duty and Call of Duty: Mobile are trademarks of their respective owners.
+
+## Design
+
+Visual direction, tokens, layout states and the reasons behind them live in [DESIGN.md](DESIGN.md). Read it before changing UI.
