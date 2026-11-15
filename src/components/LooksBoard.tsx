@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { LOOKS, applyGrade, decode, type Look } from "@/lib/codm";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LOOKS, applyGrade, decode } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
 import { sampleFrame } from "@/lib/frame";
 
@@ -60,6 +60,8 @@ function gradedOf(frame: HTMLCanvasElement, code: string) {
 
 const STEPS = ["Copy", "Import in game", "Apply"];
 
+type Tile = { name: string; note: string; mode: string; code: string; image?: string; custom?: boolean };
+
 // Each look's three zone colours, so the tiles still read as different even when
 // the frame is a hazy daytime scene where the grades are subtle.
 const signatures = new Map<string, string[]>();
@@ -84,14 +86,17 @@ function signature(code: string) {
 export default function LooksBoard({
   source,
   activeCode,
+  customCode,
   onUpload,
   onClear,
   onEdit,
 }: {
   /** The visitor's own screenshot, if they've dropped one in. */
   source: HTMLCanvasElement | null;
-  /** Code currently loaded in the generator, so the board can mark it. */
+  /** Code currently loaded in the editor, so the board can mark it. */
   activeCode: string;
+  /** A build of their own, shown as a tile once it exists. */
+  customCode?: string | null;
   onUpload: (f: File) => void;
   onClear: () => void;
   onEdit: (code: string) => void;
@@ -103,6 +108,27 @@ export default function LooksBoard({
   const canvases = useRef(new Map<string, HTMLCanvasElement>());
   const reduce = useReducedMotion();
   const frame = source ?? sample;
+
+  // Their own build joins the shelf, first, as soon as it differs from a preset.
+  const tiles = useMemo<Tile[]>(() => {
+    const out: Tile[] = LOOKS.map((l) => ({
+      name: l.name,
+      note: l.note,
+      mode: l.mode,
+      code: l.code,
+      image: l.image,
+    }));
+    if (customCode && !out.some((t) => t.code === customCode)) {
+      out.unshift({
+        name: "Your look",
+        note: "Your edits, ready to copy",
+        mode: "Custom",
+        code: customCode,
+        custom: true,
+      });
+    }
+    return out;
+  }, [customCode]);
 
   // One shared scene render for the whole page; nothing is graded until it lands.
   useEffect(() => {
@@ -122,10 +148,10 @@ export default function LooksBoard({
     let live = true;
     let i = 0;
     const paint = () => {
-      if (!live || i >= LOOKS.length) return;
-      const look = LOOKS[i++];
-      const img = gradedOf(frame, look.code);
-      const c = canvases.current.get(look.code);
+      if (!live || i >= tiles.length) return;
+      const tile = tiles[i++];
+      const img = gradedOf(frame, tile.code);
+      const c = canvases.current.get(tile.code);
       if (c && img) {
         if (c.width !== W) c.width = W;
         if (c.height !== H) c.height = H;
@@ -138,7 +164,7 @@ export default function LooksBoard({
       live = false;
       cancelAnimationFrame(id);
     };
-  }, [frame]);
+  }, [frame, tiles]);
 
   useEffect(() => {
     if (!copied) return;
@@ -147,7 +173,7 @@ export default function LooksBoard({
   }, [copied]);
 
   const pick = useCallback(
-    (l: Look) => {
+    (l: Tile) => {
       onEdit(l.code);
       document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
@@ -230,7 +256,7 @@ export default function LooksBoard({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 lg:grid-cols-4">
-        {LOOKS.map((l, i) => {
+        {tiles.map((l, i) => {
           const active = l.code === activeCode;
           const isCopied = copied === l.code;
           return (
@@ -240,7 +266,7 @@ export default function LooksBoard({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: reduce ? 0 : Math.min(i * 0.025, 0.3), duration: 0.35 }}
               className={`group relative overflow-hidden border bg-panel-2 ${
-                active ? "border-codm" : "border-line"
+                active ? "border-codm" : l.custom ? "border-codm/50" : "border-line"
               }`}
             >
               <div className="relative aspect-[16/10] overflow-hidden">
@@ -289,10 +315,16 @@ export default function LooksBoard({
                   {isCopied ? "Copied ✓" : "Copy"}
                 </button>
 
-                {active && (
-                  <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 bg-codm px-1.5 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-black">
-                    in editor
+                {l.custom ? (
+                  <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 bg-lime px-1.5 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-black">
+                    your build
                   </span>
+                ) : (
+                  active && (
+                    <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 bg-codm px-1.5 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-black">
+                      in editor
+                    </span>
+                  )
                 )}
 
                 <span className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex h-[3px]">
