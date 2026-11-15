@@ -11,18 +11,28 @@ export function announceCopy(code: string, name?: string) {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name } }));
 }
 
-export async function copyCode(code: string, name?: string) {
+export async function copyCode(code: string, name?: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(code);
   } catch {
     const t = document.createElement("textarea");
     t.value = code;
+    t.style.position = "fixed";
+    t.style.opacity = "0";
     document.body.appendChild(t);
     t.select();
-    document.execCommand("copy");
-    t.remove();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    } finally {
+      t.remove();
+    }
+    if (!copied) return false;
   }
   announceCopy(code, name);
+  return true;
 }
 
 const STEPS: { title: string; hint?: string }[] = [
@@ -60,7 +70,9 @@ export default function ImportGuide() {
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent<{ code: string; name?: string }>).detail;
-      if (readOff()) {
+      const guideOff = readOff();
+      setOff(guideOff);
+      if (guideOff) {
         setToast(d);
       } else {
         setDone([]);
@@ -70,10 +82,6 @@ export default function ImportGuide() {
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);
   }, []);
-
-  useEffect(() => {
-    setOff(readOff());
-  }, [open]);
 
   useEffect(() => {
     if (!toast) return;

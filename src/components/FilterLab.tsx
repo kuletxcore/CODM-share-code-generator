@@ -406,39 +406,18 @@ export default function FilterLab() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
-      {/* top bar */}
-      <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
-        <div>
+    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-16 sm:px-8">
+      {/* A compact masthead keeps the collection and its primary action in view. */}
+      <header className="flex items-center justify-between gap-4 border-b border-line py-5 sm:py-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/codm-logo.svg"
-            alt="Call of Duty: Mobile"
-            width={1442}
-            height={479}
-            className="mb-4 h-10 w-auto sm:h-12"
-          />
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-codm"
-          >
-            <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
-            Unofficial fan-made tool
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="font-title text-5xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
-          >
-            Filter Lab
-          </motion.h1>
-          <p className="mt-2 max-w-xl text-mute">
-            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
-            your own.
-          </p>
+          <img src="/brand/codm-logo.svg" alt="Call of Duty: Mobile" width={1442} height={479} className="h-8 w-auto sm:h-10" />
+          <div className="border-l border-line pl-4 sm:pl-6">
+            <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-codm">Fan-made tool</p>
+            <h1 className="mt-1 font-title text-xl font-black uppercase leading-none tracking-wide sm:text-2xl">Filter Lab</h1>
+          </div>
         </div>
+        <a href="#editor" className="hidden font-display text-sm font-bold uppercase tracking-wider text-mute transition-colors hover:text-codm sm:block">Make your own <span aria-hidden="true">↗</span></a>
       </header>
 
       <LooksGallery
@@ -761,8 +740,8 @@ export default function FilterLab() {
         )}
       </AnimatePresence>
 
-      <Notes />
       <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <Notes />
       <ImportGuide />
     </div>
   );
@@ -899,23 +878,26 @@ function CodeBar({
   const [copied, setCopied] = useState(false);
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const copy = async () => {
-    await copyCode(code);
+    const ok = await copyCode(code);
+    setCopyError(!ok);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
+    <div className="mt-6 border border-line bg-panel/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
           <output
             aria-live="polite"
-            className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
+            className="min-w-0 flex-1 select-all truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
             {code}
@@ -964,6 +946,7 @@ function CodeBar({
           </button>
         </form>
       </div>
+      {copyError && <p role="alert" className="px-4 pb-2 text-xs text-red-400">Could not copy automatically. Select the share code above and copy it manually.</p>}
       {bad && (
         <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
           That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.

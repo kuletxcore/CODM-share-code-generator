@@ -1,257 +1,142 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { LOOKS, applyGrade, decode, drawSample, type Look } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
 
-// One render of the 3D scene shared by every card without an image; each
-// look's graded pixels are cached so it is graded once.
-const W = 960,
-  H = 438;
+// The default look has no reference image. Render one shared sample for it.
+const W = 960, H = 438;
 let base: Promise<ImageData> | null = null;
 const graded = new Map<string, Promise<ImageData>>();
 
-function baseImage(): Promise<ImageData> {
+function gradedImage(code: string): Promise<ImageData> | null {
+  const settings = decode(code);
+  if (!settings) return null;
   base ??= import("@/lib/scene")
     .then((m) => m.renderScene(W, H, { chips: false }))
     .catch(() => null)
-    .then((c) => {
-      if (c) return c.getContext("2d")!.getImageData(0, 0, W, H);
-      const f = document.createElement("canvas");
-      f.width = W;
-      f.height = H;
-      const ctx = f.getContext("2d")!;
+    .then((canvas) => {
+      if (canvas) return canvas.getContext("2d")!.getImageData(0, 0, W, H);
+      const fallback = document.createElement("canvas");
+      fallback.width = W;
+      fallback.height = H;
+      const ctx = fallback.getContext("2d")!;
       drawSample(ctx, W, H);
       return ctx.getImageData(0, 0, W, H);
     });
-  return base;
-}
-
-function gradedImage(code: string): Promise<ImageData> | null {
-  const s = decode(code);
-  if (!s) return null;
-  let p = graded.get(code);
-  if (!p) {
-    p = baseImage().then((img) => {
-      const data = new Uint8ClampedArray(img.data);
-      applyGrade(data, s);
+  let result = graded.get(code);
+  if (!result) {
+    result = base.then((image) => {
+      const data = new Uint8ClampedArray(image.data);
+      applyGrade(data, settings);
       return new ImageData(data, W, H);
     });
-    graded.set(code, p);
+    graded.set(code, result);
   }
-  return p;
+  return result;
 }
-
-/** Preview for looks without a reference image: the 3D scene with the look applied. */
-function RenderedThumb({ code }: { code: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    let live = true;
-    gradedImage(code)?.then((img) => {
-      if (live) ref.current?.getContext("2d")?.putImageData(img, 0, 0);
-    });
-    return () => {
-      live = false;
-    };
-  }, [code]);
-  return <canvas ref={ref} width={W} height={H} className="h-full w-full bg-panel-2 object-cover" />;
-}
-
-const DWELL = 7; // seconds each look stays on stage while auto-playing
 
 function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (look.image) return;
+    let live = true;
+    gradedImage(look.code)?.then((image) => {
+      if (live) ref.current?.getContext("2d")?.putImageData(image, 0, 0);
+    });
+    return () => { live = false; };
+  }, [look]);
   return look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={thumb ? look.image.replace("/looks/", "/looks/thumb/") : look.image}
-      alt=""
-      loading={thumb ? "lazy" : undefined}
-      decoding="async"
-      className="h-full w-full object-cover"
-    />
+    <img src={thumb ? look.image.replace("/looks/", "/looks/thumb/") : look.image} alt="" loading={thumb ? "lazy" : "eager"} decoding="async" className="h-full w-full object-cover" />
   ) : (
-    <RenderedThumb code={look.code} />
+    <canvas ref={ref} width={W} height={H} className="h-full w-full bg-panel-2 object-cover" />
   );
 }
 
+const FILTERS = ["All looks", "Warm", "Cool & dark", "Muted", "Classic"] as const;
+type Filter = (typeof FILTERS)[number];
+const CATEGORIES: Record<string, Filter> = {
+  Hajin: "Warm", Apex: "Warm", Avalon: "Warm", "Haven's Hollow": "Warm", Caldera: "Warm", Verdansk: "Warm",
+  "Haven's Hollow (Night)": "Cool & dark", Vondead: "Cool & dark",
+  "2035": "Muted", "Al Mazrah": "Muted",
+  "Cold War": "Classic", Default: "Classic",
+};
+
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
-  const [copied, setCopied] = useState<string | null>(null);
   const [active, setActive] = useState(0);
-  const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
-  const [hover, setHover] = useState(false);
-  const reduce = useReducedMotion();
-  const playing = auto && !hover && !reduce;
+  const [filter, setFilter] = useState<Filter>("All looks");
+  const [copied, setCopied] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState(false);
+  const stage = useRef<HTMLDivElement>(null);
   const look = LOOKS[active];
+  const visible = LOOKS.filter((item) => filter === "All looks" || CATEGORIES[item.name] === filter);
 
   useEffect(() => {
     if (!copied) return;
-    const t = setTimeout(() => setCopied(null), 6000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCopied(null), 4000);
+    return () => clearTimeout(timer);
   }, [copied]);
 
-  useEffect(() => {
-    if (!playing) return;
-    const t = setTimeout(() => setActive((a) => (a + 1) % LOOKS.length), DWELL * 1000);
-    return () => clearTimeout(t);
-  }, [playing, active]);
-
-  const strip = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = strip.current;
-    const tab = el?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!el || !tab) return;
-    // horizontal only, so autoplay never scrolls the page
-    const left = tab.offsetLeft - el.offsetLeft;
-    if (left < el.scrollLeft || left + tab.offsetWidth > el.scrollLeft + el.clientWidth)
-      el.scrollTo({ left: left - (el.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth" });
-  }, [active, reduce]);
-
-  const pick = (i: number) => {
-    setAuto(false);
-    setActive((i + LOOKS.length) % LOOKS.length);
-  };
-
   return (
-    <section
-      aria-labelledby="looks-title"
-      className="mt-8"
-      onPointerEnter={() => setHover(true)}
-      onPointerLeave={() => setHover(false)}
-    >
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
-            Pick a look
-          </h2>
-          <p className="mt-1 text-sm text-mute">Copy a code, paste it into CODM, done.</p>
+    <section aria-labelledby="looks-title" className="mt-8 sm:mt-10">
+      <div ref={stage} className="relative scroll-mt-4 overflow-hidden border border-[#3b3e35] bg-[#10120f]">
+        <div className="absolute inset-0 md:left-[32%]">
+          <Art look={look} />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#10120f] via-[#10120f]/65 to-black/10 md:bg-gradient-to-r md:from-[#10120f] md:via-[#10120f]/65 md:to-black/10" />
+          <div className="scanlines absolute inset-0 opacity-50" />
         </div>
-        <ol className="flex gap-3 font-display text-xs font-bold uppercase tracking-widest text-mute">
-          {["Copy", "Import in game", "Apply"].map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5">
-              <span className="grid h-5 w-5 place-items-center bg-codm text-[11px] text-black">{i + 1}</span>
-              {s}
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      {/* stage: the selected look, full width */}
-      <div
-        role="tabpanel"
-        id="look-stage"
-        aria-live="polite"
-        className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
-      >
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={look.name}
-            className="absolute inset-0"
-            initial={{ opacity: 0, scale: reduce ? 1 : 1.12 }}
-            animate={{ opacity: 1, scale: 1, transition: { opacity: { duration: 0.7 }, scale: { duration: DWELL + 1, ease: "easeOut" } } }}
-            exit={{ opacity: 0, transition: { duration: 0.7 } }}
-          >
-            <Art look={look} />
-          </motion.div>
-        </AnimatePresence>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
-        <div className="pointer-events-none absolute inset-0 scanlines opacity-60" />
-
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:inset-y-0 sm:w-[58%] sm:justify-end sm:p-8">
-          <motion.div
-            key={look.name}
-            initial={reduce ? false : { opacity: 0, y: 22 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
-              <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
-              <span className="bg-black/70 px-2 py-0.5 text-mute">
-                {look.image ? "Inspiration" : "Preview"}
-              </span>
+        <div className="relative flex min-h-[470px] flex-col justify-between p-5 sm:min-h-[500px] sm:p-8 lg:min-h-[520px] lg:p-12">
+          <div className="flex items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-[0.2em] text-white/70 sm:text-xs">
+            <span className="flex items-center gap-2"><span className="h-2 w-2 bg-codm" /> The look collection</span>
+            <span>{String(active + 1).padStart(2, "0")} / {String(LOOKS.length).padStart(2, "0")}</span>
+          </div>
+          <div className="max-w-xl pt-20">
+            <p className="font-display text-sm font-bold uppercase tracking-[0.24em] text-codm">Your next drop looks different</p>
+            <h2 id="looks-title" className="mt-3 font-title text-4xl font-black uppercase leading-[0.95] tracking-wide sm:text-6xl lg:text-7xl">Find your<br /><span className="text-codm">visual edge.</span></h2>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-white/75 sm:text-base">Choose a look inspired by your favourite maps. Copy the code, import it in CODM, and make it yours.</p>
+            <div className="mt-7 border-l-2 border-codm pl-4">
+              <div className="flex flex-wrap items-center gap-2"><span className="font-display text-2xl font-extrabold uppercase tracking-wide sm:text-3xl">{look.name}</span><span className="border border-white/25 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70">{look.image ? "Inspiration image" : "Sample preview"}</span></div>
+              <p className="mt-1 text-sm text-white/65">{look.note}</p>
             </div>
-            <h3
-              className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
-                look.name.length > 12 ? "text-4xl sm:text-5xl lg:text-7xl" : "text-5xl sm:text-6xl lg:text-8xl"
-              }`}
-            >
-              {look.name}
-            </h3>
-            <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
-          </motion.div>
-          <div className="flex max-w-md gap-1">
-            <button
-              onClick={() => {
-                copyCode(look.code, look.name);
-                setCopied(look.code);
-                setAuto(false);
-              }}
-              className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
-                copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
-              }`}
-            >
-              {copied === look.code ? "Copied ✓" : "Copy code"}
-            </button>
-            <button
-              onClick={() => onEdit(look.code)}
-              className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
-            >
-              Customize
-            </button>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button onClick={async () => { const ok = await copyCode(look.code, look.name); setCopyError(!ok); if (ok) setCopied(look.code); }} className="cut-sm min-w-44 bg-codm px-6 py-3.5 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light">
+                {copied === look.code ? "Copied ✓" : "Copy this code  ↗"}
+              </button>
+              <button onClick={() => onEdit(look.code)} className="border border-white/30 bg-black/30 px-6 py-3.5 font-display text-lg font-bold uppercase tracking-wider text-white transition-colors hover:border-codm hover:text-codm">Customize</button>
+            </div>
+            {copyError && <p role="alert" className="mt-3 text-sm text-red-300">Could not copy automatically. Open Customize to select and copy the code.</p>}
           </div>
         </div>
       </div>
 
-      {/* filmstrip */}
-      <div
-        role="tablist"
-        aria-label="Looks"
-        ref={strip}
-        className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") pick(active + 1);
-          else if (e.key === "ArrowLeft") pick(active - 1);
-          else return;
-          e.preventDefault();
-          const strip = e.currentTarget;
-          requestAnimationFrame(() =>
-            (strip.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
-          );
-        }}
-      >
-        {LOOKS.map((l, i) => (
-          <button
-            key={l.name}
-            role="tab"
-            id={`look-tab-${i}`}
-            aria-selected={i === active}
-            aria-controls="look-stage"
-            tabIndex={i === active ? 0 : -1}
-            onClick={() => pick(i)}
-            className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
-              i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
-            }`}
-          >
-            <div className="aspect-[16/7] overflow-hidden">
-              <Art look={l} thumb />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
-              {l.name}
-            </div>
-            {i === active && playing && (
-              <motion.span
-                key={`${active}-bar`}
-                className="absolute inset-x-0 bottom-0 h-[3px] origin-left bg-codm"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: DWELL, ease: "linear" }}
-              />
-            )}
-            {i === active && !playing && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-codm" />}
-          </button>
-        ))}
+      <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-codm">The collection / {String(LOOKS.length).padStart(2, "0")} looks</p>
+          <h3 className="mt-1 font-title text-2xl font-black uppercase tracking-wide sm:text-3xl">Choose your atmosphere</h3>
+          <p className="mt-1 text-sm text-mute">Select a look to see its details above.</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter looks by atmosphere">
+          {FILTERS.map((item) => (
+            <button key={item} onClick={() => setFilter(item)} aria-pressed={filter === item} className={`border px-3 py-2 font-display text-sm font-bold uppercase tracking-wider transition-colors ${filter === item ? "border-codm bg-codm text-black" : "border-line bg-panel/70 text-mute hover:border-mute hover:text-text"}`}>{item}</button>
+          ))}
+        </div>
       </div>
-
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {visible.map((item) => {
+          const index = LOOKS.indexOf(item);
+          const selected = index === active;
+          return (
+            <button key={item.name} onClick={() => { setActive(index); setCopyError(false); stage.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }} aria-pressed={selected} className={`group relative overflow-hidden border text-left transition-colors ${selected ? "border-codm" : "border-line hover:border-white/60"}`}>
+              <div className="aspect-[16/10] overflow-hidden bg-panel-2"><Art look={item} thumb /></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-3"><span className="block font-mono text-[9px] uppercase tracking-widest text-white/60">{CATEGORIES[item.name]}</span><span className="mt-1 block font-display text-base font-extrabold uppercase leading-tight tracking-wide text-white sm:text-lg">{item.name}</span></div>
+              {selected && <span className="absolute right-2 top-2 bg-codm px-1.5 py-1 font-mono text-[9px] font-bold uppercase text-black">Selected</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-mute">Images show the inspiration, not the in-game result. Filter previews are approximate; check your look in CODM.</p>
     </section>
   );
 }
