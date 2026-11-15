@@ -46,7 +46,7 @@ vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
   float col = floor(vUv.x * uSize.x);
-  if (uSplitX > 0.0 && col >= uSplitX - 2.0 && col <= uSplitX) {
+  if (uSplitX > 0.0 && uSplitX < uSize.x && col >= uSplitX - 1.0 && col <= uSplitX) {
     gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
     return;
   }
