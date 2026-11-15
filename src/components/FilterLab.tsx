@@ -17,6 +17,7 @@ import {
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import PreviewCanvas from "@/components/PreviewCanvas";
+import ColorWheel from "@/components/ColorWheel";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -516,7 +517,17 @@ export default function FilterLab() {
                                 ))}
                               </div>
                             )}
-                            <div className="grid grid-cols-4 gap-2" role="group" aria-label="Hue swatches">
+                            <ColorWheel
+                              hue={z.hue}
+                              tint={z.tint}
+                              preferSwatch={hueHint[k]}
+                              zoneLabel={PANEL_INFO[k].label}
+                              onChange={({ hue, tint, swatch }) => {
+                                setHueHint((h) => ({ ...h, [k]: swatch }));
+                                setZone(k, { hue, tint });
+                              }}
+                            />
+                            <div className="grid grid-cols-8 gap-1.5" role="group" aria-label="Hue swatches">
                               {SWATCH_NAMES.map((name, i) => (
                                 <button
                                   key={name}
@@ -527,13 +538,13 @@ export default function FilterLab() {
                                     setHueHint((h) => ({ ...h, [k]: i }));
                                     setZone(k, { hue: hueFrom(i, hp.pos) });
                                   }}
-                                  className={`relative h-10 border-2 transition-transform hover:scale-105 ${
-                                    hp.swatch === i ? "border-white" : "border-black/50"
+                                  className={`relative h-8 border-2 transition-transform hover:scale-105 ${
+                                    hp.swatch === i ? "border-white scale-105" : "border-black/50"
                                   }`}
                                   style={{ background: hsl(i * 45, 100, 50) }}
                                 >
                                   {hp.swatch === i && (
-                                    <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2fae4e] text-[10px] font-bold text-white">
+                                    <span className="absolute inset-0 grid place-items-center text-[11px] font-black text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)]">
                                       ✓
                                     </span>
                                   )}
