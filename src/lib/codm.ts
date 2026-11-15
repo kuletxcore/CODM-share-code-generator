@@ -51,6 +51,14 @@ export const defaultSettings = (): Settings => ({
   },
 });
 
+/** A zone that carries no colour at all. */
+export const zoneIsNeutral = (z: Zone) =>
+  z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
+
+/** True when a code carries Advanced (shadows / midtones / highlights) values. */
+export const hasAdvanced = (s: Settings) =>
+  !(["shadows", "midtones", "highlights"] as ZoneKey[]).every((k) => zoneIsNeutral(s.zones[k]));
+
 export const DEFAULT_CODE =
   "0_1_30_300_1000_1500_0_0_0_1000_0_0_0_1000_0_0_0_1000_0_0_0_1000";
 
@@ -142,9 +150,9 @@ const smooth = (a: number, b: number, x: number) => {
 
 // Luminance thresholds used by both the preview and the analyser. The falloff
 // shapes are a guess; only the handle positions are confirmed.
-type Bands = { s0: number; s1: number; h0: number; h1: number };
+export type ToneBands = { s0: number; s1: number; h0: number; h1: number };
 
-function thresholds(s: Settings): Bands {
+export function toneBands(s: Settings): ToneBands {
   const s0 = clamp(s.shadowPos / 1000, 0, 1);
   const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
   const h1 = clamp(s.highlightPos / 1000, 0, 1);
@@ -152,7 +160,7 @@ function thresholds(s: Settings): Bands {
   return { s0, s1, h0: h1 - width, h1 };
 }
 
-function zoneWeights(l: number, t: Bands) {
+function zoneWeights(l: number, t: ToneBands) {
   const ws = 1 - smooth(t.s0, t.s1, l);
   const wh = smooth(t.h0, t.h1, l) * (1 - ws);
   const wm = Math.max(0, 1 - ws - wh);
@@ -161,7 +169,7 @@ function zoneWeights(l: number, t: Bands) {
 
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
-  const bands = thresholds(s);
+  const bands = toneBands(s);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
   const tintRgb = zs.map((z) => hueToRgb(z.hue));
   const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
@@ -208,7 +216,7 @@ export function applyGrade(data: Uint8ClampedArray, s: Settings) {
 
 /** The per-zone inputs applyGrade uses, flattened for the GPU version of the same maths. */
 export function gradeUniforms(s: Settings) {
-  const b = thresholds(s);
+  const b = toneBands(s);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
   return {
     bands: [b.s0, b.s1, b.h0, b.h1],
@@ -221,7 +229,7 @@ export function gradeUniforms(s: Settings) {
 
 type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
 
-function zoneStats(data: Uint8ClampedArray, bands: Bands): ZoneStat[] {
+function zoneStats(data: Uint8ClampedArray, bands: ToneBands): ZoneStat[] {
   const acc = [0, 1, 2].map(() => ({ r: 0, g: 0, b: 0, l: 0, sat: 0, n: 0 }));
   for (let i = 0; i < data.length; i += 16) {
     const r = data[i] / 255,
@@ -269,7 +277,7 @@ export function analyse(
   base: Uint8ClampedArray | null,
 ): Settings {
   const s = defaultSettings();
-  const bands = thresholds(s);
+  const bands = toneBands(s);
   const t = zoneStats(target, bands);
   const b = base ? zoneStats(base, bands) : null;
   const neutral = [

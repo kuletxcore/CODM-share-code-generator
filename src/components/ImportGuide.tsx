@@ -72,6 +72,8 @@ export default function ImportGuide() {
   }, []);
 
   useEffect(() => {
+    // one-off read of a browser-only preference
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOff(readOff());
   }, [open]);
 
@@ -110,7 +112,7 @@ export default function ImportGuide() {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-40 max-h-[80svh] overflow-y-auto border-t-2 border-codm bg-ink/95 px-4 pb-5 pt-4 shadow-[0_-20px_60px_rgba(0,0,0,0.6)] backdrop-blur-md sm:inset-x-auto sm:bottom-28 sm:right-6 sm:w-[400px] sm:border-2 sm:pb-4 lg:bottom-24"
+            className="fixed inset-x-0 bottom-0 z-40 max-h-[80svh] overflow-y-auto border-t-2 border-codm bg-ink/95 px-4 pb-5 pt-4 shadow-[0_-20px_60px_rgba(0,0,0,0.6)] backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[400px] sm:border-2 sm:pb-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -217,7 +219,7 @@ export default function ImportGuide() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="cut fixed inset-x-4 bottom-36 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 backdrop-blur lg:bottom-24"
+            className="cut fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 backdrop-blur sm:bottom-6"
           >
             <span className="font-display text-base font-extrabold uppercase tracking-wide text-codm">
               Code copied{toast.name ? ` · ${toast.name}` : ""}

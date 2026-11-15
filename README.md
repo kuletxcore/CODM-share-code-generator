@@ -4,10 +4,15 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
-- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
+- **One bench, one screen**: a live monitor grades in real time. Pick any look from the shelf and it lands on the image in front of you — the photo tiles are references, the monitor is what you'll actually get, and it keeps working on your own screenshot.
+- **Look shelf**: 12 ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default). Tap to apply, tap Shuffle for a random one.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
-- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
-- **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
+- **Tone map instead of a Range bar**: the two in-game handles sit on the image's own luminance histogram, so you can see which tones each colour is about to touch. Drag them to move where shadows end and highlights begin; the code is written exactly the way the game writes it (handle + 100).
+- **Readout in plain words**: each tone group shows its swatch, hue position and tint/saturation/brightness; click one to jump to it in the editor.
+- **Compare by dragging**: drag across the frame to wipe between the original and the grade (or hit Compare).
+- **Editor**: Simple (whole image, Preset #1–#5) or Advanced (shadows / midtones / highlights, each with hue, tint, saturation and brightness). The URL hash holds the current code, so links are shareable.
+- **Screenshot → Code**: "Match a screenshot" measures a reference picture (and, optionally, a CODM screenshot of the same kind of scene on the default filter) and suggests a starting code. Everything runs in the browser; nothing is uploaded.
+- **Copying**: the code is docked to the monitor on every screen size. Copying opens a step-by-step import guide that stays until you're done.
 
 ## Share code format
 
