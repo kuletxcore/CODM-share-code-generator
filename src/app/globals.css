@@ -93,6 +93,25 @@ body {
   color: #0b0f05;
 }
 
+/* hitmarker flash burst on copy */
+@keyframes hitmarker-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.08) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35) rotate(0deg);
+  }
+}
+.hitmarker-burst {
+  animation: hitmarker-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .scanlines {
   background-image: repeating-linear-gradient(
     0deg,

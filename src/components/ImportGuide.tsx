@@ -60,7 +60,9 @@ export default function ImportGuide() {
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent<{ code: string; name?: string }>).detail;
-      if (readOff()) {
+      const skipped = readOff();
+      setOff(skipped);
+      if (skipped) {
         setToast(d);
       } else {
         setDone([]);
@@ -70,10 +72,6 @@ export default function ImportGuide() {
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);
   }, []);
-
-  useEffect(() => {
-    setOff(readOff());
-  }, [open]);
 
   useEffect(() => {
     if (!toast) return;
