@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { applyGrade, drawSample, type Settings } from "@/lib/codm";
+import { applyGrade, drawSample, gradeUniforms, type Settings } from "@/lib/codm";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { SCENES, type SceneId } from "@/lib/scene";
 
@@ -20,12 +20,16 @@ function sampleCanvas() {
 export default function PreviewCanvas({
   settings,
   source,
+  zoneMask = false,
+  onToggleZoneMask,
   onUpload,
   onClear,
   onActiveCanvasChange,
 }: {
   settings: Settings;
   source: HTMLCanvasElement | null;
+  zoneMask?: boolean;
+  onToggleZoneMask?: () => void;
   onUpload: (f: File) => void;
   onClear: () => void;
   onActiveCanvasChange?: (src: HTMLCanvasElement | null) => void;
@@ -148,9 +152,11 @@ export default function PreviewCanvas({
 
   useEffect(() => {
     if (!gpuOk || !src) return;
-    const id = requestAnimationFrame(() => gpu.current?.render(settings, effectiveSplit));
+    const id = requestAnimationFrame(() =>
+      gpu.current?.render(settings, effectiveSplit, { mask: zoneMask && !peeking }),
+    );
     return () => cancelAnimationFrame(id);
-  }, [gpuOk, src, settings, effectiveSplit]);
+  }, [gpuOk, src, settings, effectiveSplit, zoneMask, peeking]);
 
   // Draw the untouched original canvas when in Side-by-Side ("2-Up") mode
   useEffect(() => {
@@ -173,9 +179,30 @@ export default function PreviewCanvas({
   const graded = useMemo(() => {
     if (!orig) return null;
     const data = new Uint8ClampedArray(orig.data);
+    if (zoneMask && !peeking) {
+      const [s0, s1, h0, h1] = gradeUniforms(settings).bands;
+      const smooth = (a: number, b: number, x: number) => {
+        const t = Math.min(1, Math.max(0, (x - a) / (b - a || 1e-6)));
+        return t * t * (3 - 2 * t);
+      };
+      for (let i = 0; i < data.length; i += 4) {
+        const l0 = (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+        const ws = 1 - smooth(s0, s1, l0);
+        const wh = smooth(h0, h1, l0) * (1 - ws);
+        const wm = Math.max(0, 1 - ws - wh);
+        const m = l0 * 0.72 + 0.14;
+        const fr = ws * 0.16 + wm * m + wh * 1.0;
+        const fg = ws * 0.84 + wm * m + wh * 0.92;
+        const fb = ws * 1.0 + wm * m + wh * 0.23;
+        data[i] = Math.min(255, (l0 * 0.22 + fr * 0.78) * 255);
+        data[i + 1] = Math.min(255, (l0 * 0.22 + fg * 0.78) * 255);
+        data[i + 2] = Math.min(255, (l0 * 0.22 + fb * 0.78) * 255);
+      }
+      return data;
+    }
     applyGrade(data, settings);
     return data;
-  }, [orig, settings]);
+  }, [orig, settings, zoneMask, peeking]);
 
   useEffect(() => {
     const c = view.current;
@@ -185,7 +212,7 @@ export default function PreviewCanvas({
       if (c.width !== w) c.width = w;
       if (c.height !== h) c.height = h;
       const out = new ImageData(new Uint8ClampedArray(graded), w, h);
-      const x = Math.min(w, r(w * effectiveSplit));
+      const x = zoneMask && !peeking ? 0 : Math.min(w, r(w * effectiveSplit));
       if (x > 0) {
         for (let y = 0; y < h; y++) {
           const row = y * w * 4;
@@ -204,7 +231,7 @@ export default function PreviewCanvas({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, effectiveSplit]);
+  }, [orig, graded, effectiveSplit, zoneMask, peeking]);
 
   const setSplitFromClientX = useCallback((clientX: number) => {
     const el = frameRef.current;
@@ -247,6 +274,21 @@ export default function PreviewCanvas({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {onToggleZoneMask && (
+            <button
+              type="button"
+              aria-pressed={zoneMask}
+              onClick={onToggleZoneMask}
+              title="Toggle false-colour tonal zone mask (Cyan = Shadows, Yellow = Highlights)"
+              className={`cut-sm select-none px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+                zoneMask
+                  ? "bg-[#2dd4ff] text-black"
+                  : "border border-line bg-panel-2 text-mute hover:border-[#2dd4ff] hover:text-text"
+              }`}
+            >
+              Zone Mask
+            </button>
+          )}
           <button
             type="button"
             onPointerDown={(e) => {
@@ -329,7 +371,7 @@ export default function PreviewCanvas({
         </div>
 
         {/* Direct-manipulation split reticle */}
-        {viewMode === "split" && !peeking && (
+        {viewMode === "split" && !peeking && !zoneMask && (
           <div
             role="slider"
             tabIndex={0}
@@ -355,8 +397,21 @@ export default function PreviewCanvas({
           </div>
         )}
 
+        {/* Zone Mask Legend */}
+        {zoneMask && !peeking && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2 border border-white/15 bg-ink/85 px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-widest backdrop-blur-sm">
+            <span className="flex items-center gap-1 text-[#2dd4ff]">
+              <span className="h-2 w-2 bg-[#2dd4ff]" /> Shadows
+            </span>
+            <span className="text-mute">· Midtones ·</span>
+            <span className="flex items-center gap-1 text-codm">
+              <span className="h-2 w-2 bg-codm" /> Highlights
+            </span>
+          </div>
+        )}
+
         {/* Corner HUD badges for Split & Full modes */}
-        {viewMode !== "side" && (
+        {viewMode !== "side" && !(zoneMask && !peeking) && (
           <>
             <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
               {(peeking || (viewMode === "split" && split > 0.14)) && (

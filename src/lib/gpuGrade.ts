@@ -25,6 +25,7 @@ uniform vec3 uTint[4];
 uniform vec3 uP[4];
 uniform vec2 uSize;
 uniform float uSplitX;
+uniform float uMask;
 
 float luma(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 float smoothB(float a, float b, float x){
@@ -46,6 +47,16 @@ vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
   float col = floor(vUv.x * uSize.x);
+  if (uMask > 0.5) {
+    float l0 = luma(c);
+    float ws = 1.0 - smoothB(uBands.x, uBands.y, l0);
+    float wh = smoothB(uBands.z, uBands.w, l0) * (1.0 - ws);
+    float wm = max(0.0, 1.0 - ws - wh);
+    vec3 falseCol = ws * vec3(0.16, 0.84, 1.0) + wm * vec3(l0 * 0.72 + 0.14) + wh * vec3(1.0, 0.92, 0.23);
+    vec3 blended = mix(vec3(l0), falseCol, 0.78);
+    gl_FragColor = vec4(clamp(blended, 0.0, 1.0), 1.0);
+    return;
+  }
   if (uSplitX > 0.0 && uSplitX < uSize.x && col >= uSplitX - 1.0 && col <= uSplitX) {
     gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
     return;
@@ -64,7 +75,7 @@ void main(){
 
 export type GradeGpu = {
   setSource: (src: HTMLCanvasElement) => void;
-  render: (s: Settings, split: number) => void;
+  render: (s: Settings, split: number, opts?: { mask?: boolean }) => void;
   dispose: () => void;
 };
 
@@ -111,7 +122,8 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uTint = u("uTint"),
     uP = u("uP"),
     uSize = u("uSize"),
-    uSplitX = u("uSplitX");
+    uSplitX = u("uSplitX"),
+    uMask = u("uMask");
   let w = 1,
     h = 1;
 
@@ -122,7 +134,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.viewport(0, 0, w, h);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     },
-    render(s, split) {
+    render(s, split, opts) {
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
@@ -130,6 +142,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform2f(uSize, w, h);
       // same rounding as the CPU compositor: original left of round(w * split)
       gl.uniform1f(uSplitX, Math.min(w, Math.round(w * split)));
+      gl.uniform1f(uMask, opts?.mask ? 1.0 : 0.0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {

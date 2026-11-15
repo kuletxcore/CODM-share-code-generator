@@ -18,6 +18,7 @@ import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import ColorWheel from "@/components/ColorWheel";
+import RangeScrubber from "@/components/RangeScrubber";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -207,6 +208,9 @@ export default function FilterLab() {
   const panel: Panel = !advanced ? "global" : tab === "global" ? "shadows" : tab;
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
+  const [activeCanvas, setActiveCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [maskPinned, setMaskPinned] = useState(false);
+  const [scrubMask, setScrubMask] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const code = useMemo(() => encode(settings), [settings]);
@@ -417,8 +421,11 @@ export default function FilterLab() {
               <PreviewCanvas
                 settings={settings}
                 source={source}
+                zoneMask={maskPinned || scrubMask}
+                onToggleZoneMask={() => setMaskPinned((v) => !v)}
                 onUpload={upload}
                 onClear={() => setSource(null)}
+                onActiveCanvasChange={setActiveCanvas}
               />
 
               <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
@@ -460,37 +467,52 @@ export default function FilterLab() {
                     </div>
 
                     {panel === "range" ? (
-                      <div className="flex flex-col gap-3">
-                        <Slider
-                          label="Shadows"
-                          value={settings.shadowPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.min(v * 10, s.highlightPos);
-                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
-                            })
+                      <div className="flex flex-col gap-4">
+                        <RangeScrubber
+                          settings={settings}
+                          activeCanvas={activeCanvas}
+                          maskPinned={maskPinned}
+                          onToggleMask={() => setMaskPinned((v) => !v)}
+                          onScrubMask={setScrubMask}
+                          onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
+                          onReset={() =>
+                            setSettings((s) => ({
+                              ...s,
+                              shadowPos: 30,
+                              shadowEdge: 300,
+                              highlightPos: 1000,
+                              highlightEdge: 1500,
+                            }))
                           }
                         />
-                        <Slider
-                          label="Highlights"
-                          value={settings.highlightPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#777,#fff)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.max(v * 10, s.shadowPos);
-                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <p className="text-xs text-mute">
-                          The two handles of the in-game Range bar, as a percentage of its width.
-                          Moving a handle writes it the same way the game does.
-                        </p>
+                        <div className="flex flex-col gap-2 border-t border-line/70 pt-3">
+                          <Slider
+                            label="Shadows"
+                            value={settings.shadowPos / 10}
+                            min={0}
+                            max={100}
+                            track="linear-gradient(90deg,#000,#2dd4ff)"
+                            onChange={(v) =>
+                              setSettings((s) => {
+                                const pos = Math.min(v * 10, s.highlightPos);
+                                return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
+                              })
+                            }
+                          />
+                          <Slider
+                            label="Highlights"
+                            value={settings.highlightPos / 10}
+                            min={0}
+                            max={100}
+                            track="linear-gradient(90deg,#777,#ffea3b)"
+                            onChange={(v) =>
+                              setSettings((s) => {
+                                const pos = Math.max(v * 10, s.shadowPos);
+                                return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                     ) : (
                       (() => {
