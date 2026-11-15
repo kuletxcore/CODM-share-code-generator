@@ -72,6 +72,8 @@ export default function ImportGuide() {
   }, []);
 
   useEffect(() => {
+    // one-off read of a browser-only preference
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOff(readOff());
   }, [open]);
 

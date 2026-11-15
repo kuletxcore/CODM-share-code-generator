@@ -7,7 +7,6 @@ import {
   applyGrade,
   decode,
   defaultSettings,
-  drawSample,
   encode,
   type Settings,
   type Zone,
@@ -16,9 +15,10 @@ import {
   hueFrom,
   hueParts,
 } from "@/lib/codm";
-import LooksGallery from "@/components/LooksGallery";
+import LooksBoard from "@/components/LooksBoard";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { flatSample, sampleFrame } from "@/lib/frame";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey | "range";
@@ -88,14 +88,6 @@ function pixels(c: HTMLCanvasElement, maxW = 320) {
   const ctx = t.getContext("2d")!;
   ctx.drawImage(c, 0, 0, t.width, t.height);
   return ctx.getImageData(0, 0, t.width, t.height).data;
-}
-
-function sampleCanvas() {
-  const c = document.createElement("canvas");
-  c.width = 960;
-  c.height = 540;
-  drawSample(c.getContext("2d")!, c.width, c.height);
-  return c;
 }
 
 /* ---------- small UI pieces ---------- */
@@ -220,16 +212,15 @@ function Preview({
   onClear: () => void;
 }) {
   const view = useRef<HTMLCanvasElement>(null);
-  const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
+  const [sample, setSample] = useState(() =>
+    typeof document === "undefined" ? null : flatSample(),
+  );
+  // Swap the flat fallback for the shared lit 3D scene once it is ready.
   useEffect(() => {
     let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
-      .then((c) => {
-        if (live && c) setSample(c);
-      })
-      .catch(() => {});
+    sampleFrame().then((c) => {
+      if (live) setSample(c);
+    });
     return () => {
       live = false;
     };
@@ -441,11 +432,14 @@ export default function FilterLab() {
         </div>
       </header>
 
-      <LooksGallery
+      <LooksBoard
+        source={source}
+        activeCode={code}
+        onUpload={upload}
+        onClear={() => setSource(null)}
         onEdit={(c) => {
           loadCode(c);
           setMode("build");
-          document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       />
 
