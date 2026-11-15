@@ -7,6 +7,7 @@ import {
   decode,
   defaultSettings,
   encode,
+  extractShareCode,
   LOOKS,
   type Settings,
   type Zone,
@@ -26,6 +27,7 @@ import OpticsTelemetry from "@/components/OpticsTelemetry";
 import ScreenshotConverter from "@/components/ScreenshotConverter";
 import BlendLab from "@/components/BlendLab";
 import ShareCardModal from "@/components/ShareCardModal";
+import CodeDnaBar, { type DnaTarget } from "@/components/CodeDnaBar";
 import { applyMacro, scaleIntensity, type MacroId } from "@/lib/macros";
 import { getClientSlots, getServerSlots, saveSlots, subscribeSlots } from "@/lib/storage";
 
@@ -284,7 +286,8 @@ export default function FilterLab() {
 
   const loadCode = useCallback(
     (c: string) => {
-      const s = decode(c);
+      const clean = extractShareCode(c);
+      const s = clean ? decode(clean) : null;
       if (!s) return false;
       resetIntensityAnchor();
       commitSettings(s);
@@ -293,6 +296,17 @@ export default function FilterLab() {
     },
     [resetIntensityAnchor, commitSettings],
   );
+
+  const handleJumpToPanel = useCallback((target: DnaTarget) => {
+    setMode("build");
+    if (target === "global") {
+      setAdvanced(false);
+    } else {
+      setAdvanced(true);
+      setPanel(target);
+    }
+    document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const handleIntensityChange = useCallback(
     (pct: number) => {
@@ -892,9 +906,11 @@ export default function FilterLab() {
       </AnimatePresence>
 
       <Notes />
-      <CodeBar
+      <CodeDnaBar
         code={code}
+        settings={settings}
         onLoad={loadCode}
+        onJumpToPanel={handleJumpToPanel}
         onShareCard={() => {
           const matched = LOOKS.find((l) => l.code === code)?.name;
           setShareCard({ code, title: matched ?? "Custom Filter", key: Date.now() });
@@ -913,104 +929,6 @@ export default function FilterLab() {
         onClose={() => setShareCard(null)}
       />
       <ImportGuide />
-    </div>
-  );
-}
-
-/* ---------- code bar ---------- */
-
-function CodeBar({
-  code,
-  onLoad,
-  onShareCard,
-  onReset,
-}: {
-  code: string;
-  onLoad: (c: string) => boolean;
-  onShareCard: () => void;
-  onReset: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [input, setInput] = useState("");
-  const [bad, setBad] = useState(false);
-
-  const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
-            Share code
-          </span>
-          <output
-            aria-live="polite"
-            className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
-            title={code}
-          >
-            {code}
-          </output>
-          <button
-            type="button"
-            onClick={onShareCard}
-            title="Download Tactical PNG Filter Card or scan QR to phone"
-            className="border border-line bg-panel-2 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider text-codm hover:border-codm hover:bg-line"
-          >
-            Card / QR
-          </button>
-          <button
-            onClick={copy}
-            className="cut-sm relative min-w-24 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light sm:min-w-28"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ok = onLoad(input);
-            setBad(!ok);
-            if (ok) setInput("");
-          }}
-        >
-          <input
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setBad(false);
-            }}
-            placeholder="Paste a code to edit it"
-            aria-label="Paste a share code"
-            aria-invalid={bad}
-            className={`w-full min-w-0 border bg-black/50 px-3 py-2 font-mono text-sm lg:w-64 ${
-              bad ? "border-red-500" : "border-line"
-            }`}
-          />
-          <button
-            type="submit"
-            className="bg-panel-2 px-3 py-2 font-display font-bold uppercase tracking-wider hover:bg-line"
-          >
-            Load
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="px-2 py-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
-          >
-            Reset
-          </button>
-        </form>
-      </div>
-      {bad && (
-        <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
-          That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
-        </p>
-      )}
     </div>
   );
 }

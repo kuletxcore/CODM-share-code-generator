@@ -664,3 +664,69 @@ export const LOOKS: Look[] = [
     tags: ["mp", "crisp"],
   },
 ];
+
+/**
+ * Smart dirty-text extractor: pulls a valid 22-integer CODM filter share code out of
+ * Discord messages, YouTube descriptions, TikTok captions, or `#c=` URLs.
+ */
+export function extractShareCode(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Direct clean code
+  if (decode(trimmed)) return trimmed;
+
+  // URL hash `#c=...` or query `c=...`
+  const hashMatch = trimmed.match(/(?:#c=|[?&]c=)(-?\d+(?:_-?\d+){21})/);
+  if (hashMatch?.[1] && decode(hashMatch[1])) return hashMatch[1];
+
+  // Embedded anywhere inside free-form text
+  const anyMatch = trimmed.match(/-?\d+(?:_-?\d+){21}/);
+  if (anyMatch?.[0] && decode(anyMatch[0])) return anyMatch[0];
+
+  return null;
+}
+
+/** Find the closest curated Look to the given settings (with exact-match & similarity %). */
+export function findClosestLook(settings: Settings): {
+  look: Look;
+  similarity: number;
+  exact: boolean;
+} {
+  const curCode = encode(settings);
+  let bestLook = LOOKS[LOOKS.length - 1];
+  let bestDist = Infinity;
+
+  const zoneDist = (a: Zone, b: Zone) => {
+    const ar = (a.hue * Math.PI) / 180;
+    const br = (b.hue * Math.PI) / 180;
+    const dx = Math.cos(ar) * (a.tint / 100) - Math.cos(br) * (b.tint / 100);
+    const dy = Math.sin(ar) * (a.tint / 100) - Math.sin(br) * (b.tint / 100);
+    const dSat = (a.sat - b.sat) / 100;
+    const dBri = (a.bri - b.bri) / 100;
+    return Math.sqrt(dx * dx * 2.2 + dy * dy * 2.2 + dSat * dSat * 1.4 + dBri * dBri * 1.8);
+  };
+
+  for (const look of LOOKS) {
+    if (look.code === curCode) {
+      return { look, similarity: 100, exact: true };
+    }
+    const decoded = decode(look.code);
+    if (!decoded) continue;
+    const d =
+      zoneDist(settings.zones.shadows, decoded.zones.shadows) +
+      zoneDist(settings.zones.midtones, decoded.zones.midtones) +
+      zoneDist(settings.zones.highlights, decoded.zones.highlights) +
+      zoneDist(settings.zones.global, decoded.zones.global) * 0.8 +
+      (Math.abs(settings.shadowPos - decoded.shadowPos) +
+        Math.abs(settings.highlightPos - decoded.highlightPos)) /
+        4000;
+    if (d < bestDist) {
+      bestDist = d;
+      bestLook = look;
+    }
+  }
+
+  const similarity = Math.round(clamp(100 - bestDist * 65, 12, 99));
+  return { look: bestLook, similarity, exact: false };
+}
+
