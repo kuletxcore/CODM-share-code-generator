@@ -466,6 +466,12 @@ export default function FilterLab() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
+      <a
+        href="#editor"
+        className="sr-only rounded-none bg-codm px-4 py-3 font-display font-bold uppercase tracking-wider text-black focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"
+      >
+        Skip to the generator
+      </a>
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-5 sm:pt-10">
         <div>
@@ -956,6 +962,18 @@ function CodeBar({
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
   const out = useRef<HTMLOutputElement>(null);
+  // The visible code changes on every slider tick; a live region on it would
+  // read 22 numbers per pixel of drag. Announce a settled code instead.
+  const [announce, setAnnounce] = useState("");
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const t = setTimeout(() => setAnnounce(`Share code updated: ${code}`), 900);
+    return () => clearTimeout(t);
+  }, [code]);
 
   const copy = async () => {
     const ok = await copyCode(code);
@@ -980,12 +998,14 @@ function CodeBar({
           </span>
           <output
             ref={out}
-            aria-live="polite"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
             {code}
           </output>
+          <p className="sr-only" role="status">
+            {announce}
+          </p>
           <button
             onClick={copy}
             className={`cut-sm relative min-w-28 px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider ${

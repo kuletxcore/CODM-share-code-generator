@@ -128,6 +128,7 @@ export default function ImportGuide() {
   const [off, setOff] = useState(false);
   const [again, setAgain] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -153,12 +154,43 @@ export default function ImportGuide() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Modal behaviour: focus moves in, Tab cycles inside, Escape closes, the page
+  // behind stops scrolling, and focus goes back to whatever opened it. The
+  // sheet sits over a long page on a phone, so a lost tab stop is a dead end.
   useEffect(() => {
     if (!open) return;
+    const restore = document.activeElement as HTMLElement | null;
     heading.current?.focus({ preventScroll: true });
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    const bodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(null);
+        return;
+      }
+      if (e.key !== "Tab" || !panel.current) return;
+      const stops = [
+        ...panel.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (!stops.length) return;
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("keydown", key);
+      document.body.style.overflow = bodyOverflow;
+      restore?.focus?.({ preventScroll: true });
+    };
   }, [open]);
 
   const toggleOff = useCallback((v: boolean) => {
@@ -176,7 +208,9 @@ export default function ImportGuide() {
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={panel}
             role="dialog"
+            aria-modal="true"
             aria-labelledby="guide-title"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
