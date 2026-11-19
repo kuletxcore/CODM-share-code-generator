@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
@@ -221,6 +222,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             >
               Customize
             </button>
+            <Link
+              href={`/look/${look.slug}`}
+              aria-label={`About the ${look.name} look`}
+              className="grid place-items-center bg-black/70 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:bg-line hover:text-text"
+            >
+              Details
+            </Link>
           </div>
         </div>
       </div>

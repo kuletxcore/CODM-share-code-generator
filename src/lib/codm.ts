@@ -785,6 +785,8 @@ export function drawSample(ctx: CanvasRenderingContext2D, w: number, h: number) 
 
 export type Look = {
   name: string;
+  /** URL segment for the look's own page: /look/hajin */
+  slug: string;
   note: string;
   mode: "Simple" | "Advanced";
   code: string;
@@ -797,12 +799,16 @@ export type Look = {
 export const GAMES = ["MW4", "Black Ops 7", "MWII", "Vanguard", "MW 2019", "Cold War"] as const;
 export type Game = (typeof GAMES)[number];
 
+/** A look by its URL segment. */
+export const lookBySlug = (slug: string) => LOOKS.find((l) => l.slug === slug) ?? null;
+
 /** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
   {
     // Shadows Cyan 60 / tint 10 / bri 46, midtones Orange 0 / tint 6 / sat 56,
     // highlights Orange 10 / tint 12 / sat 52 / bri 53.
     name: "Hajin",
+    slug: "hajin",
     game: "MW4",
     note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
@@ -813,6 +819,7 @@ export const LOOKS: Look[] = [
     // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
     // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
     name: "Apex",
+    slug: "apex",
     game: "MW4",
     note: "MW4 Multiplayer: hazy daylight, golden mids",
     mode: "Advanced",
@@ -822,6 +829,7 @@ export const LOOKS: Look[] = [
   {
     // Black Ops 7 multiplayer. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. Casts disagree between videos, so they cancel out; muted highlights are what they share. (6 videos.)
     name: "2035",
+    slug: "2035",
     game: "Black Ops 7",
     note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
@@ -831,6 +839,7 @@ export const LOOKS: Look[] = [
   {
     // Black Ops Royale on Avalon. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (4 videos.)
     name: "Avalon",
+    slug: "avalon",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
@@ -840,6 +849,7 @@ export const LOOKS: Look[] = [
   {
     // Haven's Hollow by day. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow",
+    slug: "havens-hollow",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
@@ -849,6 +859,7 @@ export const LOOKS: Look[] = [
   {
     // Haunted Hollow (The Haunting) at night. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow (Night)",
+    slug: "havens-hollow-night",
     game: "Black Ops 7",
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
@@ -858,6 +869,7 @@ export const LOOKS: Look[] = [
   {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
     name: "Al Mazrah",
+    slug: "al-mazrah",
     game: "MWII",
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
@@ -869,6 +881,7 @@ export const LOOKS: Look[] = [
     // gameplay footage relative to the pooled daytime footage of all the games
     // sampled. Videos disagree on cast (red vs blue) and agree on darker mids. (3 videos.)
     name: "Vondead",
+    slug: "vondead",
     game: "MWII",
     note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
     mode: "Advanced",
@@ -878,6 +891,7 @@ export const LOOKS: Look[] = [
   {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Caldera",
+    slug: "caldera",
     game: "Vanguard",
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
@@ -890,6 +904,7 @@ export const LOOKS: Look[] = [
     // mids; highlights sit close to typical footage. The earlier hand-made
     // version (cool shadows, strong warm highlights) is PRESETS[1].
     name: "Verdansk",
+    slug: "verdansk",
     game: "MW 2019",
     note: "MW 2019: warm, richer mids",
     mode: "Advanced",
@@ -898,6 +913,7 @@ export const LOOKS: Look[] = [
   },
   {
     name: "Cold War",
+    slug: "cold-war",
     game: "Cold War",
     note: "Black Ops Cold War colour grade",
     mode: "Advanced",
@@ -906,6 +922,7 @@ export const LOOKS: Look[] = [
   },
   {
     name: "Default",
+    slug: "default",
     note: "The in-game reset state",
     mode: "Simple",
     code: DEFAULT_CODE,
