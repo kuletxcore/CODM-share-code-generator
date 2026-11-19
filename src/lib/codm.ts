@@ -36,6 +36,15 @@ export type Settings = {
 
 export const neutralZone = (): Zone => ({ hue: 0, tint: 0, sat: 50, bri: 50 });
 
+/** True when a zone is left at the values of a reset filter. */
+export const isNeutralZone = (z: Zone) =>
+  z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
+
+const ADVANCED_ZONES: ZoneKey[] = ["shadows", "midtones", "highlights"];
+
+/** True when the settings carry Advanced (shadows / midtones / highlights) values. */
+export const usesAdvanced = (s: Settings) => !ADVANCED_ZONES.every((k) => isNeutralZone(s.zones[k]));
+
 export const defaultSettings = (): Settings => ({
   preset: 0,
   enabled: 1,
@@ -684,6 +693,91 @@ const cloneSettings = (s: Settings): Settings => ({
     highlights: { ...s.zones.highlights },
   },
 });
+
+
+// Remix
+
+/** A starting point that is not the reset state: a cast per zone, then jitter. */
+const MOODS: { name: string; shadows: Partial<Zone>; midtones: Partial<Zone>; highlights: Partial<Zone> }[] = [
+  {
+    name: "Warm sun, cool shade",
+    shadows: { hue: 210, tint: 18, sat: 42, bri: 46 },
+    midtones: { hue: 36, tint: 10, sat: 52, bri: 51 },
+    highlights: { hue: 42, tint: 16, sat: 50, bri: 54 },
+  },
+  {
+    name: "Teal and orange",
+    shadows: { hue: 195, tint: 26, sat: 50, bri: 45 },
+    midtones: { hue: 30, tint: 12, sat: 58, bri: 50 },
+    highlights: { hue: 25, tint: 20, sat: 56, bri: 55 },
+  },
+  {
+    name: "Overcast",
+    shadows: { hue: 220, tint: 10, sat: 34, bri: 48 },
+    midtones: { hue: 215, tint: 6, sat: 38, bri: 50 },
+    highlights: { hue: 205, tint: 8, sat: 34, bri: 52 },
+  },
+  {
+    name: "Dusk",
+    shadows: { hue: 265, tint: 24, sat: 46, bri: 44 },
+    midtones: { hue: 320, tint: 14, sat: 50, bri: 48 },
+    highlights: { hue: 24, tint: 22, sat: 54, bri: 52 },
+  },
+  {
+    name: "Bleach",
+    shadows: { hue: 40, tint: 6, sat: 24, bri: 46 },
+    midtones: { hue: 35, tint: 4, sat: 22, bri: 52 },
+    highlights: { hue: 45, tint: 8, sat: 20, bri: 57 },
+  },
+  {
+    name: "Night ops",
+    shadows: { hue: 230, tint: 34, sat: 42, bri: 42 },
+    midtones: { hue: 235, tint: 16, sat: 40, bri: 47 },
+    highlights: { hue: 210, tint: 10, sat: 30, bri: 50 },
+  },
+  {
+    name: "Autumn",
+    shadows: { hue: 28, tint: 22, sat: 44, bri: 45 },
+    midtones: { hue: 40, tint: 16, sat: 54, bri: 51 },
+    highlights: { hue: 48, tint: 18, sat: 52, bri: 55 },
+  },
+  {
+    name: "Neon city",
+    shadows: { hue: 285, tint: 30, sat: 55, bri: 43 },
+    midtones: { hue: 315, tint: 16, sat: 60, bri: 49 },
+    highlights: { hue: 185, tint: 22, sat: 58, bri: 54 },
+  },
+];
+
+export const MOOD_NAMES = MOODS.map((m) => m.name);
+
+/**
+ * A random, plausible grade. Picks one of the moods and jitters it a little, so
+ * the result is always something a player would actually use — a random number
+ * per slider would mostly land on muddy nonsense.
+ *
+ * `rand` is injectable so the result can be tested and replayed.
+ */
+export const pickMood = (rand: () => number = Math.random) =>
+  Math.floor(rand() * MOODS.length) % MOODS.length;
+
+export function remix(rand: () => number = Math.random, mood?: number): Settings {
+  const pick = mood ?? pickMood(rand);
+  const m = MOODS[pick];
+  const s = defaultSettings();
+  const jitter = (base: number, spread: number, min: number, max: number) =>
+    Math.round(clamp(base + (rand() - 0.5) * 2 * spread, min, max));
+  (["shadows", "midtones", "highlights"] as const).forEach((k) => {
+    const base = m[k];
+    s.zones[k] = {
+      hue: Math.round((((base.hue ?? 0) + (rand() - 0.5) * 24) % 360 + 360) % 360),
+      tint: jitter(base.tint ?? 0, 5, 0, 60),
+      sat: jitter(base.sat ?? 50, 5, 20, 75),
+      bri: jitter(base.bri ?? 50, 3, 38, 62),
+    };
+  });
+  return s;
+}
 
 // Presets
 

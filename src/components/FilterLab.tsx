@@ -19,6 +19,11 @@ import {
   SWATCH_NAMES,
   hueFrom,
   hueParts,
+  isNeutralZone,
+  MOOD_NAMES,
+  pickMood,
+  remix,
+  usesAdvanced,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
@@ -54,9 +59,7 @@ const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
 const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
 const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights"];
 
-const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
-/** True when the code carries Advanced (shadows / midtones / highlights) values. */
-const usesAdvanced = (s: Settings) => !ZONE_TABS.every((k) => flat(s.zones[k]));
+const flat = isNeutralZone;
 
 const r = Math.round;
 const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
@@ -436,20 +439,37 @@ export default function FilterLab() {
     [],
   );
 
+  // Remix is one keystroke away from any grade, and one undo away from being
+  // gone again: cheap exploration rather than a commitment.
+  const [mood, setMood] = useState<string | null>(null);
+  const doRemix = useCallback(() => {
+    const m = pickMood();
+    setSettings(remix(Math.random, m));
+    setMood(MOOD_NAMES[m]);
+    setAdvanced(true);
+  }, [setSettings]);
+
   // Ctrl/⌘ Z and Ctrl/⌘ ⇧ Z anywhere on the page, except while typing in a
-  // field where the browser's own undo is the right answer.
+  // field where the browser's own undo is the right answer. R remixes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
       const el = e.target as HTMLElement | null;
-      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      e.preventDefault();
-      if (e.shiftKey) edits.redo();
-      else edits.undo();
+      const typing = !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        if (typing) return;
+        e.preventDefault();
+        if (e.shiftKey) edits.redo();
+        else edits.undo();
+        return;
+      }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "r" && !typing) {
+        e.preventDefault();
+        doRemix();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [edits]);
+  }, [edits, doRemix]);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -700,6 +720,25 @@ export default function FilterLab() {
                 })}
               </ul>
 
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={doRemix}
+                  className="flex items-center justify-between gap-2 border border-line bg-panel/70 px-4 py-3 text-left transition-colors hover:border-codm hover:bg-codm/10"
+                >
+                  <span className="font-display text-lg font-extrabold uppercase tracking-wide text-text">
+                    <span aria-hidden className="mr-2 text-codm">
+                      ⚄
+                    </span>
+                    Remix
+                  </span>
+                  <kbd className="border border-line bg-black/40 px-1.5 py-0.5 font-mono text-[10px] text-mute">
+                    R
+                  </kbd>
+                </button>
+                <p className="min-h-4 px-1 text-[11px] text-mute" aria-live="polite">
+                  {mood ? `Remixed · ${mood}` : "A random look you can undo."}
+                </p>
+              </div>
             </div>
 
             {/* right: preview + controls */}

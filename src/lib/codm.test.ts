@@ -6,8 +6,10 @@ import {
   analyse,
   applyGrade,
   decode,
+  MOOD_NAMES,
   describeCode,
   fitReference,
+  remix,
   hueToRgb,
   defaultSettings,
   encode,
@@ -17,6 +19,7 @@ import {
   readReference,
   scoreReference,
   thresholds,
+  usesAdvanced,
   zoneShares,
   zoneWeights,
   type Settings,
@@ -358,5 +361,46 @@ describe("scoring and fitting", () => {
 
   it("returns 0 when there is nothing to compare", () => {
     expect(readReference(new Uint8ClampedArray(0), null)).toBeNull();
+  });
+});
+
+describe("remix", () => {
+  /** A deterministic stand-in for Math.random. */
+  const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+  it("produces a code the game can read, with values in range", () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const s = remix(seeded(seed));
+      expect(decode(encode(s))).not.toBeNull();
+      for (const z of Object.values(s.zones)) {
+        expect(z.hue).toBeGreaterThanOrEqual(0);
+        expect(z.hue).toBeLessThan(360);
+        expect(z.tint).toBeGreaterThanOrEqual(0);
+        expect(z.tint).toBeLessThanOrEqual(60);
+        expect(z.sat).toBeGreaterThanOrEqual(20);
+        expect(z.sat).toBeLessThanOrEqual(75);
+        expect(z.bri).toBeGreaterThanOrEqual(38);
+        expect(z.bri).toBeLessThanOrEqual(62);
+      }
+    }
+  });
+
+  it("always does something — a remix is never the reset state", () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const s = remix(seeded(seed));
+      expect(usesAdvanced(s)).toBe(true);
+    }
+  });
+
+  it("is reproducible", () => {
+    expect(remix(seeded(42))).toEqual(remix(seeded(42)));
+  });
+
+  it("reaches every mood", () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < MOOD_NAMES.length; i++) {
+      seen.add(remix(seeded(i + 1), i).zones.shadows.tint);
+    }
+    expect(seen.size).toBeGreaterThan(3);
   });
 });
