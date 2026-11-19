@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "npm run lint && npm run typecheck && npm run test",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@types/three": "^0.187.0",
