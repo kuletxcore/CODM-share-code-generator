@@ -4,10 +4,14 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
-- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
+- **Try a look on a frame**: one game frame fills the top of the page. Right of a draggable divider it shows the current filter, left of it the untouched original. Pick any of the 12 looks in the strip under it (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) and the frame, the controls and the code switch together, so **Copy code** always copies what the frame shows. After a copy the in-game steps open.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
-- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
-- **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
+  - The strip thumbnails and the card beside the frame show the reference still a look is chasing; the frame shows what the code does.
+- **Tune it**: the game's own controls (Simple, or Advanced with shadows, midtones, highlights and range) act on that same frame. Any change turns the filter into **Your mix**, which stays in the strip and is remembered in the browser, so trying another look never throws it away. Paste a code to edit it. The URL hash holds the current code and **Share** hands out the link.
+- **Use my screenshot**: swap the sample frame for a screenshot of your own, by button or by dropping a file on the frame.
+- **Match a screenshot**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code, which you can put on the frame. Everything runs in the browser; nothing is uploaded.
+
+The sample frame (`public/sample/`) is an AI-generated stand-in, not a CODM capture: a neutral, ungraded first-person scene with sky, foliage, painted walls, deep shadows and a weapon, so every zone of a filter has something to act on. To use a real capture, replace `frame.webp` (1280×720), `frame-800.webp` (800×450) and `frame-thumb.webp` (352×161, a 16:7 crop) and keep the sizes in `src/lib/frame.ts` in step.
 
 ## Share code format
 
@@ -33,7 +37,7 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 - brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral).
 - saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).
 
-The preview is an approximation of the in-game filter.
+The preview is an approximation of the in-game filter. It runs as a WebGL shader and falls back to the same maths on the CPU.
 
 ## Using a code in game
 
@@ -52,7 +56,9 @@ Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` run
 npm run deploy
 ```
 
-Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
+Stack: Next.js (static export), Tailwind CSS, Motion, plain WebGL (frame grading and the smoke background), Hitmarker typeface from the Call of Duty brand site.
+
+The link preview card is `src/app/opengraph-image.jpg` (1200×630); its absolute URL comes from `metadataBase` in `src/app/layout.tsx`.
 
 ## Disclaimer
 

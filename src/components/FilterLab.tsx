@@ -1,974 +1,381 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  analyse,
-  applyGrade,
-  decode,
-  defaultSettings,
-  drawSample,
-  encode,
-  type Settings,
-  type Zone,
-  type ZoneKey,
-  SWATCH_NAMES,
-  hueFrom,
-  hueParts,
-} from "@/lib/codm";
-import LooksGallery from "@/components/LooksGallery";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { LOOKS, decode, defaultSettings, encode, usesAdvanced, type Settings } from "@/lib/codm";
+import { fileToCanvas } from "@/lib/frame";
+import { localValue } from "@/lib/localValue";
+import CodeBar from "@/components/CodeBar";
+import Converter from "@/components/Converter";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
-import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import LiveFrame from "@/components/LiveFrame";
+import LookStrip, { MIX } from "@/components/LookStrip";
+import TunePanel from "@/components/TunePanel";
 
-type Mode = "build" | "convert";
-type Panel = ZoneKey | "range";
+/** What a first-time visitor sees in the frame: a real look, so the first Copy is worth pasting. */
+const OPENING = decode(LOOKS[0].code) ?? defaultSettings();
 
+/** The visitor's last own mix, kept across visits so picking a look never throws it away. */
+const mixStore = localValue("codm-mix");
 
-const PANEL_INFO: Record<Panel, { label: string; desc: string }> = {
-  shadows: {
-    label: "Shadows",
-    desc: "The darkest parts of the frame: interiors, foliage, the underside of cover. A cool tint here gives depth without muddying skin tones.",
-  },
-  midtones: {
-    label: "Midtones",
-    desc: "Most of what you look at: walls, terrain, operators. Small changes go a long way.",
-  },
-  highlights: {
-    label: "Highlights",
-    desc: "Sky, sunlit surfaces, bright paint. Warm highlights read as daylight; cool ones read as overcast.",
-  },
-  global: {
-    label: "Simple",
-    desc: "The game's simple Customize Color screen (Preset #1–#5), which colours the whole image. Advanced mode's Shadows, Midtones and Highlights apply on top of it. The code carries the selected slot and its colour.",
-  },
-  range: {
-    label: "Range",
-    desc: "Where shadows stop and highlights begin. Drag the shadows handle right to push the shadow colour into darker midtones; drag the highlights handle left to spread the highlight colour down.",
-  },
-};
+/** Which of the game's two screens a code belongs on. */
+const opensAdvanced = (s: Settings) => usesAdvanced(s) || s.zones.global.tint < 3;
 
-const ZONE_TABS: ZoneKey[] = ["shadows", "midtones", "highlights"];
-const ADVANCED_PANELS: Panel[] = ["shadows", "midtones", "highlights", "range"];
-
-const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
-/** True when the code carries Advanced (shadows / midtones / highlights) values. */
-const usesAdvanced = (s: Settings) => !ZONE_TABS.every((k) => flat(s.zones[k]));
-
-const r = Math.round;
-const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
-
-/* ---------- image helpers ---------- */
-
-function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxW / img.naturalWidth);
-      const c = document.createElement("canvas");
-      c.width = Math.max(1, r(img.naturalWidth * scale));
-      c.height = Math.max(1, r(img.naturalHeight * scale));
-      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      resolve(c);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Could not read that image."));
-    };
-    img.src = url;
-  });
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand("copy");
+    t.remove();
+  }
 }
-
-function pixels(c: HTMLCanvasElement, maxW = 320) {
-  const scale = Math.min(1, maxW / c.width);
-  const t = document.createElement("canvas");
-  t.width = Math.max(1, r(c.width * scale));
-  t.height = Math.max(1, r(c.height * scale));
-  const ctx = t.getContext("2d")!;
-  ctx.drawImage(c, 0, 0, t.width, t.height);
-  return ctx.getImageData(0, 0, t.width, t.height).data;
-}
-
-function sampleCanvas() {
-  const c = document.createElement("canvas");
-  c.width = 960;
-  c.height = 540;
-  drawSample(c.getContext("2d")!, c.width, c.height);
-  return c;
-}
-
-/* ---------- small UI pieces ---------- */
-
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  track,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  track: string;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="grid grid-cols-[6.5rem_1fr_3.75rem] items-center gap-3">
-      <span className="font-display text-sm font-bold uppercase tracking-wider text-mute">
-        {label}
-      </span>
-      <input
-        type="range"
-        className="slider"
-        min={min}
-        max={max}
-        step={1}
-        value={r(value)}
-        style={{ ["--track" as string]: track }}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-      <input
-        type="number"
-        aria-label={`${label} value`}
-        min={min}
-        max={max}
-        value={r(value)}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-        }}
-        className="w-full border border-line bg-black/40 px-1.5 py-1 text-right font-mono text-sm tabular-nums"
-      />
-    </label>
-  );
-}
-
-function DropZone({
-  title,
-  hint,
-  canvas,
-  onFile,
-  optional,
-}: {
-  title: string;
-  hint: string;
-  canvas: HTMLCanvasElement | null;
-  onFile: (f: File) => void;
-  optional?: boolean;
-}) {
-  const [over, setOver] = useState(false);
-  const url = useMemo(() => canvas?.toDataURL("image/jpeg", 0.8), [canvas]);
-  return (
-    <label
-      onDragOver={(e) => {
-        e.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const f = e.dataTransfer.files[0];
-        if (f) onFile(f);
-      }}
-      className={`cut group relative flex aspect-video cursor-pointer flex-col justify-end overflow-hidden border bg-black/40 p-4 transition-colors ${
-        over ? "border-codm" : "border-line hover:border-mute"
-      }`}
-    >
-      {url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
-      )}
-      {url && <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />}
-      <div className="relative">
-        <div className="font-display text-xl font-extrabold uppercase tracking-wide">
-          {title}
-          {optional && (
-            <span className="ml-2 align-middle text-xs font-medium text-mute">optional</span>
-          )}
-        </div>
-        <p className="mt-1 max-w-sm text-sm text-mute">{url ? "Click or drop to replace." : hint}</p>
-      </div>
-      <input
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-          e.target.value = "";
-        }}
-      />
-    </label>
-  );
-}
-
-/* ---------- preview ---------- */
-
-function Preview({
-  settings,
-  source,
-  onUpload,
-  onClear,
-}: {
-  settings: Settings;
-  source: HTMLCanvasElement | null;
-  onUpload: (f: File) => void;
-  onClear: () => void;
-}) {
-  const view = useRef<HTMLCanvasElement>(null);
-  const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
-  useEffect(() => {
-    let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
-      .then((c) => {
-        if (live && c) setSample(c);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
-  const [split, setSplit] = useState(0);
-  const src = source ?? sample;
-
-  // Grade on the GPU when WebGL is available; null = not tried yet.
-  const gpu = useRef<GradeGpu | null>(null);
-  const [gpuOk, setGpuOk] = useState<boolean | null>(null);
-  useEffect(() => {
-    const c = view.current;
-    if (!c) return;
-    const g = createGradeGpu(c);
-    gpu.current = g;
-    setGpuOk(!!g);
-    return () => {
-      g?.dispose();
-      gpu.current = null;
-    };
-  }, []);
-  useEffect(() => {
-    if (gpuOk && src) gpu.current?.setSource(src);
-  }, [gpuOk, src]);
-  useEffect(() => {
-    if (!gpuOk || !src) return;
-    const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
-    return () => cancelAnimationFrame(id);
-  }, [gpuOk, src, settings, split]);
-
-  // CPU fallback. Original pixels, read once per image.
-  const orig = useMemo(
-    () =>
-      gpuOk === false ? (src?.getContext("2d")?.getImageData(0, 0, src.width, src.height) ?? null) : null,
-    [src, gpuOk],
-  );
-  // Filtered pixels, recomputed only when the image or settings change.
-  const graded = useMemo(() => {
-    if (!orig) return null;
-    const data = new Uint8ClampedArray(orig.data);
-    applyGrade(data, settings);
-    return data;
-  }, [orig, settings]);
-
-  // Build each frame from the two buffers so moving the compare slider never
-  // leaves anything from the previous frame behind.
-  useEffect(() => {
-    const c = view.current;
-    if (!c || !orig || !graded) return;
-    const id = requestAnimationFrame(() => {
-      const { width: w, height: h } = orig;
-      if (c.width !== w) c.width = w;
-      if (c.height !== h) c.height = h;
-      const out = new ImageData(new Uint8ClampedArray(graded), w, h);
-      const x = Math.min(w, r(w * split));
-      if (x > 0) {
-        for (let y = 0; y < h; y++) {
-          const row = y * w * 4;
-          out.data.set(orig.data.subarray(row, row + x * 4), row);
-          // divider
-          for (let dx = Math.max(0, x - 2); dx < Math.min(w, x + 1); dx++) {
-            const i = row + dx * 4;
-            out.data[i] = 255;
-            out.data[i + 1] = 234;
-            out.data[i + 2] = 59;
-            out.data[i + 3] = 255;
-          }
-        }
-      }
-      c.getContext("2d")!.putImageData(out, 0, 0);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
-
-  return (
-    // Below xl the preview is pinned as a viewfinder so the result stays in sight
-    // while the sliders underneath scroll.
-    <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-2 border-b border-line bg-ink/90 px-4 pb-2 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8 xl:static xl:mx-0 xl:gap-3 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
-      <div className="cut relative overflow-hidden border border-line bg-black">
-        <canvas ref={view} className="mx-auto block aspect-video h-auto max-h-[27svh] w-full object-contain xl:max-h-none" />
-        <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
-          {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
-          <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <label className="flex min-w-48 flex-1 items-center gap-3">
-          <span className="font-display text-sm font-bold uppercase tracking-wider text-mute">
-            Compare
-          </span>
-          <input
-            type="range"
-            className="slider"
-            min={0}
-            max={100}
-            value={r(split * 100)}
-            onChange={(e) => setSplit(Number(e.target.value) / 100)}
-          />
-        </label>
-        <label className="cut-sm cursor-pointer bg-panel-2 px-3 py-2 font-display text-sm font-bold uppercase tracking-wider hover:bg-line">
-          Use my screenshot
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onUpload(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
-        {source && (
-          <button
-            onClick={onClear}
-            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
-          >
-            Sample scene
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- main ---------- */
 
 export default function FilterLab() {
-  const [mode, setMode] = useState<Mode>("build");
-  const [advanced, setAdvanced] = useState(true);
-  const [tab, setPanel] = useState<Panel>("highlights");
-  // Simple mode has one screen; Advanced never shows it.
-  const panel: Panel = !advanced ? "global" : tab === "global" ? "shadows" : tab;
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  // One filter drives everything on the page: the frame, the controls, the code and the URL.
+  const [settings, setSettings] = useState<Settings>(OPENING);
+  const [advanced, setAdvanced] = useState(() => opensAdvanced(OPENING));
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
+  const [chips, setChips] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fade, setFade] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [docked, setDocked] = useState(false);
+  const reduce = useReducedMotion();
 
   const code = useMemo(() => encode(settings), [settings]);
+  // A filter that matches a look is that look; anything else is the visitor's own mix.
+  const active = useMemo(() => LOOKS.findIndex((l) => l.code === code), [code]);
+  const look = active >= 0 ? LOOKS[active] : null;
+  const saved = useSyncExternalStore(mixStore.subscribe, mixStore.get, mixStore.server);
+  const mix = look ? (saved && decode(saved) ? saved : null) : code;
+  const name = look ? look.name : "Your mix";
+
+  useEffect(() => {
+    if (!look) mixStore.set(code);
+  }, [look, code]);
+
+  const load = useCallback((s: Settings) => {
+    setSettings(s);
+    setAdvanced(opensAdvanced(s));
+    setFade((n) => n + 1);
+  }, []);
+
+  const loadCode = useCallback(
+    (c: string) => {
+      const s = decode(c);
+      if (!s) return false;
+      load(s);
+      return true;
+    },
+    [load],
+  );
 
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
-    const m = location.hash.match(/c=([-\d_]+)/);
-    const s = m && decode(m[1]);
+    const read = () => {
+      const m = location.hash.match(/c=([-\d_]+)/);
+      if (m) loadCode(m[1]);
+    };
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
-    if (!s) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSettings(s);
-    setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
-  }, []);
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, [loadCode]);
+  const landed = useRef(false);
   useEffect(() => {
+    // a first visit keeps its clean URL until the visitor picks or changes something
+    if (!landed.current) {
+      landed.current = true;
+      return;
+    }
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
 
-  const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
-  const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
-    setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
-  }, []);
-
-  const loadCode = useCallback((c: string) => {
-    const s = decode(c);
-    if (!s) return false;
-    setSettings(s);
-    setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
-    return true;
-  }, []);
+  const pick = useCallback(
+    (i: number) => {
+      const c = i === MIX ? mixStore.get() : LOOKS[i]?.code;
+      if (c) loadCode(c);
+    },
+    [loadCode],
+  );
 
   const upload = async (f: File) => {
     try {
       setSource(await fileToCanvas(f, 1280));
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      // the frame on screen is still good, so the message can step aside by itself
+      const message = (e as Error).message;
+      setError(message);
+      window.setTimeout(() => setError((m) => (m === message ? null : m)), 6000);
     }
   };
 
+  const copy = async () => {
+    await copyCode(code, name);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const share = async () => {
+    const url = `${location.origin}${location.pathname}#c=${code}`;
+    // the system share sheet where sharing means sending to a squadmate; a copied link elsewhere
+    if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
+      try {
+        await navigator.share({ title: `${name} · CODM Filter Lab`, text: `${name}, a colour filter for CODM`, url });
+        return;
+      } catch (e) {
+        if ((e as DOMException).name === "AbortError") return;
+      }
+    }
+    await copyText(url);
+    setShared(true);
+    window.setTimeout(() => setShared(false), 1600);
+  };
+
+  // Dock the code bar whenever the main Copy button is out of sight.
+  const cta = useRef<HTMLButtonElement>(null);
+  const finder = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const b = cta.current?.getBoundingClientRect();
+      if (!b) return;
+      const f = finder.current?.getBoundingClientRect();
+      // on a phone the frame stays pinned over the page, so the button is gone once it slides under it
+      const top = f && f.left < b.right && f.right > b.left ? Math.max(0, f.bottom) : 0;
+      setDocked(b.bottom < top + 12 || b.top > window.innerHeight - 8);
+    };
+    const queue = () => {
+      raf ||= requestAnimationFrame(check);
+    };
+    queue();
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue);
+    // the page also moves under a still viewport: a taller screenshot in the frame, Simple instead of Advanced
+    const grown = new ResizeObserver(queue);
+    grown.observe(document.body);
+    return () => {
+      cancelAnimationFrame(raf);
+      grown.disconnect();
+      window.removeEventListener("scroll", queue);
+      window.removeEventListener("resize", queue);
+    };
+  }, []);
+
+  const custom = look
+    ? null
+    : "Your own tuning. Copy the code for your game, or share the link to hand it to your squad.";
+
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
-      {/* top bar */}
-      <header className="flex flex-wrap items-end justify-between gap-4 pt-6 sm:pt-10">
-        <div>
+    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-28 sm:px-8 2xl:max-w-[1720px]">
+      <header className="flex items-center justify-between gap-3 py-3 sm:gap-4 lg:py-4">
+        <div className="flex shrink-0 items-center gap-2.5 min-[380px]:gap-3 sm:gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/codm-logo.svg"
             alt="Call of Duty: Mobile"
             width={1442}
             height={479}
-            className="mb-4 h-10 w-auto sm:h-12"
+            className="h-6 w-auto min-[380px]:h-7 sm:h-9"
           />
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-codm"
-          >
-            <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
-            Unofficial fan-made tool
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="font-title text-5xl font-black uppercase leading-[0.95] tracking-wide sm:text-7xl"
-          >
+          <span aria-hidden className="h-6 w-px bg-line min-[380px]:h-7 sm:h-9" />
+          <h1 className="whitespace-nowrap font-title text-xl font-black uppercase leading-none tracking-wide min-[380px]:text-2xl sm:text-4xl">
             Filter Lab
-          </motion.h1>
-          <p className="mt-2 max-w-xl text-mute">
-            Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
-            your own.
-          </p>
+          </h1>
+        </div>
+        <p className="hidden text-right text-sm text-mute md:block">
+          See a filter on a game frame, copy its code, paste it into CODM.
+        </p>
+        <div className="flex items-center gap-2 whitespace-nowrap font-display text-[10px] font-bold uppercase tracking-[0.2em] text-codm max-[339px]:hidden min-[380px]:tracking-[0.25em] sm:text-xs md:hidden xl:flex">
+          <span className="inline-block h-2 w-2 shrink-0 rotate-45 bg-codm" />
+          <span className="sm:hidden">Fan-made</span>
+          <span className="hidden sm:inline">Unofficial fan-made tool</span>
         </div>
       </header>
 
-      <LooksGallery
-        onEdit={(c) => {
-          loadCode(c);
-          setMode("build");
-          document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      <section
+        id="bench"
+        aria-label="Try a filter"
+        className="flex flex-col lg:grid lg:grid-cols-[minmax(0,calc(var(--frame-h)*16/9))_minmax(25rem,1fr)] lg:items-start lg:gap-x-8"
+      >
+        {/* On a phone only the frame is pinned; on a wide screen the whole column is. */}
+        <div className="contents lg:sticky lg:top-4 lg:block">
+          <div ref={finder} className="viewfinder z-10 -mx-4 border-b border-line bg-ink sm:-mx-8 lg:mx-0 lg:border-0 lg:bg-transparent">
+            <LiveFrame
+              settings={settings}
+              name={name}
+              source={source}
+              chips={chips}
+              fadeKey={fade}
+              onDropFile={upload}
+            />
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-3 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
+            {error ? (
+              <span role="alert" className="min-w-0 truncate text-red-400">
+                {error}
+              </span>
+            ) : (
+              <span className="min-w-0 truncate">
+                {source ? "Your screenshot" : "Sample frame"}
+                <span className="max-[359px]:hidden"> · approx. preview</span>
+                <span className="hidden sm:inline"> · drag to compare</span>
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-3">
+              {source && (
+                <button onClick={() => setSource(null)} className="uppercase hover:text-text">
+                  Sample frame
+                </button>
+              )}
+              <label className="flex cursor-pointer items-center gap-1.5 text-text hover:text-codm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-codm">
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                  <path d="M1.5 3.5h13v9h-13zM1.5 10l3.5-3 3 2.5 2-1.5 4.5 3.5" />
+                </svg>
+                {source ? "Change" : "Use my screenshot"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) upload(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </span>
+          </div>
+
+          <div className="mt-2">
+            <LookStrip active={active} mix={mix} onPick={pick} />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col">
+          {/* the selected look */}
+          <div
+            id="look-stage"
+            role="tabpanel"
+            aria-labelledby={look ? `look-tab-${active}` : "look-tab-mix"}
+            className="relative mt-5 lg:cut lg:mt-0 lg:flex lg:min-h-48 lg:flex-col lg:justify-end lg:overflow-hidden lg:border lg:border-line lg:bg-panel lg:p-5"
+          >
+            {/* The still a look chases. Wide screens only: on a phone it is already in the strip above. */}
+            <AnimatePresence initial={false}>
+              {look?.image && (
+                <motion.img
+                  key={look.image}
+                  src={look.image}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0 hidden h-full w-full object-cover lg:block"
+                />
+              )}
+            </AnimatePresence>
+            <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/90 via-black/50 to-black/15 lg:block" />
+            <div className="pointer-events-none absolute inset-0 hidden scanlines opacity-60 lg:block" />
+
+            <motion.div
+              key={name}
+              aria-live="polite"
+              initial={reduce ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="relative"
+            >
+              <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
+                <span className="bg-codm px-2 py-0.5 text-black">
+                  {look ? look.mode : usesAdvanced(settings) ? "Advanced" : "Simple"}
+                </span>
+                <span className="bg-black/70 px-2 py-0.5 text-mute">
+                  {look ? (look.image ? "Inspiration" : "Stock") : "Custom"}
+                </span>
+                {look && (
+                  <span className="ml-auto font-mono text-[11px] font-medium tracking-normal text-mute">
+                    {String(active + 1).padStart(2, "0")}/{LOOKS.length}
+                  </span>
+                )}
+              </div>
+              <h2
+                className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
+                  name.length > 12 ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl"
+                }`}
+              >
+                {name}
+              </h2>
+              <p className="mt-2 text-sm text-text/90">{look ? look.note : custom}</p>
+            </motion.div>
+          </div>
+
+          <div className="mt-4 flex gap-1.5">
+            <button
+              ref={cta}
+              onClick={copy}
+              className={`cut-sm flex-1 px-5 py-3.5 font-display text-xl font-extrabold uppercase tracking-wider text-black transition-colors ${
+                copied ? "bg-lime" : "bg-codm hover:bg-codm-light"
+              }`}
+            >
+              {copied ? "Copied ✓" : "Copy code"}
+            </button>
+            <button
+              onClick={share}
+              className="flex items-center gap-2 bg-panel-2 px-4 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+            >
+              <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <path d="M8 10V1.5M4.5 4.5 8 1.5l3.5 3M2.5 8v6h11V8" />
+              </svg>
+              {shared ? "Link copied" : "Share"}
+            </button>
+          </div>
+          <output aria-label="Share code" className="mt-2 block select-all break-all font-mono text-[11px] leading-relaxed text-codm/80">
+            {code}
+          </output>
+          <ol className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 font-display text-xs font-bold uppercase tracking-widest text-mute">
+            {["Copy", "Import in game", "Apply"].map((s, i) => (
+              <li key={s} className="flex items-center gap-1.5">
+                <span className="grid h-5 w-5 place-items-center bg-codm text-[11px] text-black">{i + 1}</span>
+                {s}
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-9">
+            <TunePanel
+              settings={settings}
+              setSettings={setSettings}
+              advanced={advanced}
+              setAdvanced={setAdvanced}
+              chips={chips}
+              setChips={setChips}
+              onLoad={loadCode}
+            />
+          </div>
+        </div>
+      </section>
+
+      <Converter
+        onApply={(s) => {
+          load(s);
+          document.getElementById("bench")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
         }}
       />
 
-      <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
-        <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
-        <nav aria-label="Mode" className="flex gap-1">
-          {(
-            [
-              ["build", "Generator"],
-              ["convert", "Screenshot → Code"],
-            ] as const
-          ).map(([m, label]) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              aria-pressed={mode === m}
-              className={`relative px-4 py-2 font-display text-lg font-bold uppercase tracking-wider transition-colors ${
-                mode === m ? "text-text" : "text-mute hover:text-text"
-              }`}
-            >
-              {label}
-              {mode === m && (
-                <motion.span
-                  layoutId="tab-underline"
-                  className="absolute inset-x-2 -bottom-0.5 h-[3px] bg-codm"
-                />
-              )}
-            </button>
-          ))}
-        </nav>
-      </div>
-      <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
-
-      {error && (
-        <p role="alert" className="mt-4 border-l-2 border-red-500 bg-red-500/10 px-3 py-2 text-sm">
-          {error}
-        </p>
-      )}
-
-      <AnimatePresence mode="wait">
-        {mode === "build" ? (
-          <motion.section
-            key="build"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]"
-          >
-            {/* left list, like the mode selector */}
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-between gap-3 bg-white/[0.035] px-4 py-3">
-                <span
-                  className={`font-display text-lg font-extrabold uppercase tracking-wide ${
-                    advanced ? "text-mute" : "text-text"
-                  }`}
-                >
-                  Simple
-                </span>
-                <button
-                  role="switch"
-                  aria-checked={advanced}
-                  aria-label="Advanced mode"
-                  onClick={() => setAdvanced((v) => !v)}
-                  className={`relative h-7 w-14 shrink-0 border transition-colors ${
-                    advanced ? "border-codm bg-codm/25" : "border-line bg-black/50"
-                  }`}
-                >
-                  <motion.span
-                    layout
-                    transition={{ type: "spring", stiffness: 600, damping: 38 }}
-                    className={`absolute top-0.5 h-[22px] w-6 ${
-                      advanced ? "right-0.5 bg-codm" : "left-0.5 bg-mute"
-                    }`}
-                  />
-                </button>
-                <span
-                  className={`font-display text-lg font-extrabold uppercase tracking-wide ${
-                    advanced ? "text-codm" : "text-mute"
-                  }`}
-                >
-                  Advanced
-                </span>
-              </div>
-              <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
-                {ADVANCED_PANELS.map((p) => {
-                  const active = p === panel;
-                  const z = p !== "range" ? settings.zones[p] : null;
-                  return (
-                    <li key={p}>
-                      <button
-                        onClick={() => setPanel(p)}
-                        aria-current={active}
-                        className="relative flex w-full items-center justify-between overflow-hidden px-4 py-3 text-left"
-                      >
-                        {active && (
-                          <motion.span
-                            layoutId="row-active"
-                            className="row-active absolute inset-0"
-                            transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                          />
-                        )}
-                        {!active && <span className="absolute inset-0 bg-white/[0.035] hover:bg-white/[0.07]" />}
-                        <span
-                          className={`relative font-display text-xl font-extrabold uppercase tracking-wide ${
-                            active ? "text-[#0b0f05]" : ""
-                          }`}
-                        >
-                          {PANEL_INFO[p].label}
-                        </span>
-                        {z && (
-                          <span
-                            className="relative h-3 w-3 rotate-45 border border-black/40"
-                            style={{ background: hsl(z.hue, z.tint < 3 ? 0 : 85) }}
-                          />
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-
-            </div>
-
-            {/* right: preview + controls */}
-            <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1fr_380px]">
-              <Preview
-                settings={settings}
-                source={source}
-                onUpload={upload}
-                onClear={() => setSource(null)}
-              />
-
-              <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={panel}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.15 }}
-                    className="flex flex-col gap-4"
-                  >
-                    {(advanced ? !flat(settings.zones.global) : usesAdvanced(settings)) && (
-                      <p className="flex items-start justify-between gap-3 border-l-2 border-codm bg-codm/10 px-3 py-2 text-xs">
-                        <span>
-                          {advanced
-                            ? `This code also carries a Simple colour (Preset #${settings.preset + 1}).`
-                            : "This code also carries Advanced values (shadows, midtones, highlights)."}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setSettings((s) =>
-                              advanced
-                                ? { ...s, zones: { ...s.zones, global: { hue: 0, tint: 0, sat: 50, bri: 50 } } }
-                                : { ...defaultSettings(), preset: s.preset, zones: { ...defaultSettings().zones, global: s.zones.global } },
-                            )
-                          }
-                          className="shrink-0 font-display font-bold uppercase tracking-wider text-codm hover:text-codm-light"
-                        >
-                          Clear
-                        </button>
-                      </p>
-                    )}
-                    <div>
-                      <h2 className="font-display text-3xl font-extrabold uppercase leading-none">
-                        {PANEL_INFO[panel].label}
-                      </h2>
-                      <p className="mt-2 text-sm leading-relaxed text-mute">{PANEL_INFO[panel].desc}</p>
-                    </div>
-
-                    {panel === "range" ? (
-                      <div className="flex flex-col gap-3">
-                        <Slider
-                          label="Shadows"
-                          value={settings.shadowPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#000,#777)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.min(v * 10, s.highlightPos);
-                              return { ...s, shadowPos: pos, shadowEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <Slider
-                          label="Highlights"
-                          value={settings.highlightPos / 10}
-                          min={0}
-                          max={100}
-                          track="linear-gradient(90deg,#777,#fff)"
-                          onChange={(v) =>
-                            setSettings((s) => {
-                              const pos = Math.max(v * 10, s.shadowPos);
-                              return { ...s, highlightPos: pos, highlightEdge: pos + 100 };
-                            })
-                          }
-                        />
-                        <p className="text-xs text-mute">
-                          The two handles of the in-game Range bar, as a percentage of its width.
-                          Moving a handle writes it the same way the game does.
-                        </p>
-                      </div>
-                    ) : (
-                      (() => {
-                        const k = panel;
-                        const z = settings.zones[k];
-                        const hp = hueParts(z.hue, hueHint[k]);
-                        return (
-                          <div className="flex flex-col gap-3">
-                            {k === "global" && (
-                              <div className="grid grid-cols-5 gap-1" role="group" aria-label="Simple preset slot">
-                                {[0, 1, 2, 3, 4].map((i) => (
-                                  <button
-                                    key={i}
-                                    aria-pressed={settings.preset === i}
-                                    onClick={() => setSettings((s) => ({ ...s, preset: i }))}
-                                    className={`px-1 py-2 font-display text-sm font-bold ${
-                                      settings.preset === i
-                                        ? "bg-[#6d6a1f] text-codm-light"
-                                        : "bg-panel-2 text-mute hover:text-text"
-                                    }`}
-                                  >
-                                    Preset #{i + 1}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="grid grid-cols-4 gap-2" role="group" aria-label="Hue swatches">
-                              {SWATCH_NAMES.map((name, i) => (
-                                <button
-                                  key={name}
-                                  title={name}
-                                  aria-label={name}
-                                  aria-pressed={hp.swatch === i}
-                                  onClick={() => {
-                                    setHueHint((h) => ({ ...h, [k]: i }));
-                                    setZone(k, { hue: hueFrom(i, hp.pos) });
-                                  }}
-                                  className={`relative h-10 border-2 transition-transform hover:scale-105 ${
-                                    hp.swatch === i ? "border-white" : "border-black/50"
-                                  }`}
-                                  style={{ background: hsl(i * 45, 100, 50) }}
-                                >
-                                  {hp.swatch === i && (
-                                    <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2fae4e] text-[10px] font-bold text-white">
-                                      ✓
-                                    </span>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                            <Slider
-                              label="Hue"
-                              value={hp.pos}
-                              min={0}
-                              max={100}
-                              track={`linear-gradient(90deg,${hsl(hp.swatch * 45, 100, 50)},${hsl(hp.swatch * 45 + 45, 100, 50)})`}
-                              onChange={(v) => {
-                                setHueHint((h) => ({ ...h, [k]: hp.swatch }));
-                                setZone(k, { hue: hueFrom(hp.swatch, v) });
-                              }}
-                            />
-                            <Slider
-                              label="Tint"
-                              value={z.tint}
-                              min={0}
-                              max={100}
-                              track={`linear-gradient(90deg,#666,${hsl(z.hue)})`}
-                              onChange={(v) => setZone(k, { tint: v })}
-                            />
-                            <Slider
-                              label="Saturation"
-                              value={z.sat}
-                              min={0}
-                              max={100}
-                              track={`linear-gradient(90deg,#777,${hsl(z.hue, 100, 50)})`}
-                              onChange={(v) => setZone(k, { sat: v })}
-                            />
-                            <Slider
-                              label="Brightness"
-                              value={z.bri}
-                              min={0}
-                              max={100}
-                              track="linear-gradient(90deg,#000,#fff)"
-                              onChange={(v) => setZone(k, { bri: v })}
-                            />
-                            <button
-                              onClick={() => setZone(k, { hue: 0, tint: 0, sat: 50, bri: 50 })}
-                              className="self-start font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
-                            >
-                              Reset {PANEL_INFO[k].label}
-                            </button>
-                          </div>
-                        );
-                      })()
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-          </motion.section>
-        ) : (
-          <Converter
-            key="convert"
-            onApply={(s) => {
-              setSettings(s);
-              setMode("build");
-            }}
-            onError={setError}
-          />
-        )}
-      </AnimatePresence>
-
       <Notes />
-      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <CodeBar show={docked} name={name} code={code} copied={copied} onCopy={copy} />
       <ImportGuide />
-    </div>
-  );
-}
-
-/* ---------- converter ---------- */
-
-function Converter({
-  onApply,
-  onError,
-}: {
-  onApply: (s: Settings) => void;
-  onError: (m: string | null) => void;
-}) {
-  const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
-  const [base, setBase] = useState<HTMLCanvasElement | null>(null);
-
-  const result = useMemo(
-    () => (target ? analyse(pixels(target), base ? pixels(base) : null) : null),
-    [target, base],
-  );
-
-  const load = (set: (c: HTMLCanvasElement) => void) => async (f: File) => {
-    try {
-      set(await fileToCanvas(f, 960));
-      onError(null);
-    } catch (e) {
-      onError((e as Error).message);
-    }
-  };
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
-      className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <DropZone
-            title="Reference look"
-            hint="A screenshot with the colours you want, from any game or photo."
-            canvas={target}
-            onFile={load(setTarget)}
-          />
-          <DropZone
-            title="Your screen"
-            hint="CODM on the default filter. A similar scene to the reference makes the match much closer."
-            canvas={base}
-            onFile={load(setBase)}
-            optional
-          />
-        </div>
-        <p className="text-sm text-mute">
-          Images stay in your browser. The converter measures the colour cast, saturation and
-          brightness of the shadows, midtones and highlights, then picks slider values that push
-          your screen towards the reference. Treat it as a starting point and fine-tune by eye.
-        </p>
-      </div>
-
-      <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
-        <h2 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h2>
-        {!result ? (
-          <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>
-        ) : (
-          <>
-            {!base && (
-              <p className="border-l-2 border-codm bg-codm/10 px-3 py-2 text-xs">
-                No baseline screenshot, so the values are toned down. Add one for a closer match.
-              </p>
-            )}
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left font-display uppercase tracking-wider text-mute">
-                  <th className="py-1 font-bold"></th>
-                  <th className="font-bold">Hue</th>
-                  <th className="font-bold">Tint</th>
-                  <th className="font-bold">Sat</th>
-                  <th className="font-bold">Bri</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono tabular-nums">
-                {(ZONE_TABS).map((k) => {
-                  const z = result.zones[k];
-                  return (
-                    <tr key={k} className="border-t border-line">
-                      <td className="py-2 font-display font-bold uppercase tracking-wide">
-                        <span
-                          className="mr-2 inline-block h-2.5 w-2.5 rotate-45"
-                          style={{ background: hsl(z.hue) }}
-                        />
-                        {PANEL_INFO[k].label}
-                      </td>
-                      <td>
-                        {SWATCH_NAMES[hueParts(z.hue).swatch]} {r(hueParts(z.hue).pos)}
-                      </td>
-                      <td>{r(z.tint)}</td>
-                      <td>{r(z.sat)}</td>
-                      <td>{r(z.bri)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <code className="block break-all bg-black/50 p-3 font-mono text-xs text-codm">
-              {encode(result)}
-            </code>
-            <button
-              onClick={() => onApply(result)}
-              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
-            >
-              Open in generator
-            </button>
-          </>
-        )}
-      </div>
-    </motion.section>
-  );
-}
-
-/* ---------- code bar ---------- */
-
-function CodeBar({
-  code,
-  onLoad,
-  onReset,
-}: {
-  code: string;
-  onLoad: (c: string) => boolean;
-  onReset: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [input, setInput] = useState("");
-  const [bad, setBad] = useState(false);
-
-  const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
-            Share code
-          </span>
-          <output
-            aria-live="polite"
-            className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
-            title={code}
-          >
-            {code}
-          </output>
-          <button
-            onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ok = onLoad(input);
-            setBad(!ok);
-            if (ok) setInput("");
-          }}
-        >
-          <input
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setBad(false);
-            }}
-            placeholder="Paste a code to edit it"
-            aria-label="Paste a share code"
-            aria-invalid={bad}
-            className={`w-full min-w-0 border bg-black/50 px-3 py-2 font-mono text-sm lg:w-64 ${
-              bad ? "border-red-500" : "border-line"
-            }`}
-          />
-          <button
-            type="submit"
-            className="bg-panel-2 px-3 py-2 font-display font-bold uppercase tracking-wider hover:bg-line"
-          >
-            Load
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="px-2 py-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
-          >
-            Reset
-          </button>
-        </form>
-      </div>
-      {bad && (
-        <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
-          That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
-        </p>
-      )}
     </div>
   );
 }
@@ -995,7 +402,8 @@ function Notes() {
         </h2>
         <p>
           The code format was worked out from shared codes, not from any official spec. The preview
-          is an approximation of the in-game filter, so check the result in game.
+          is an approximation of the in-game filter on a stand-in frame, not a CODM capture, so check
+          the result in game or try it on your own screenshot.
         </p>
       </div>
       <div>

@@ -80,11 +80,58 @@ body {
 }
 
 /* angled corner used on panels and buttons, echoing the menu chrome */
-.cut {
+@utility cut {
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
-.cut-sm {
+@utility cut-sm {
   clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+
+/* ---------- try-on frame ---------- */
+
+/* The tallest the frame may get. On a phone it stays pinned above the controls,
+   so it must leave room for them. Beside the controls on a wide screen it has
+   to fit the window together with the header and the rows of looks under it,
+   and those rows grow with the frame: three rows of four add about 0.6 of its
+   height, two rows of six about a quarter. */
+:root {
+  --frame-h: 46svh;
+}
+@media (max-height: 30rem) {
+  :root {
+    --frame-h: 68svh;
+  }
+}
+@media (min-width: 64rem) {
+  :root {
+    --frame-h: max(15rem, calc((100svh - 8.5rem) * 0.62));
+  }
+}
+@media (min-width: 80rem) {
+  :root {
+    --frame-h: max(15rem, calc((100svh - 8.5rem) * 0.79));
+  }
+}
+
+/* pinned as a viewfinder while the controls scroll under it; not on very short
+   screens, and not on wide ones, where the whole column is pinned instead */
+.viewfinder {
+  position: sticky;
+  top: 0;
+}
+@media (max-height: 30rem), (min-width: 64rem) {
+  .viewfinder {
+    position: static;
+  }
+}
+
+/* the divider and labels wait for the first graded frame */
+.tryon:not([data-live]) .tryon-ui {
+  visibility: hidden;
+}
+/* the outgoing frame, fading out over the incoming one */
+.tryon-ghost {
+  transition: opacity 0.3s ease-out;
 }
 
 /* row highlight like the selected item in the mode list */

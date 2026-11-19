@@ -38,91 +38,106 @@ void main(){
 }
 `;
 
-/** Slow-moving smoke behind the UI, drawn with three.js. */
+const vert = "attribute vec2 aPos; varying vec2 vUv; void main(){ vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }";
+
+/** Slow-moving smoke behind the UI: one fragment shader on a full-screen quad, in plain WebGL. */
 export default function SmokeBackground() {
   const host = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let disposed = false;
-    let cleanup = () => {};
-    import("three").then((THREE) => {
-      const el = host.current;
-      if (disposed || !el) return;
-      let renderer: InstanceType<typeof THREE.WebGLRenderer>;
-      try {
-        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
-      } catch {
-        return; // no WebGL: the CSS background stays
-      }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-      el.appendChild(renderer.domElement);
-      const scene = new THREE.Scene();
-      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-      const uniforms = {
-        uTime: { value: 0 },
-        uRes: { value: new THREE.Vector2(1, 1) },
-      };
-      const mat = new THREE.ShaderMaterial({
-        uniforms,
-        fragmentShader: frag,
-        vertexShader:
-          "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position, 1.0); }",
-      });
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
-      scene.add(mesh);
+    const el = host.current;
+    if (!el) return;
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, powerPreference: "low-power" });
+    if (!gl) return; // no WebGL: the CSS background stays
 
-      const coarse = window.matchMedia("(pointer: coarse)").matches;
-      const resize = () => {
-        const w = window.innerWidth,
-          h = window.innerHeight;
-        // blurry smoke needs few pixels: half res on desktop, a third on touch screens
-        const div = coarse ? 3 : 2;
-        renderer.setSize(w / div, h / div, false);
-        renderer.domElement.style.width = "100%";
-        renderer.domElement.style.height = "100%";
-        uniforms.uRes.value.set(w, h);
+    // Everything that lives in the context, so it can be rebuilt after a context loss.
+    const build = () => {
+      const sh = (type: number, src: string) => {
+        const s = gl.createShader(type);
+        if (!s) return null;
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
       };
-      resize();
-      window.addEventListener("resize", resize);
+      const vs = sh(gl.VERTEX_SHADER, vert),
+        fs = sh(gl.FRAGMENT_SHADER, frag);
+      const prog = gl.createProgram();
+      if (!vs || !fs || !prog) return null;
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "aPos");
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      return { uTime: gl.getUniformLocation(prog, "uTime"), uRes: gl.getUniformLocation(prog, "uRes") };
+    };
+    let u = build();
+    if (!u) return; // shader would not build: the CSS background stays
+    canvas.style.cssText = "display:block;width:100%;height:100%";
+    el.appendChild(canvas);
 
-      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      let raf = 0;
-      let last = 0;
-      let busy = false; // finger/mouse is down: leave the CPU and GPU to the preview
-      const FRAME = 1000 / 24; // smoke drifts slowly, 24fps is indistinguishable
-      let clock = 0; // animation time only advances while the smoke is actually drawn
-      const loop = (now: number) => {
-        raf = requestAnimationFrame(loop);
-        if (busy || document.hidden || now - last < FRAME) return;
-        clock += Math.min(now - last, 100) / 1000;
-        last = now;
-        uniforms.uTime.value = clock;
-        renderer.render(scene, camera);
-      };
-      uniforms.uTime.value = 0;
-      renderer.render(scene, camera);
-      const down = () => (busy = true);
-      const up = () => (busy = false);
-      window.addEventListener("pointerdown", down, { passive: true });
-      window.addEventListener("pointerup", up, { passive: true });
-      window.addEventListener("pointercancel", up, { passive: true });
-      if (!still) raf = requestAnimationFrame(loop);
+    let clock = 0; // animation time only advances while the smoke is actually drawn
+    const paint = () => {
+      if (!u || gl.isContextLost()) return;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform1f(u.uTime, clock);
+      gl.uniform2f(u.uRes, window.innerWidth, window.innerHeight);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
 
-      cleanup = () => {
-        cancelAnimationFrame(raf);
-        window.removeEventListener("resize", resize);
-        window.removeEventListener("pointerdown", down);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", up);
-        mesh.geometry.dispose();
-        mat.dispose();
-        renderer.dispose();
-        renderer.domElement.remove();
-      };
-    });
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const resize = () => {
+      // blurry smoke needs few pixels: half res on desktop, a third on touch screens
+      const div = coarse ? 3 : 2;
+      canvas.width = Math.max(1, Math.floor(window.innerWidth / div));
+      canvas.height = Math.max(1, Math.floor(window.innerHeight / div));
+      paint();
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    let last = 0;
+    let busy = false; // finger/mouse is down: leave the CPU and GPU to the preview
+    const FRAME = 1000 / 24; // smoke drifts slowly, 24fps is indistinguishable
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      if (busy || document.hidden || now - last < FRAME) return;
+      clock += Math.min(now - last, 100) / 1000;
+      last = now;
+      paint();
+    };
+    const down = () => (busy = true);
+    const up = () => (busy = false);
+    window.addEventListener("pointerdown", down, { passive: true });
+    window.addEventListener("pointerup", up, { passive: true });
+    window.addEventListener("pointercancel", up, { passive: true });
+    if (!still) raf = requestAnimationFrame(loop);
+
+    const lost = (e: Event) => e.preventDefault();
+    const restored = () => {
+      u = build();
+      paint();
+    };
+    canvas.addEventListener("webglcontextlost", lost);
+    canvas.addEventListener("webglcontextrestored", restored);
+
     return () => {
-      disposed = true;
-      cleanup();
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      canvas.removeEventListener("webglcontextlost", lost);
+      canvas.removeEventListener("webglcontextrestored", restored);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      canvas.remove();
     };
   }, []);
 

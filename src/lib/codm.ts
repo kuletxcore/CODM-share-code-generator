@@ -98,6 +98,13 @@ export function decode(code: string): Settings | null {
   return s;
 }
 
+/** A zone the game would show at its reset values (tint below the smallest visible step). */
+export const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.abs(z.bri - 50) < 1;
+
+/** True when the code carries Advanced (shadows / midtones / highlights) values. */
+export const usesAdvanced = (s: Settings) =>
+  !(["shadows", "midtones", "highlights"] as ZoneKey[]).every((k) => flat(s.zones[k]));
+
 // ---------- in-game hue controls ----------
 
 /**
