@@ -10,7 +10,9 @@
     "deploy": "wrangler deploy",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'src/**/*.test.mts'",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm test && npm run agents:check",
+    "agents:sync": "node scripts/sync-agent-instructions.mjs",
+    "agents:check": "node scripts/sync-agent-instructions.mjs --check"
   },
   "dependencies": {
     "@types/three": "^0.187.0",

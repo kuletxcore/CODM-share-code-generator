@@ -72,6 +72,21 @@ rules and the grade maths.
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
 
+## Working with AI agents
+
+`AGENTS.md` is the single source of truth for agent instructions. The other files
+an agent might read — `CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`,
+`.github/copilot-instructions.md`, `.cursor/rules/agents.mdc` — are **generated**
+from it, so no tool is given stale or different rules.
+
+```bash
+npm run agents:sync    # regenerate the mirrors after editing AGENTS.md
+npm run agents:check   # fail if a mirror is out of date (CI runs this)
+```
+
+Edit `AGENTS.md`, run the sync, and commit the result. `HANDOFF.md` records the
+current state of the project for whoever picks it up next.
+
 ## Disclaimer
 
 A fan-made project. Not affiliated with, endorsed by or connected to Activision, TiMi Studio Group or Tencent. Call of Duty and Call of Duty: Mobile are trademarks of their respective owners.
