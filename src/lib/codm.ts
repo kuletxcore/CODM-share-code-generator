@@ -159,43 +159,111 @@ function zoneWeights(l: number, t: Bands) {
   return [ws, wm, wh] as const;
 }
 
+/**
+ * Per-pixel constants for one grade, computed once.
+ *
+ * The zone maths is the same for every pixel, so the only things worth doing per
+ * pixel are the luminance lookup and the four zone blends. `applyGrade` used to
+ * re-derive the tint/amount/multiplier arrays for every pixel; hoisting them here
+ * is what makes a full-frame regrade cheap enough to run inside a pointer move.
+ */
+export type GradePlan = {
+  s0: number;
+  s1: number;
+  h0: number;
+  h1: number;
+  /** Tint colour per zone, pre-divided by its own luma (luminance-preserving). */
+  tint: Float64Array;
+  /** Tint amount 0..1 per zone. */
+  amount: Float64Array;
+  /** Saturation multiplier per zone. */
+  sat: Float64Array;
+  /** Brightness multiplier per zone. */
+  bri: Float64Array;
+  /** 1 when the zone would change anything at all, 0 when it is a no-op. */
+  live: Uint8Array;
+  /** True when no zone can do anything, so the whole grade is a no-op. */
+  neutral: boolean;
+};
+
+export function gradePlan(s: Settings): GradePlan {
+  const b = thresholds(s);
+  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  const tint = new Float64Array(12);
+  const amount = new Float64Array(4);
+  const sat = new Float64Array(4);
+  const bri = new Float64Array(4);
+  const live = new Uint8Array(4);
+  for (let z = 0; z < 4; z++) {
+    const zone = zs[z];
+    const c = hueToRgb(zone.hue);
+    const cl = luma(c[0], c[1], c[2]) || 1;
+    tint[z * 3] = c[0] / cl;
+    tint[z * 3 + 1] = c[1] / cl;
+    tint[z * 3 + 2] = c[2] / cl;
+    amount[z] = clamp(zone.tint / 100, 0, 1);
+    sat[z] = clamp(zone.sat / 50, 0, 2);
+    bri[z] = clamp(zone.bri / 50, 0, 2);
+    live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
+  }
+  return {
+    s0: b.s0,
+    s1: b.s1,
+    h0: b.h0,
+    h1: b.h1,
+    tint,
+    amount,
+    sat,
+    bri,
+    live,
+    neutral: !live[0] && !live[1] && !live[2] && !live[3],
+  };
+}
+
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
-  const bands = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  const tintRgb = zs.map((z) => hueToRgb(z.hue));
-  const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
-  const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
-  const briMul = zs.map((z) => clamp(z.bri / 50, 0, 2));
-  const w = [0, 0, 0, 1];
+  paintGrade(data, gradePlan(s));
+}
+
+/**
+ * `applyGrade` with the plan already built. Call this in a loop over several
+ * buffers that share one grade.
+ */
+export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
+  // Nothing to do: the code is the reset state. Skipping the loop entirely is
+  // what makes "no filter" free instead of a full-frame pass.
+  if (plan.neutral) return;
+
+  const { s0, s1, h0, h1, tint, amount, sat, bri, live } = plan;
+  const allLive = live[0] && live[1] && live[2] && live[3];
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i] / 255,
       g = data[i + 1] / 255,
       b = data[i + 2] / 255;
+    // Zone weights come from the pixel's ORIGINAL luminance, all at once.
     const l0 = luma(r, g, b);
-    const [ws, wm, wh] = zoneWeights(l0, bands);
-    w[0] = ws;
-    w[1] = wm;
-    w[2] = wh;
-    // index 3 is the first code group, applied to the whole image
+    const ws = 1 - smooth(s0, s1, l0);
+    const wh = smooth(h0, h1, l0) * (1 - ws);
+    const wm = Math.max(0, 1 - ws - wh);
     for (let z = 0; z < 4; z++) {
-      const k = w[z];
+      if (!allLive && !live[z]) continue;
+      // index 3 is the first code group, applied to the whole image
+      const k = z === 3 ? 1 : z === 0 ? ws : z === 1 ? wm : wh;
       if (k <= 0.001) continue;
       const l = luma(r, g, b);
-      const t = tintAmt[z] * k;
-      const c = tintRgb[z];
-      const cl = luma(c[0], c[1], c[2]) || 1;
+      const t = amount[z] * k;
+      const p = z * 3;
       // luminance-preserving tint
-      let nr = r + (l * (c[0] / cl) - r) * t;
-      let ng = g + (l * (c[1] / cl) - g) * t;
-      let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k;
+      let nr = r + (l * tint[p] - r) * t;
+      let ng = g + (l * tint[p + 1] - g) * t;
+      let nb = b + (l * tint[p + 2] - b) * t;
+      const sm = 1 + (sat[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k;
+      const bm = 1 + (bri[z] - 1) * k;
       r = nr * bm;
       g = ng * bm;
       b = nb * bm;

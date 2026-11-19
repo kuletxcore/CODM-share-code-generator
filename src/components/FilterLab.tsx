@@ -19,6 +19,7 @@ import {
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
+import LookContactSheet, { toSource, type Source } from "@/components/LookContactSheet";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
 type Mode = "build" | "convert";
@@ -85,6 +86,32 @@ function pixels(c: HTMLCanvasElement, maxW = 320) {
   const ctx = t.getContext("2d")!;
   ctx.drawImage(c, 0, 0, t.width, t.height);
   return ctx.getImageData(0, 0, t.width, t.height).data;
+}
+
+/**
+ * The current picture with an arbitrary code applied, as a data URL for the look
+ * card. Small on purpose: the card draws it at ~700px, so 960 is plenty and the
+ * string stays short.
+ */
+function gradeSnapshot(from: HTMLCanvasElement | null, code: string): string | undefined {
+  if (!from) return undefined;
+  const s = decode(code);
+  if (!s) return undefined;
+  const scale = Math.min(1, 960 / Math.max(1, from.width));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(from.width * scale));
+  c.height = Math.max(1, Math.round(from.height * scale));
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return undefined;
+  ctx.drawImage(from, 0, 0, c.width, c.height);
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  applyGrade(img.data, s);
+  ctx.putImageData(img, 0, 0);
+  try {
+    return c.toDataURL("image/jpeg", 0.82);
+  } catch {
+    return undefined;
+  }
 }
 
 function sampleCanvas() {
@@ -210,12 +237,15 @@ function Preview({
   source,
   onUpload,
   onClear,
+  onReady,
   view,
 }: {
   settings: Settings;
   source: HTMLCanvasElement | null;
   onUpload: (f: File) => void;
   onClear: () => void;
+  /** Fires with whatever is currently being previewed, so one picture feeds the wall. */
+  onReady: (c: HTMLCanvasElement) => void;
   view: React.RefObject<HTMLCanvasElement | null>;
 }) {
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
@@ -235,6 +265,12 @@ function Preview({
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
+
+  // Tell the contact sheet what to grade. It wants the UNGRADED picture, which is
+  // exactly `src`, so one image serves the preview and the wall.
+  useEffect(() => {
+    if (src) onReady(src);
+  }, [src, onReady]);
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
@@ -388,6 +424,15 @@ export default function FilterLab() {
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // One downsampled copy of whatever is on screen, shared by every tile in the
+  // contact sheet. Rebuilt only when the picture changes, never per slider tick.
+  const [sheetSource, setSheetSource] = useState<Source | null>(null);
+  const onReadySource = useRef<HTMLCanvasElement | null>(null);
+  const onPictureReady = useCallback((c: HTMLCanvasElement) => {
+    onReadySource.current = c;
+    setSheetSource(toSource(c));
+  }, []);
+
   const code = useMemo(() => encode(settings), [settings]);
 
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
@@ -471,6 +516,24 @@ export default function FilterLab() {
           loadCode(c);
           setMode("build");
           document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
+
+      <LookContactSheet
+        settings={settings}
+        code={code}
+        source={sheetSource}
+        onPickLook={(c) => {
+          loadCode(c);
+          setMode("build");
+          document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onCopyLook={async (c, name, note) => {
+          // Give the look card the same picture the wall is showing, so what the
+          // visitor shares matches what they picked. Falls back to no image (the
+          // card draws its own plate) if a snapshot is not available.
+          const image = gradeSnapshot(onReadySource.current, c);
+          await copyCode(c, name, { note, image });
         }}
       />
 
@@ -603,6 +666,7 @@ export default function FilterLab() {
                   source={source}
                   onUpload={upload}
                   onClear={() => setSource(null)}
+                  onReady={onPictureReady}
                   view={view}
                 />
                 {advanced && (

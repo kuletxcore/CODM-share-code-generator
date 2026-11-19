@@ -4,6 +4,7 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
+- **Compare at a glance**: a wall of every look applied to *one frame* — your own screenshot if you have added one, otherwise the sample scene. The editor's live code gets its own tile, so you can see your tweak next to the originals without leaving the page. Tap a tile to load it, or copy straight from it (the look card picks up the same picture). Graded on the CPU, so it works with no WebGL.
 - **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
@@ -35,6 +36,13 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
 The preview is an approximation of the in-game filter.
 
+Grading is one function, `applyGrade`, used by the preview, the wall of looks, the
+gallery thumbnails and the share card. It hoists every per-zone constant out of the
+pixel loop (`gradePlan`) and skips zones that would change nothing, so the reset
+code is free and a full-frame regrade of a 168x108 tile is about 1 ms. On a
+WebGL-capable browser the editor preview uses a matching shader instead. Both paths
+are pinned to the same reference implementation by `src/lib/grade.test.mts`.
+
 ## Using a code in game
 
 Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
@@ -51,6 +59,16 @@ Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` run
 ```bash
 npm run deploy
 ```
+
+Checks:
+
+```bash
+npm run check      # typecheck + lint + tests
+```
+
+`npm test` uses `node --test` over `src/**/*.test.mts`; Node strips the TypeScript
+types itself, so there is no test-runner dependency. The suite pins the share-codec
+rules and the grade maths.
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
 
