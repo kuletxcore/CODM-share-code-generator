@@ -911,14 +911,23 @@ function CodeBar({
   onLoad: (c: string) => boolean;
   onReset: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
+  const out = useRef<HTMLOutputElement>(null);
 
   const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
+    const ok = await copyCode(code);
+    setCopyState(ok ? "ok" : "fail");
+    // A blocked clipboard is recoverable: select the code so ⌘C works.
+    if (!ok && out.current) {
+      const range = document.createRange();
+      range.selectNodeContents(out.current);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    setTimeout(() => setCopyState("idle"), 1600);
   };
 
   return (
@@ -929,6 +938,7 @@ function CodeBar({
             Share code
           </span>
           <output
+            ref={out}
             aria-live="polite"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
@@ -937,9 +947,15 @@ function CodeBar({
           </output>
           <button
             onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+            className={`cut-sm relative min-w-28 px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider ${
+              copyState === "fail"
+                ? "bg-panel-2 text-codm ring-1 ring-codm"
+                : copyState === "ok"
+                  ? "bg-lime text-black"
+                  : "bg-codm text-black hover:bg-codm-light"
+            }`}
           >
-            {copied ? "Copied" : "Copy"}
+            {copyState === "ok" ? "Copied ✓" : copyState === "fail" ? "Select it ⤴" : "Copy"}
           </button>
         </div>
         <form

@@ -201,10 +201,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           </motion.div>
           <div className="flex max-w-md gap-1">
             <button
-              onClick={() => {
-                copyCode(look.code, look.name, { note: look.note, image: look.image });
-                setCopied(look.code);
+              onClick={async () => {
                 setAuto(false);
+                const ok = await copyCode(look.code, look.name, {
+                  note: look.note,
+                  image: look.image,
+                });
+                setCopied(ok ? look.code : null);
               }}
               className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
                 copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"

@@ -6,25 +6,60 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
 
-type Copied = { code: string; name?: string; note?: string; image?: string };
+type Copied = {
+  code: string;
+  name?: string;
+  note?: string;
+  image?: string;
+  /** False when the browser refused the clipboard write; the guide then asks
+   *  the visitor to copy by hand instead of claiming success. */
+  ok?: boolean;
+};
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
-export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
-  window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
+export function announceCopy(
+  code: string,
+  name?: string,
+  extra: Omit<Copied, "code" | "name" | "ok"> = {},
+  ok = true,
+) {
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ok, ...extra } }));
 }
 
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+/** @returns whether the code actually reached the clipboard. */
+export async function copyCode(
+  code: string,
+  name?: string,
+  extra: Omit<Copied, "code" | "name" | "ok"> = {},
+): Promise<boolean> {
+  let ok = false;
   try {
     await navigator.clipboard.writeText(code);
+    ok = true;
   } catch {
+    // Clipboard API needs a secure context and permission; older or locked-down
+    // browsers and embedded webviews fall back to the selection trick.
+    ok = legacyCopy(code);
+  }
+  announceCopy(code, name, extra, ok);
+  return ok;
+}
+
+function legacyCopy(code: string): boolean {
+  try {
     const t = document.createElement("textarea");
     t.value = code;
+    t.setAttribute("readonly", "");
+    t.style.position = "fixed";
+    t.style.opacity = "0";
     document.body.appendChild(t);
     t.select();
-    document.execCommand("copy");
+    const ok = document.execCommand("copy");
     t.remove();
+    return ok;
+  } catch {
+    return false;
   }
-  announceCopy(code, name, extra);
 }
 
 /** QR that opens this page on a phone with the code loaded (#c= restores it). */
@@ -151,8 +186,13 @@ export default function ImportGuide() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-xs font-bold uppercase tracking-[0.2em] text-lime">
-                  ✓ Code copied{open.name ? ` · ${open.name}` : ""}
+                <p
+                  className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${
+                    open.ok === false ? "text-codm" : "text-lime"
+                  }`}
+                >
+                  {open.ok === false ? "Copy blocked · select it below" : "✓ Code copied"}
+                  {open.name ? ` · ${open.name}` : ""}
                 </p>
                 <h2
                   id="guide-title"
@@ -209,15 +249,21 @@ export default function ImportGuide() {
             </ol>
 
             <div className="mt-3 flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate bg-black/50 px-2 py-2 font-mono text-xs text-codm-light">
+              <code
+                className={`min-w-0 flex-1 select-all truncate bg-black/50 px-2 py-2 font-mono text-xs text-codm-light ${
+                  open.ok === false ? "ring-1 ring-codm" : ""
+                }`}
+              >
                 {open.code}
               </code>
               <button
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(open.code);
-                  } catch {}
-                  setAgain(true);
+                  const ok = await copyCode(open.code, open.name, {
+                    note: open.note,
+                    image: open.image,
+                  });
+                  setOpen({ ...open, ok });
+                  setAgain(ok);
                   setTimeout(() => setAgain(false), 1400);
                 }}
                 className="cut-sm min-h-11 shrink-0 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
@@ -286,7 +332,8 @@ export default function ImportGuide() {
             className="cut fixed inset-x-4 bottom-36 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 lg:bottom-24"
           >
             <span className="font-display text-base font-extrabold uppercase tracking-wide text-codm">
-              Code copied{toast.name ? ` · ${toast.name}` : ""}
+              {toast.ok === false ? "Copy blocked" : "Code copied"}
+              {toast.name ? ` · ${toast.name}` : ""}
             </span>
             <button
               onClick={() => {
