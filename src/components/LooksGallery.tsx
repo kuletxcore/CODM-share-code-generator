@@ -120,8 +120,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
 
   return (
     <section
+      id="looks"
       aria-labelledby="looks-title"
-      className="mt-8"
+      className="mt-8 scroll-mt-4"
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
     >

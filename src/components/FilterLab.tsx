@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyse,
+  LOOKS,
   applyGrade,
   decode,
   defaultSettings,
@@ -559,12 +560,20 @@ export default function FilterLab() {
   // the header group points at the Range bar, which has no panel of its own.
   const goToGroup = useCallback((group: CodeGroup) => {
     if (group === "header") {
+      // the Range bar only exists in Advanced, so open it before scrolling
+      if (!advanced) {
+        setAdvanced(true);
+        requestAnimationFrame(() =>
+          document.getElementById("tonal-range")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+        );
+        return;
+      }
       document.getElementById("tonal-range")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setAdvanced(true);
     setPanel(group as ZoneKey);
-  }, []);
+  }, [advanced]);
 
   const upload = async (f: File) => {
     try {
@@ -617,6 +626,34 @@ export default function FilterLab() {
           <p className="mt-3 max-w-xl text-sm text-mute sm:mt-2 sm:text-base">
             Colour filter share codes for Call of Duty: Mobile. Copy a ready-made look, or build
             your own.
+          </p>
+          {/* three jobs, one obvious way into each: the page has to explain itself
+              before it shows the gallery, or a first visit is a scroll and a guess */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5">
+            <a
+              href="#looks"
+              className="cut min-h-11 bg-codm px-4 py-2.5 font-display text-base font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+            >
+              Copy a look
+            </a>
+            <a
+              href="#editor"
+              className="min-h-11 bg-panel-2 px-4 py-2.5 font-display text-base font-bold uppercase tracking-wider text-text hover:bg-line"
+            >
+              Build one
+            </a>
+            <button
+              onClick={() => {
+                setMode("convert");
+                document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="min-h-11 px-4 py-2.5 font-display text-base font-bold uppercase tracking-wider text-mute hover:text-text"
+            >
+              Use a screenshot
+            </button>
+          </div>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-mute">
+            {LOOKS.length} looks · 22-number codes · nothing uploaded · free
           </p>
         </div>
       </header>

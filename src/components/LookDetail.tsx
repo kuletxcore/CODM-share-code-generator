@@ -128,6 +128,31 @@ export default function LookDetail({ look }: { look: Look }) {
         </div>
       </header>
 
+      {/* the steps live here too: copying on a look page used to be a dead end,
+          since the import guide only exists on the home page */}
+      <details className="mt-8 border border-line bg-panel/60 px-4 py-3">
+        <summary className="cursor-pointer font-display text-sm font-bold uppercase tracking-wider text-text">
+          How to import it in CODM
+        </summary>
+        <ol className="mt-3 grid gap-1.5 text-sm text-mute">
+          {[
+            "Copy the code above.",
+            "In CODM open Settings → Audio and Graphics.",
+            "Pick your mode tab: MP, BR, DMZ and so on. Each mode keeps its own style.",
+            "Graphic Style → Import → Go.",
+            "Choose a Custom slot (1–5).",
+            "Paste into “Enter the Share code” and tap Apply.",
+          ].map((step, i) => (
+            <li key={step} className="flex gap-2">
+              <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center bg-panel-2 font-display text-[11px] font-bold text-codm">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </details>
+
       <section className="mt-10" aria-labelledby="code-title">
         <h2 id="code-title" className="font-title text-2xl font-black uppercase tracking-wide sm:text-3xl">
           What the code does
