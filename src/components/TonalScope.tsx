@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { thresholds, zoneShares, type Settings } from "@/lib/codm";
+import { onPreviewDrawn } from "@/lib/previewBus";
 
 // Luminance histogram of the preview canvas with the two in-game Range handles on top,
 // so you can see which tones each zone will touch.
@@ -16,13 +17,13 @@ export default function TonalScope({
   viewRef,
   settings,
   onRange,
-  onShare,
 }: {
   viewRef: React.RefObject<HTMLCanvasElement | null>;
   settings: Settings;
   onRange: (patch: { shadowPos?: number; highlightPos?: number }) => void;
-  onShare?: (share: [number, number, number]) => void;
 }) {
+  // How much of the frame each zone actually claims, for the readout below.
+  const [share, setShare] = useState<[number, number, number]>([0, 0, 0]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const ghost = useRef<HTMLCanvasElement | null>(null);
@@ -147,8 +148,11 @@ export default function TonalScope({
     ctx.fillRect(mx - 2, 0, 4, 4);
 
     // share of the frame per zone, using the grade's own falloff
-    if (onShare) onShare(zoneShares(bins, bands));
-  }, [settings, viewRef, onShare]);
+    const next = zoneShares(bins, bands);
+    setShare((prev) =>
+      prev[0] === next[0] && prev[1] === next[1] && prev[2] === next[2] ? prev : next,
+    );
+  }, [settings, viewRef]);
 
   // repaint on the next frame, after the preview has drawn this settings change
   useEffect(() => {
@@ -156,12 +160,13 @@ export default function TonalScope({
     return () => cancelAnimationFrame(id);
   }, [paint]);
 
-  // the 3D scene and uploads arrive after first paint, so re-read the canvas now and then
+  // the preview tells us when it has drawn a new frame (first paint, the 3D
+  // scene arriving, an upload, a slider moving, a new split position)
   useEffect(() => {
-    const poll = window.setInterval(() => {
-      if (!document.hidden) paint();
-    }, 800);
-    return () => clearInterval(poll);
+    const off = onPreviewDrawn(() => {
+      if (!document.hidden) requestAnimationFrame(paint);
+    });
+    return off;
   }, [paint]);
 
   useEffect(() => {
@@ -273,6 +278,26 @@ export default function TonalScope({
         {handle("s")}
         {handle("h")}
       </div>
+      <ul
+        aria-label="Share of the frame in each zone"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-mute"
+      >
+        {(
+          [
+            ["Shadows", share[0], "#8fc2ff"],
+            ["Mids", share[1], "#8e948b"],
+            ["Highlights", share[2], "#ffc46b"],
+          ] as const
+        ).map(([label, pct, colour]) => (
+          <li key={label} className="flex items-center gap-1.5">
+            <span className="h-2 w-2" style={{ background: colour }} aria-hidden />
+            <span>
+              {label} <span className="text-text">{pct}%</span>
+            </span>
+          </li>
+        ))}
+        <li className="ml-auto text-mute/70">of this frame</li>
+      </ul>
     </section>
   );
 }

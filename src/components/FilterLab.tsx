@@ -20,6 +20,7 @@ import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { previewDrawn } from "@/lib/previewBus";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -255,7 +256,10 @@ function Preview({
   }, [gpuOk, src]);
   useEffect(() => {
     if (!gpuOk || !src) return;
-    const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
+    const id = requestAnimationFrame(() => {
+      gpu.current?.render(settings, split);
+      previewDrawn();
+    });
     return () => cancelAnimationFrame(id);
   }, [gpuOk, src, settings, split]);
 
@@ -299,6 +303,7 @@ function Preview({
         }
       }
       c.getContext("2d")!.putImageData(out, 0, 0);
+      previewDrawn();
     });
     return () => cancelAnimationFrame(id);
   }, [orig, graded, split]);
