@@ -1,4 +1,4 @@
-import { applyGrade, gradeUniforms, type Settings } from "@/lib/codm";
+import { applyGrade, defaultSettings, gradeUniforms, type Settings } from "@/lib/codm";
 
 /*
  * Paints a frame with the untouched original left of a split line and the
@@ -232,13 +232,32 @@ function cpuGrader(canvas: HTMLCanvasElement): Grader {
 
 let webgl: boolean | null = null;
 
+// Some drivers link the program and then draw nothing; grade a grey pixel red and read it back.
+function drawsGrade(g: Grader, probe: HTMLCanvasElement): boolean {
+  const src = document.createElement("canvas");
+  src.width = src.height = 2;
+  const ctx = src.getContext("2d");
+  if (!ctx) return false;
+  ctx.fillStyle = "#808080";
+  ctx.fillRect(0, 0, 2, 2);
+  g.setSource(src, 2, 2);
+  const s = defaultSettings();
+  s.zones.global = { hue: 0, tint: 100, sat: 50, bri: 50 };
+  g.render(s, 0);
+  const gl = probe.getContext("webgl");
+  if (!gl) return false;
+  const px = new Uint8Array(4);
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return px[0] > px[2] + 40;
+}
+
 /** Builds a grader on `canvas`: the shader when WebGL can run it, the CPU otherwise. */
 export function createGrader(canvas: HTMLCanvasElement): Grader {
   if (webgl === null) {
     // probe on a throwaway canvas: once a canvas has a WebGL context it can't fall back to 2D
     const probe = document.createElement("canvas");
     const g = gpuGrader(probe);
-    webgl = !!g;
+    webgl = !!g && drawsGrade(g, probe);
     g?.dispose();
     (probe.getContext("webgl") as WebGLRenderingContext | null)?.getExtension("WEBGL_lose_context")?.loseContext();
   }

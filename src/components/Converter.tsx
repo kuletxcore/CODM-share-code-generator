@@ -47,7 +47,7 @@ function DropZone({
       <div className="relative">
         <div className="font-display text-xl font-extrabold uppercase tracking-wide">
           {title}
-          {optional && <span className="ml-2 align-middle text-xs font-medium text-mute">optional</span>}
+          {optional && <span className="ml-2 align-middle text-xs font-bold text-mute">optional</span>}
         </div>
         <p className="mt-1 max-w-sm text-sm text-mute">{url ? "Click or drop to replace." : hint}</p>
       </div>
@@ -125,7 +125,7 @@ export default function Converter({ onApply }: { onApply: (s: Settings) => void 
           </p>
         </div>
 
-        <div className="cut flex flex-col gap-4 border border-line bg-panel/85 p-5 backdrop-blur">
+        <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
           <h3 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h3>
           {!result ? (
             <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>

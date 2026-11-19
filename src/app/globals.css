@@ -45,6 +45,14 @@
   font-display: swap;
 }
 
+/* Obel Mono (SIL OFL 1.1, no Reserved Font Name), subset to ASCII for share codes. Licence: /fonts/ObelMono-OFL.txt */
+@font-face {
+  font-family: "Obel Mono";
+  src: url("/fonts/ObelMono-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @theme {
   --color-ink: #0a0b0a;
   --color-panel: #121412;
@@ -60,7 +68,7 @@
   --font-display: "Hitmarker Condensed", "Saira Condensed", "Arial Narrow", sans-serif;
   --font-sans: "Hitmarker Text", "Barlow", system-ui, sans-serif;
   --font-title: "Hitmarker Normal", "Hitmarker Condensed", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Obel Mono", ui-monospace, monospace;
 }
 
 html {
@@ -72,6 +80,23 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  /* Tailwind v4 resets buttons to cursor: default */
+  button:not(:disabled),
+  a[href],
+  summary,
+  select,
+  [role="tab"],
+  [role="switch"],
+  label:has(input[type="checkbox"]),
+  label:has(input[type="file"]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 ::selection {
@@ -91,9 +116,9 @@ body {
 
 /* The tallest the frame may get. On a phone it stays pinned above the controls,
    so it must leave room for them. Beside the controls on a wide screen it has
-   to fit the window together with the header and the rows of looks under it,
-   and those rows grow with the frame: three rows of four add about 0.6 of its
-   height, two rows of six about a quarter. */
+   to fit the window together with the header, the game chips and the rows of
+   looks under it, and those rows grow with the frame: three rows of four add
+   about 0.6 of its height, two rows of six about a quarter. */
 :root {
   --frame-h: 46svh;
 }
@@ -104,12 +129,22 @@ body {
 }
 @media (min-width: 64rem) {
   :root {
-    --frame-h: max(15rem, calc((100svh - 8.5rem) * 0.62));
+    --frame-h: max(15rem, calc((100svh - 12.25rem) * 0.62));
   }
 }
 @media (min-width: 80rem) {
   :root {
-    --frame-h: max(15rem, calc((100svh - 8.5rem) * 0.79));
+    --frame-h: max(15rem, calc((100svh - 12.25rem) * 0.79));
+  }
+}
+
+/* A short window leaves the pinned column narrower than the row of game chips.
+   They tighten up there instead of wrapping, which would push the looks past
+   the fold. The widths are the lg and xl breakpoints the chips are sized for. */
+@media (64rem <= width < 80rem) and (height <= 41rem), (width >= 80rem) and (height <= 36rem) {
+  .game-chip {
+    padding-inline: 0.375rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -155,7 +190,7 @@ input[type="range"].slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 28px;
+  height: 44px; /* touch target; the visible track stays 6px */
   background: transparent;
   cursor: pointer;
 }

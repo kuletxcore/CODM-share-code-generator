@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { LOOKS, decode, defaultSettings, encode, usesAdvanced, type Settings } from "@/lib/codm";
 import { fileToCanvas } from "@/lib/frame";
 import { localValue } from "@/lib/localValue";
+import { shareUrl } from "@/lib/shareUrl";
 import CodeBar from "@/components/CodeBar";
 import Converter from "@/components/Converter";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
@@ -45,6 +46,8 @@ export default function FilterLab() {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
   const [docked, setDocked] = useState(false);
+  // the frame hands its filtered pixels to the tone map through this canvas
+  const tones = useRef<HTMLCanvasElement>(null);
   const reduce = useReducedMotion();
 
   const code = useMemo(() => encode(settings), [settings]);
@@ -117,13 +120,14 @@ export default function FilterLab() {
   };
 
   const copy = async () => {
-    await copyCode(code, name);
+    // a look takes its name, note and still to the import guide's look card; a mix goes as a custom grade
+    await copyCode(code, look?.name, look ? { note: look.note, image: look.image } : {});
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
 
   const share = async () => {
-    const url = `${location.origin}${location.pathname}#c=${code}`;
+    const url = shareUrl(code);
     // the system share sheet where sharing means sending to a squadmate; a copied link elsewhere
     if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
       try {
@@ -138,7 +142,7 @@ export default function FilterLab() {
     window.setTimeout(() => setShared(false), 1600);
   };
 
-  // Dock the code bar whenever the main Copy button is out of sight.
+  // Dock the code bar whenever the main Copy button is not there to be pressed.
   const cta = useRef<HTMLButtonElement>(null);
   const finder = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -150,7 +154,8 @@ export default function FilterLab() {
       const f = finder.current?.getBoundingClientRect();
       // on a phone the frame stays pinned over the page, so the button is gone once it slides under it
       const top = f && f.left < b.right && f.right > b.left ? Math.max(0, f.bottom) : 0;
-      setDocked(b.bottom < top + 12 || b.top > window.innerHeight - 8);
+      // at the fold the bar would lie over the half of the button still showing, so it takes over once the button is cut
+      setDocked(b.bottom < top + 12 || b.bottom > window.innerHeight + 4);
     };
     const queue = () => {
       raf ||= requestAnimationFrame(check);
@@ -175,7 +180,7 @@ export default function FilterLab() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-28 sm:px-8 2xl:max-w-[1720px]">
-      <header className="flex items-center justify-between gap-3 py-3 sm:gap-4 lg:py-4">
+      <header className="flex items-center justify-between gap-4 py-2 sm:py-3">
         <div className="flex shrink-0 items-center gap-2.5 min-[380px]:gap-3 sm:gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -183,21 +188,22 @@ export default function FilterLab() {
             alt="Call of Duty: Mobile"
             width={1442}
             height={479}
-            className="h-6 w-auto min-[380px]:h-7 sm:h-9"
+            className="h-7 w-auto min-[380px]:h-8 sm:h-11"
           />
-          <span aria-hidden className="h-6 w-px bg-line min-[380px]:h-7 sm:h-9" />
-          <h1 className="whitespace-nowrap font-title text-xl font-black uppercase leading-none tracking-wide min-[380px]:text-2xl sm:text-4xl">
-            Filter Lab
-          </h1>
+          <span aria-hidden className="h-8 w-px bg-line sm:h-11" />
+          <div>
+            <p className="flex items-center gap-1.5 whitespace-nowrap font-display text-[10px] font-bold uppercase leading-none tracking-[0.18em] text-codm sm:gap-2 sm:text-xs sm:tracking-[0.25em]">
+              <span className="inline-block h-1.5 w-1.5 shrink-0 rotate-45 bg-codm sm:h-2 sm:w-2" />
+              Unofficial fan-made tool
+            </p>
+            <h1 className="mt-1 whitespace-nowrap font-title text-xl font-black uppercase leading-none tracking-wide min-[380px]:text-2xl sm:text-4xl">
+              Filter Lab
+            </h1>
+          </div>
         </div>
         <p className="hidden text-right text-sm text-mute md:block">
           See a filter on a game frame, copy its code, paste it into CODM.
         </p>
-        <div className="flex items-center gap-2 whitespace-nowrap font-display text-[10px] font-bold uppercase tracking-[0.2em] text-codm max-[339px]:hidden min-[380px]:tracking-[0.25em] sm:text-xs md:hidden xl:flex">
-          <span className="inline-block h-2 w-2 shrink-0 rotate-45 bg-codm" />
-          <span className="sm:hidden">Fan-made</span>
-          <span className="hidden sm:inline">Unofficial fan-made tool</span>
-        </div>
       </header>
 
       <section
@@ -215,45 +221,17 @@ export default function FilterLab() {
               chips={chips}
               fadeKey={fade}
               onDropFile={upload}
+              tonesRef={tones}
             />
           </div>
 
-          <div className="mt-2 flex items-center justify-between gap-3 font-display text-[11px] font-bold uppercase tracking-widest text-mute">
-            {error ? (
-              <span role="alert" className="min-w-0 truncate text-red-400">
-                {error}
-              </span>
-            ) : (
-              <span className="min-w-0 truncate">
-                {source ? "Your screenshot" : "Sample frame"}
-                <span className="max-[359px]:hidden"> · approx. preview</span>
-                <span className="hidden sm:inline"> · drag to compare</span>
-              </span>
-            )}
-            <span className="flex shrink-0 items-center gap-3">
-              {source && (
-                <button onClick={() => setSource(null)} className="uppercase hover:text-text">
-                  Sample frame
-                </button>
-              )}
-              <label className="flex cursor-pointer items-center gap-1.5 text-text hover:text-codm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-codm">
-                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                  <path d="M1.5 3.5h13v9h-13zM1.5 10l3.5-3 3 2.5 2-1.5 4.5 3.5" />
-                </svg>
-                {source ? "Change" : "Use my screenshot"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) upload(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </span>
-          </div>
+          <FrameCaption
+            className="mt-2 hidden lg:flex"
+            source={!!source}
+            error={error}
+            onUpload={upload}
+            onClear={() => setSource(null)}
+          />
 
           <div className="mt-2">
             <LookStrip active={active} mix={mix} onPick={pick} />
@@ -266,7 +244,7 @@ export default function FilterLab() {
             id="look-stage"
             role="tabpanel"
             aria-labelledby={look ? `look-tab-${active}` : "look-tab-mix"}
-            className="relative mt-5 lg:cut lg:mt-0 lg:flex lg:min-h-48 lg:flex-col lg:justify-end lg:overflow-hidden lg:border lg:border-line lg:bg-panel lg:p-5"
+            className="relative mt-3 lg:cut lg:mt-0 lg:flex lg:min-h-48 lg:flex-col lg:justify-end lg:overflow-hidden lg:border lg:border-line lg:bg-panel lg:p-5"
           >
             {/* The still a look chases. Wide screens only: on a phone it is already in the strip above. */}
             <AnimatePresence initial={false}>
@@ -340,19 +318,19 @@ export default function FilterLab() {
               {shared ? "Link copied" : "Share"}
             </button>
           </div>
-          <output aria-label="Share code" className="mt-2 block select-all break-all font-mono text-[11px] leading-relaxed text-codm/80">
+          <output aria-label="Share code" className="mt-2 block select-all break-all font-mono text-xs leading-relaxed text-codm/80">
             {code}
           </output>
-          <ol className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 font-display text-xs font-bold uppercase tracking-widest text-mute">
-            {["Copy", "Import in game", "Apply"].map((s, i) => (
-              <li key={s} className="flex items-center gap-1.5">
-                <span className="grid h-5 w-5 place-items-center bg-codm text-[11px] text-black">{i + 1}</span>
-                {s}
-              </li>
-            ))}
-          </ol>
+          {/* stacked, the frame is pinned at the top of the screen; its caption gives way to the looks and the Copy button */}
+          <FrameCaption
+            className="mt-3 flex lg:hidden"
+            source={!!source}
+            error={error}
+            onUpload={upload}
+            onClear={() => setSource(null)}
+          />
 
-          <div className="mt-9">
+          <div className="mt-6 lg:mt-9">
             <TunePanel
               settings={settings}
               setSettings={setSettings}
@@ -361,6 +339,7 @@ export default function FilterLab() {
               chips={chips}
               setChips={setChips}
               onLoad={loadCode}
+              tonesRef={tones}
             />
           </div>
         </div>
@@ -380,7 +359,64 @@ export default function FilterLab() {
   );
 }
 
-/* ---------- notes + disclaimer ---------- */
+/** What the frame is showing, and the way to put the visitor's own screenshot in it. */
+function FrameCaption({
+  className,
+  source,
+  error,
+  onUpload,
+  onClear,
+}: {
+  className: string;
+  /** True while the frame shows the visitor's screenshot. */
+  source: boolean;
+  error: string | null;
+  onUpload: (f: File) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div
+      className={`items-center justify-between gap-3 font-display text-[11px] font-bold uppercase tracking-widest text-mute ${className}`}
+    >
+      {error ? (
+        <span role="alert" className="min-w-0 truncate text-red-400">
+          {error}
+        </span>
+      ) : (
+        <span className="min-w-0 truncate">
+          {source ? "Your screenshot" : "Sample frame"}
+          <span className="max-[359px]:hidden"> · approx. preview</span>
+          <span className="hidden sm:inline"> · drag to compare</span>
+        </span>
+      )}
+      <span className="flex shrink-0 items-center gap-3">
+        {source && (
+          <button onClick={onClear} className="uppercase hover:text-text pointer-coarse:min-h-11">
+            Sample frame
+          </button>
+        )}
+        <label className="flex cursor-pointer items-center gap-1.5 text-text hover:text-codm pointer-coarse:min-h-11 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-codm">
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+            <path d="M1.5 3.5h13v9h-13zM1.5 10l3.5-3 3 2.5 2-1.5 4.5 3.5" />
+          </svg>
+          {source ? "Change" : "Use my screenshot"}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUpload(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </span>
+    </div>
+  );
+}
+
+// Notes + disclaimer
 
 function Notes() {
   return (

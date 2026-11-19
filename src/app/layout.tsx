@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource/jetbrains-mono/latin-500.css";
 import "./globals.css";
 
 const title = "CODM Filter Lab";

@@ -105,7 +105,7 @@ export const flat = (z: Zone) => z.tint < 3 && Math.abs(z.sat - 50) < 1 && Math.
 export const usesAdvanced = (s: Settings) =>
   !(["shadows", "midtones", "highlights"] as ZoneKey[]).every((k) => flat(s.zones[k]));
 
-// ---------- in-game hue controls ----------
+// In-game hue controls
 
 /**
  * In game, hue is one of 8 swatches 45° apart plus a 0–100 slider towards the
@@ -128,7 +128,7 @@ export function hueParts(deg: number, prefer?: number): { swatch: number; pos: n
 
 export const hueFrom = (swatch: number, pos: number) => swatch * 45 + pos * 0.45;
 
-// ---------- colour helpers ----------
+// Colour helpers
 
 export function hueToRgb(h: number): [number, number, number] {
   const x = (((h % 360) + 360) % 360) / 60;
@@ -224,7 +224,7 @@ export function gradeUniforms(s: Settings) {
   };
 }
 
-// ---------- screenshot -> settings ----------
+// Screenshot -> settings
 
 type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
 
@@ -307,7 +307,7 @@ export function analyse(
   return s;
 }
 
-// ---------- presets ----------
+// Presets
 
 export const PRESETS: { name: string; note: string; code: string }[] = [
   { name: "Default", note: "In-game reset state", code: DEFAULT_CODE },
@@ -403,7 +403,7 @@ export function drawSample(ctx: CanvasRenderingContext2D, w: number, h: number) 
   });
 }
 
-// ---------- looks gallery ----------
+// Looks gallery
 
 export type Look = {
   name: string;
@@ -412,7 +412,12 @@ export type Look = {
   code: string;
   /** Reference image the look is based on (not a CODM capture). */
   image?: string;
+  /** Game the look comes from, for the gallery filter. */
+  game?: Game;
 };
+
+export const GAMES = ["MW4", "Black Ops 7", "MWII", "Vanguard", "MW 2019", "Cold War"] as const;
+export type Game = (typeof GAMES)[number];
 
 /** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
@@ -420,6 +425,7 @@ export const LOOKS: Look[] = [
     // Shadows Cyan 60 / tint 10 / bri 46, midtones Orange 0 / tint 6 / sat 56,
     // highlights Orange 10 / tint 12 / sat 52 / bri 53.
     name: "Hajin",
+    game: "MW4",
     note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040",
@@ -429,6 +435,7 @@ export const LOOKS: Look[] = [
     // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
     // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
     name: "Apex",
+    game: "MW4",
     note: "MW4 Multiplayer: hazy daylight, golden mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
@@ -437,6 +444,7 @@ export const LOOKS: Look[] = [
   {
     // Black Ops 7 multiplayer. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. Casts disagree between videos, so they cancel out; muted highlights are what they share. (6 videos.)
     name: "2035",
+    game: "Black Ops 7",
     note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_992_40_0_960_767_20_-20_960_572_30_20_620",
@@ -445,6 +453,7 @@ export const LOOKS: Look[] = [
   {
     // Black Ops Royale on Avalon. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (4 videos.)
     name: "Avalon",
+    game: "Black Ops 7",
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040",
@@ -453,6 +462,7 @@ export const LOOKS: Look[] = [
   {
     // Haven's Hollow by day. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow",
+    game: "Black Ops 7",
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060",
@@ -461,6 +471,7 @@ export const LOOKS: Look[] = [
   {
     // Haunted Hollow (The Haunting) at night. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow (Night)",
+    game: "Black Ops 7",
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800",
@@ -469,6 +480,7 @@ export const LOOKS: Look[] = [
   {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
     name: "Al Mazrah",
+    game: "MWII",
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040",
@@ -479,6 +491,7 @@ export const LOOKS: Look[] = [
     // gameplay footage relative to the pooled daytime footage of all the games
     // sampled. Videos disagree on cast (red vs blue) and agree on darker mids. (3 videos.)
     name: "Vondead",
+    game: "MWII",
     note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
@@ -487,6 +500,7 @@ export const LOOKS: Look[] = [
   {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Caldera",
+    game: "Vanguard",
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900",
@@ -498,6 +512,7 @@ export const LOOKS: Look[] = [
     // mids; highlights sit close to typical footage. The earlier hand-made
     // version (cool shadows, strong warm highlights) is PRESETS[1].
     name: "Verdansk",
+    game: "MW 2019",
     note: "MW 2019: warm, richer mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_117_30_0_900_94_30_0_1120_203_10_40_1020",
@@ -505,6 +520,7 @@ export const LOOKS: Look[] = [
   },
   {
     name: "Cold War",
+    game: "Cold War",
     note: "Black Ops Cold War colour grade",
     mode: "Advanced",
     code: PRESETS[2].code,

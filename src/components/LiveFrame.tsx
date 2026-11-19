@@ -2,11 +2,14 @@
 
 import { animate, motion, useMotionValue, useMotionValueEvent, useTransform } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { drawSample, type Settings } from "@/lib/codm";
+import { applyGrade, drawSample, type Settings } from "@/lib/codm";
 import { SAMPLE, drawChips } from "@/lib/frame";
 import { createGrader, type Grader, type GradeSource } from "@/lib/grader";
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+/** Size of the copy the tone map reads its histogram from. */
+const TONE_W = 160,
+  TONE_H = 90;
 const still = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
@@ -22,6 +25,7 @@ export default function LiveFrame({
   chips,
   fadeKey,
   onDropFile,
+  tonesRef,
 }: {
   settings: Settings;
   /** Label for the filtered side. */
@@ -32,6 +36,11 @@ export default function LiveFrame({
   /** Changes when a whole new filter is loaded, so the frame cross-fades instead of snapping. */
   fadeKey: number;
   onDropFile: (f: File) => void;
+  /**
+   * Receives the whole frame with the filter applied, at tone-map size. The
+   * canvas on screen is half original, so the tone map can't read from that.
+   */
+  tonesRef: React.RefObject<HTMLCanvasElement | null>;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const sample = useRef<HTMLImageElement>(null);
@@ -40,6 +49,7 @@ export default function LiveFrame({
   const handle = useRef<HTMLDivElement>(null);
   const grader = useRef<Grader | null>(null);
   const latest = useRef(settings);
+  const tones = useRef<ImageData | null>(null);
   const pending = useRef(0);
   const sweep = useRef<{ stop: () => void } | null>(null);
   const intro = useRef(false);
@@ -58,6 +68,18 @@ export default function LiveFrame({
       grader.current?.render(latest.current, split.get());
     });
   }, [split]);
+
+  // Small enough to grade on the CPU on every change, so it never waits for the big frame.
+  const drawTones = useCallback(() => {
+    const out = tonesRef.current;
+    const base = tones.current;
+    if (!out || !base) return;
+    if (out.width !== TONE_W) out.width = TONE_W;
+    if (out.height !== TONE_H) out.height = TONE_H;
+    const data = new Uint8ClampedArray(base.data);
+    applyGrade(data, latest.current);
+    out.getContext("2d")?.putImageData(new ImageData(data, TONE_W, TONE_H), 0, 0);
+  }, [tonesRef]);
 
   useEffect(() => {
     const c = view.current;
@@ -95,6 +117,15 @@ export default function LiveFrame({
       }
       grader.current?.setSource(src, w, h);
       draw();
+      const small = document.createElement("canvas");
+      small.width = TONE_W;
+      small.height = TONE_H;
+      const sctx = small.getContext("2d", { willReadFrequently: true });
+      if (sctx) {
+        sctx.drawImage(src, 0, 0, TONE_W, TONE_H);
+        tones.current = sctx.getImageData(0, 0, TONE_W, TONE_H);
+        drawTones();
+      }
       el.dataset.live = ""; // a graded frame is on its way: show the divider and labels
       if (intro.current) return;
       intro.current = true;
@@ -134,7 +165,7 @@ export default function LiveFrame({
       img.removeEventListener("load", loaded);
       img.removeEventListener("error", failed);
     };
-  }, [source, chips, draw, split]);
+  }, [source, chips, draw, drawTones, split]);
 
   // A whole new filter: keep a copy of the outgoing frame on top and fade it away.
   const faded = useRef(fadeKey);
@@ -159,14 +190,15 @@ export default function LiveFrame({
   useEffect(() => {
     latest.current = settings;
     draw();
-  }, [settings, draw]);
+    drawTones();
+  }, [settings, draw, drawTones]);
 
   useMotionValueEvent(split, "change", (v) => {
     draw();
     handle.current?.setAttribute("aria-valuenow", String(Math.round(v * 100)));
   });
 
-  /* ---------- dragging ---------- */
+  // Dragging
 
   const drag = useRef<{ id: number; x: number; y: number; on: boolean } | null>(null);
   const at = (clientX: number) => {
@@ -193,7 +225,7 @@ export default function LiveFrame({
     if (!d.on) {
       const dx = Math.abs(e.clientX - d.x),
         dy = Math.abs(e.clientY - d.y);
-      if (dx < 6 || dx < dy) return;
+      if (dx < 8 || dx < dy) return;
       d.on = true;
       e.currentTarget.setPointerCapture(e.pointerId);
       e.currentTarget.dataset.drag = "";
@@ -243,6 +275,10 @@ export default function LiveFrame({
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={up}
+      onDoubleClick={() => {
+        sweep.current?.stop();
+        sweep.current = animate(split, 0.5, { duration: still() ? 0 : 0.25, ease: "easeOut" });
+      }}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
@@ -272,6 +308,8 @@ export default function LiveFrame({
       />
       <canvas ref={view} aria-hidden className="absolute inset-0 h-full w-full object-contain" />
       <canvas ref={ghost} aria-hidden className="tryon-ghost pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0" />
+      {/* never shown: the filtered frame for the tone map, empty (0 by 0) until there is one */}
+      <canvas ref={tonesRef} width={0} height={0} hidden />
 
       <motion.span
         style={{ opacity: beforeOpacity }}
