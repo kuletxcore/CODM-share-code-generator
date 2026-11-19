@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the toolchain, one for the runtime: a Next.js patch and a
+      # Tailwind patch can be reviewed together without a pile of PRs.
+      runtime:
+        patterns: ["next", "react", "react-dom", "motion", "three"]
+      toolchain:
+        patterns: ["*"]
+        exclude-patterns: ["next", "react", "react-dom", "motion", "three"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
