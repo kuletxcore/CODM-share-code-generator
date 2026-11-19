@@ -104,6 +104,7 @@ function Slider({
   min,
   max,
   track,
+  neutral,
   onChange,
 }: {
   label: string;
@@ -111,32 +112,64 @@ function Slider({
   min: number;
   max: number;
   track: string;
+  /** Value at which this control changes nothing; marked on the track. */
+  neutral?: number;
   onChange: (v: number) => void;
 }) {
+  // The number field keeps what was typed until it is committed, so clearing it
+  // or typing "1" on the way to "12" does not snap the slider to the minimum.
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (raw: string) => {
+    const v = Number(raw);
+    if (raw.trim() !== "" && Number.isFinite(v)) onChange(Math.min(max, Math.max(min, Math.round(v))));
+    setDraft(null);
+  };
   return (
     <label className="grid grid-cols-[6.5rem_1fr_3.75rem] items-center gap-3">
       <span className="font-display text-sm font-bold uppercase tracking-wider text-mute">
         {label}
       </span>
-      <input
-        type="range"
-        className="slider"
-        min={min}
-        max={max}
-        step={1}
-        value={r(value)}
-        style={{ ["--track" as string]: track }}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
+      <span className="relative block">
+        <input
+          type="range"
+          className="slider"
+          min={min}
+          max={max}
+          step={1}
+          value={r(value)}
+          style={{ ["--track" as string]: track }}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-label={label}
+        />
+        {neutral !== undefined && neutral > min && neutral < max && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-1/2 h-[14px] w-px translate-y-1/2 bg-white/45"
+            style={{ left: `calc(${((neutral - min) / (max - min)) * 100}% )` }}
+          />
+        )}
+      </span>
       <input
         type="number"
         aria-label={`${label} value`}
         min={min}
         max={max}
-        value={r(value)}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
+        inputMode="numeric"
+        value={draft ?? String(r(value))}
+        onFocus={(e) => {
+          setDraft(String(r(value)));
+          e.currentTarget.select();
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commit(e.currentTarget.value);
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setDraft(null);
+            e.currentTarget.blur();
+          }
         }}
         className="h-9 w-full border border-line bg-black/40 px-1.5 text-right font-mono text-sm tabular-nums pointer-coarse:h-11"
       />
@@ -736,6 +769,7 @@ export default function FilterLab() {
                               value={z.tint}
                               min={0}
                               max={100}
+                              neutral={0}
                               track={`linear-gradient(90deg,#666,${hsl(z.hue)})`}
                               onChange={(v) => setZone(k, { tint: v })}
                             />
@@ -744,6 +778,7 @@ export default function FilterLab() {
                               value={z.sat}
                               min={0}
                               max={100}
+                              neutral={50}
                               track={`linear-gradient(90deg,#777,${hsl(z.hue, 100, 50)})`}
                               onChange={(v) => setZone(k, { sat: v })}
                             />
@@ -752,6 +787,7 @@ export default function FilterLab() {
                               value={z.bri}
                               min={0}
                               max={100}
+                              neutral={50}
                               track="linear-gradient(90deg,#000,#fff)"
                               onChange={(v) => setZone(k, { bri: v })}
                             />
