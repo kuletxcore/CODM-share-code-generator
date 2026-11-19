@@ -57,6 +57,25 @@ export const DEFAULT_CODE =
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
 
+/**
+ * Ranges the game can actually write. Codes from other tools, older builds or
+ * a mis-typed paste are clamped into them rather than rejected, so the editor
+ * never renders a slider outside its own track.
+ */
+const CODE_RANGES = {
+  preset: [0, 4],
+  enabled: [0, 1],
+  shadowPos: [0, 1000],
+  shadowEdge: [0, 1500],
+  highlightPos: [0, 1000],
+  highlightEdge: [0, 1500],
+} as const;
+
+/** True when `code` has the shape of a share code: 22 integers joined by `_`. */
+export function isCode(code: string): boolean {
+  return decode(code) !== null;
+}
+
 export function encode(s: Settings): string {
   const out = [
     s.preset,
@@ -82,17 +101,28 @@ export function encode(s: Settings): string {
 export function decode(code: string): Settings | null {
   const parts = code.trim().split("_");
   if (parts.length !== 22) return null;
-  const n = parts.map((p) => Number(p));
-  if (n.some((v) => !Number.isFinite(v))) return null;
+  // Integer fields only: "" (a double underscore), "1e3", "0x10" and "1.5"
+  // are all paste damage, not codes.
+  const n: number[] = [];
+  for (const part of parts) {
+    const p = part.trim();
+    if (!/^[-+]?\d+$/.test(p)) return null;
+    n.push(Number(p));
+  }
   const s = defaultSettings();
-  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
+  s.preset = clamp(n[0], ...CODE_RANGES.preset);
+  s.enabled = clamp(n[1], ...CODE_RANGES.enabled);
+  s.shadowPos = clamp(n[2], ...CODE_RANGES.shadowPos);
+  s.shadowEdge = clamp(n[3], ...CODE_RANGES.shadowEdge);
+  s.highlightPos = clamp(n[4], ...CODE_RANGES.highlightPos);
+  s.highlightEdge = clamp(n[5], ...CODE_RANGES.highlightEdge);
   ZONES.forEach((k, i) => {
     const o = 6 + i * 4;
     s.zones[k] = {
-      hue: (n[o] / 1000) * 360,
-      tint: n[o + 1] / 10,
-      bri: n[o + 2] / 20 + 50,
-      sat: n[o + 3] / 20,
+      hue: clamp((n[o] / 1000) * 360, 0, 360),
+      tint: clamp(n[o + 1] / 10, 0, 100),
+      bri: clamp(n[o + 2] / 20 + 50, 0, 100),
+      sat: clamp(n[o + 3] / 20, 0, 100),
     };
   });
   return s;
