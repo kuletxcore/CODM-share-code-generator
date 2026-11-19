@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ShareQr from "@/components/ShareQr";
 
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
@@ -60,24 +61,6 @@ function legacyCopy(code: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** QR that opens this page on a phone with the code loaded (#c= restores it). */
-function PhoneQr({ code }: { code: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    let live = true;
-    Promise.all([import("@/lib/share"), import("@/lib/shareUrl")]).then(async ([share, url]) => {
-      const qr = await share.qrMatrix(url.shareUrl(code));
-      const c = ref.current;
-      if (!live || !c) return;
-      share.drawQr(c.getContext("2d")!, qr, 0, 0, c.width);
-    });
-    return () => {
-      live = false;
-    };
-  }, [code]);
-  return <canvas ref={ref} width={240} height={240} className="h-[120px] w-[120px] shrink-0" aria-hidden />;
 }
 
 async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
@@ -308,7 +291,7 @@ export default function ImportGuide() {
 
             <div className="mt-3 flex items-center gap-3 border-t border-line pt-3">
               <div className="hidden sm:block">
-                <PhoneQr code={open.code} />
+                <ShareQr code={open.code} size={120} />
               </div>
               <div className="flex min-w-0 flex-col gap-2">
                 <p className="hidden text-xs text-mute sm:block">

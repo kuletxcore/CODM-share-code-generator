@@ -7,6 +7,7 @@ import {
   applyGrade,
   decode,
   defaultSettings,
+  describeCode,
   drawSample,
   encode,
   fitReference,
@@ -29,6 +30,7 @@ import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import CodeAnatomy from "@/components/CodeAnatomy";
+import ShareQr from "@/components/ShareQr";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { previewDrawn } from "@/lib/previewBus";
 import { useHistory } from "@/lib/useHistory";
@@ -1142,7 +1144,11 @@ function CodeBar({
   const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
+  const [pasting, setPasting] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const out = useRef<HTMLOutputElement>(null);
+  const live = useMemo(() => describeCode(code)?.filter((c) => c.active).length ?? 0, [code]);
+
   // The visible code changes on every slider tick; a live region on it would
   // read 22 numbers per pixel of drag. Announce a settled code instead.
   const [announce, setAnnounce] = useState("");
@@ -1171,77 +1177,132 @@ function CodeBar({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
-            Share code
-          </span>
-          <output
-            ref={out}
-            className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
-            title={code}
-          >
-            {code}
-          </output>
-          <p className="sr-only" role="status">
-            {announce}
-          </p>
-          <button
-            onClick={copy}
-            className={`cut-sm relative min-w-28 px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider ${
-              copyState === "fail"
-                ? "bg-panel-2 text-codm ring-1 ring-codm"
-                : copyState === "ok"
-                  ? "bg-lime text-black"
-                  : "bg-codm text-black hover:bg-codm-light"
-            }`}
-          >
-            {copyState === "ok" ? "Copied ✓" : copyState === "fail" ? "Select it ⤴" : "Copy"}
-          </button>
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/92 backdrop-blur-md">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-8">
+        {showQr && (
+          <div className="flex items-center gap-3 border-b border-line py-3">
+            <ShareQr code={code} size={92} />
+            <p className="text-xs text-mute">
+              Scan to open this exact code on your phone, ready to copy.{" "}
+              <button
+                onClick={() => setShowQr(false)}
+                className="font-display font-bold uppercase tracking-wider text-text underline-offset-2 hover:underline"
+              >
+                Hide
+              </button>
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 py-2.5 sm:gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-display text-[11px] font-bold uppercase tracking-[0.2em] text-mute">
+                Share code
+              </span>
+              <span className="shrink-0 font-mono text-[10px] tabular-nums text-mute">
+                {live ? `${live} of 22 in use` : "reset state"}
+              </span>
+            </div>
+            <output
+              ref={out}
+              title={code}
+              className="block select-all break-all bg-black/50 px-2 py-1 font-mono text-[11px] leading-snug text-codm sm:text-xs"
+            >
+              {code}
+            </output>
+            <p className="sr-only" role="status">
+              {announce}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-col gap-1">
+            <button
+              onClick={copy}
+              className={`min-h-11 min-w-24 px-3 font-display text-base font-extrabold uppercase tracking-wider transition-colors ${
+                copyState === "fail"
+                  ? "bg-panel-2 text-codm ring-1 ring-codm"
+                  : copyState === "ok"
+                    ? "bg-lime text-black"
+                    : "bg-codm text-black hover:bg-codm-light"
+              }`}
+            >
+              {copyState === "ok" ? "Copied ✓" : copyState === "fail" ? "Select ⤴" : "Copy"}
+            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  setPasting((v) => !v);
+                  setBad(false);
+                }}
+                aria-expanded={pasting}
+                className={`min-h-8 flex-1 px-1.5 font-display text-[11px] font-bold uppercase tracking-wider ${
+                  pasting ? "bg-line text-text" : "bg-panel-2 text-mute hover:text-text"
+                }`}
+              >
+                Paste
+              </button>
+              <button
+                onClick={() => setShowQr((v) => !v)}
+                aria-expanded={showQr}
+                className={`min-h-8 flex-1 px-1.5 font-display text-[11px] font-bold uppercase tracking-wider ${
+                  showQr ? "bg-line text-text" : "bg-panel-2 text-mute hover:text-text"
+                }`}
+              >
+                QR
+              </button>
+            </div>
+          </div>
         </div>
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ok = onLoad(input);
-            setBad(!ok);
-            if (ok) setInput("");
-          }}
-        >
-          <input
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setBad(false);
+
+        {(pasting || bad) && (
+          <form
+            className="flex flex-wrap items-center gap-2 pb-2.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const ok = onLoad(input);
+              setBad(!ok);
+              if (ok) {
+                setInput("");
+                setPasting(false);
+              }
             }}
-            placeholder="Paste a code to edit it"
-            aria-label="Paste a share code"
-            aria-invalid={bad}
-            className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
-              bad ? "border-red-500" : "border-line"
-            }`}
-          />
-          <button
-            type="submit"
-            className="min-h-11 bg-panel-2 px-3 font-display font-bold uppercase tracking-wider hover:bg-line"
           >
-            Load
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="min-h-11 px-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
-          >
-            Reset
-          </button>
-        </form>
+            <input
+              autoFocus
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setBad(false);
+              }}
+              placeholder="Paste a 22-number code to edit it"
+              aria-label="Paste a share code"
+              aria-invalid={bad}
+              className={`min-h-11 min-w-0 flex-1 border bg-black/50 px-3 font-mono text-sm ${
+                bad ? "border-red-500" : "border-line"
+              }`}
+            />
+            <button
+              type="submit"
+              className="min-h-11 bg-panel-2 px-3 font-display font-bold uppercase tracking-wider hover:bg-line"
+            >
+              Load
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              className="min-h-11 px-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
+            >
+              Reset
+            </button>
+          </form>
+        )}
+        {bad && (
+          <p className="pb-2 text-xs text-red-400">
+            That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
+          </p>
+        )}
       </div>
-      {bad && (
-        <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
-          That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
-        </p>
-      )}
     </div>
   );
 }
