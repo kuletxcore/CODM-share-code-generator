@@ -26,6 +26,7 @@ import TonalScope from "@/components/TonalScope";
 import CodeAnatomy from "@/components/CodeAnatomy";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { previewDrawn } from "@/lib/previewBus";
+import { useHistory } from "@/lib/useHistory";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -427,7 +428,28 @@ export default function FilterLab() {
   const [tab, setPanel] = useState<Panel>("highlights");
   // Simple mode has one screen; Advanced never shows it.
   const panel: Panel = !advanced ? "global" : tab === "global" ? "shadows" : tab;
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [settings, setSettingsRaw] = useState<Settings>(defaultSettings);
+  // One gesture (a slider drag, a swatch click) is one undo step.
+  const edits = useHistory(settings, setSettingsRaw, (a, b) => encode(a) === encode(b));
+  const setSettings = useCallback(
+    (next: Settings | ((s: Settings) => Settings)) => setSettingsRaw(next),
+    [],
+  );
+
+  // Ctrl/⌘ Z and Ctrl/⌘ ⇧ Z anywhere on the page, except while typing in a
+  // field where the browser's own undo is the right answer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      e.preventDefault();
+      if (e.shiftKey) edits.redo();
+      else edits.undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [edits]);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -442,15 +464,18 @@ export default function FilterLab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
-  }, []);
+  }, [setSettings]);
   useEffect(() => {
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
-  const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
-    setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
-  }, []);
+  const setZone = useCallback(
+    (k: ZoneKey, patch: Partial<Zone>) => {
+      setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+    },
+    [setSettings],
+  );
 
   const loadCode = useCallback((c: string) => {
     const s = decode(c);
@@ -458,7 +483,7 @@ export default function FilterLab() {
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
     return true;
-  }, []);
+  }, [setSettings]);
 
   // Code anatomy taps land on the matching control: a group selects its zone,
   // the header group points at the Range bar, which has no panel of its own.
@@ -536,6 +561,27 @@ export default function FilterLab() {
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
+        <div className="flex items-end gap-3">
+        <div className="flex gap-1" role="group" aria-label="History">
+          <button
+            onClick={edits.undo}
+            disabled={!edits.canUndo}
+            title="Undo (Ctrl/⌘ Z)"
+            aria-label="Undo"
+            className="min-h-11 min-w-11 border border-line bg-panel/80 px-2 font-display text-lg font-bold text-text transition-colors hover:border-mute disabled:cursor-not-allowed disabled:border-line disabled:text-mute/40 disabled:hover:border-line"
+          >
+            ↶
+          </button>
+          <button
+            onClick={edits.redo}
+            disabled={!edits.canRedo}
+            title="Redo (Ctrl/⌘ ⇧ Z)"
+            aria-label="Redo"
+            className="min-h-11 min-w-11 border border-line bg-panel/80 px-2 font-display text-lg font-bold text-text transition-colors hover:border-mute disabled:cursor-not-allowed disabled:border-line disabled:text-mute/40 disabled:hover:border-line"
+          >
+            ↷
+          </button>
+        </div>
         <nav aria-label="Mode" className="flex gap-1">
           {(
             [
@@ -561,6 +607,7 @@ export default function FilterLab() {
             </button>
           ))}
         </nav>
+        </div>
       </div>
       <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
 
