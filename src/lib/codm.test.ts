@@ -7,12 +7,15 @@ import {
   applyGrade,
   decode,
   describeCode,
+  fitReference,
   hueToRgb,
   defaultSettings,
   encode,
   hueFrom,
   hueParts,
   neutralZone,
+  readReference,
+  scoreReference,
   thresholds,
   zoneShares,
   zoneWeights,
@@ -301,5 +304,59 @@ describe("describeCode", () => {
 
   it("returns null for a code it cannot read", () => {
     expect(describeCode("1_2_3")).toBeNull();
+  });
+});
+
+describe("scoring and fitting", () => {
+  /** A screenshot with a gradient of tones, tinted by `cast`. */
+  const shot = (cast: [number, number, number], px = 16) => {
+    const data = new Uint8ClampedArray(px * px * 4);
+    for (let i = 0; i < data.length; i += 4) {
+      const l = ((i / 4) % px) / px; // a column per luminance step
+      data[i] = Math.min(255, 40 + l * 200 + cast[0]);
+      data[i + 1] = Math.min(255, 40 + l * 200 + cast[1]);
+      data[i + 2] = Math.min(255, 40 + l * 200 + cast[2]);
+      data[i + 3] = 255;
+    }
+    return data;
+  };
+
+  it("scores a perfect reference against itself at the top", () => {
+    const img = shot([0, 0, 0]);
+    expect(scoreReference(readReference(img, img)!, defaultSettings())).toBe(100);
+  });
+
+  it("scores a warm reference below a neutral one", () => {
+    const ref = readReference(shot([40, 4, -30]), shot([0, 0, 0]))!;
+    expect(scoreReference(ref, defaultSettings())).toBeLessThan(
+      scoreReference(ref, fitReference(ref, defaultSettings())),
+    );
+  });
+
+  it("does better than the analyser's first guess", () => {
+    const target = shot([40, 4, -30]);
+    const base = shot([0, 0, 0]);
+    const ref = readReference(target, base)!;
+    const first = analyse(target, base);
+    const fitted = fitReference(ref, first);
+    expect(scoreReference(ref, fitted)).toBeGreaterThanOrEqual(scoreReference(ref, first));
+    // and the fit actually found something: a warm tint in the mids
+    expect(fitted.zones.midtones.tint).toBeGreaterThan(0);
+    expect(fitted.zones.midtones.hue < 90 || fitted.zones.midtones.hue > 300).toBe(true);
+  });
+
+  it("is deterministic", () => {
+    const ref = readReference(shot([30, 0, -20]), shot([0, 0, 0]))!;
+    expect(fitReference(ref, defaultSettings())).toEqual(fitReference(ref, defaultSettings()));
+  });
+
+  it("leaves the starting grade alone when it is already the reference", () => {
+    const img = shot([0, 0, 0]);
+    const ref = readReference(img, img)!;
+    expect(fitReference(ref, defaultSettings())).toEqual(defaultSettings());
+  });
+
+  it("returns 0 when there is nothing to compare", () => {
+    expect(readReference(new Uint8ClampedArray(0), null)).toBeNull();
   });
 });

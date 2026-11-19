@@ -9,6 +9,9 @@ import {
   defaultSettings,
   drawSample,
   encode,
+  fitReference,
+  readReference,
+  scoreReference,
   type CodeGroup,
   type Settings,
   type Zone,
@@ -285,7 +288,7 @@ function Preview({
       g?.dispose();
       gpu.current = null;
     };
-  }, []);
+  }, [view]);
   useEffect(() => {
     if (gpuOk && src) gpu.current?.setSource(src);
   }, [gpuOk, src]);
@@ -341,7 +344,7 @@ function Preview({
       previewDrawn();
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
+  }, [orig, graded, split, view]);
 
   return (
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
@@ -855,11 +858,28 @@ function Converter({
 }) {
   const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
   const [base, setBase] = useState<HTMLCanvasElement | null>(null);
+  // The fit belongs to the screenshots it was computed from: a new upload makes
+  // `from` stale and the analyser's suggestion takes over again, with no effect.
+  const [fit, setFit] = useState<{ from: Settings | null; result: Settings } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const result = useMemo(
-    () => (target ? analyse(pixels(target), base ? pixels(base) : null) : null),
-    [target, base],
+  // Read each upload once. Everything after this is cheap enough to run on a
+  // slider tick, which is what lets the score move live.
+  const targetPx = useMemo(() => (target ? pixels(target) : null), [target]);
+  const basePx = useMemo(() => (base ? pixels(base) : null), [base]);
+  const ref = useMemo(
+    () => (targetPx ? readReference(targetPx, basePx) : null),
+    [targetPx, basePx],
   );
+  const suggestion = useMemo(
+    () => (targetPx ? analyse(targetPx, basePx) : null),
+    [targetPx, basePx],
+  );
+  const result = fit && fit.from === suggestion ? fit.result : suggestion;
+  const score = ref && result ? scoreReference(ref, result) : 0;
+  const verdict =
+    score >= 85 ? "Very close" : score >= 65 ? "Strong match" : score >= 40 ? "In the region" : "A starting point";
 
   const load = (set: (c: HTMLCanvasElement) => void) => async (f: File) => {
     try {
@@ -868,6 +888,16 @@ function Converter({
     } catch (e) {
       onError((e as Error).message);
     }
+  };
+
+  const autoMatch = () => {
+    if (!ref || !result) return;
+    setBusy(true);
+    // let the button's busy state paint before the hill-climb block
+    setTimeout(() => {
+      setFit({ from: result, result: fitReference(ref, result) });
+      setBusy(false);
+    }, 30);
   };
 
   return (
@@ -897,21 +927,60 @@ function Converter({
         <p className="text-sm text-mute">
           Images stay in your browser. The converter measures the colour cast, saturation and
           brightness of the shadows, midtones and highlights, then picks slider values that push
-          your screen towards the reference. Treat it as a starting point and fine-tune by eye.
+          your screen towards the reference. Auto-match then searches for the closest code it can
+          find and scores it, so you can see how near you are instead of guessing.
         </p>
       </div>
 
       <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
         <h2 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h2>
-        {!result ? (
+        {!result || !ref ? (
           <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>
         ) : (
           <>
-            {!base && (
-              <p className="border-l-2 border-codm bg-codm/10 px-3 py-2 text-xs">
-                No baseline screenshot, so the values are toned down. Add one for a closer match.
+            <div>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="font-display text-[11px] font-bold uppercase tracking-[0.2em] text-mute">
+                    Match
+                  </p>
+                  <p className="font-title text-5xl font-black leading-none tabular-nums">
+                    {score}
+                    <span className="ml-0.5 text-xl text-mute">%</span>
+                  </p>
+                </div>
+                <p className="pb-1 text-right font-display text-sm font-bold uppercase tracking-wider text-codm">
+                  {verdict}
+                </p>
+              </div>
+              <div
+                role="meter"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={score}
+                aria-label="Match to the reference"
+                className="mt-2 h-2 w-full bg-black/60"
+              >
+                <div
+                  className="h-full bg-gradient-to-r from-codm-deep via-codm to-lime"
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-mute">
+                {base
+                  ? "Measured from your reference and your screen."
+                  : "No baseline screenshot, so this compares against a typical scene and will read low."}
               </p>
-            )}
+            </div>
+
+            <button
+              onClick={autoMatch}
+              disabled={busy}
+              className="cut bg-lime px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:brightness-110 disabled:opacity-60"
+            >
+              {busy ? "Matching…" : fit ? "Auto-match again" : "Auto-match"}
+            </button>
+
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left font-display uppercase tracking-wider text-mute">
@@ -923,7 +992,7 @@ function Converter({
                 </tr>
               </thead>
               <tbody className="font-mono tabular-nums">
-                {(ZONE_TABS).map((k) => {
+                {ZONE_TABS.map((k) => {
                   const z = result.zones[k];
                   return (
                     <tr key={k} className="border-t border-line">
@@ -948,12 +1017,24 @@ function Converter({
             <code className="block break-all bg-black/50 p-3 font-mono text-xs text-codm">
               {encode(result)}
             </code>
-            <button
-              onClick={() => onApply(result)}
-              className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
-            >
-              Open in generator
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => onApply(result)}
+                className="cut flex-1 bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
+              >
+                Open in generator
+              </button>
+              <button
+                onClick={async () => {
+                  const ok = await copyCode(encode(result));
+                  setCopied(ok);
+                  setTimeout(() => setCopied(false), 1400);
+                }}
+                className="min-h-11 bg-panel-2 px-4 font-display font-bold uppercase tracking-wider hover:bg-line"
+              >
+                {copied ? "Copied ✓" : "Copy code"}
+              </button>
+            </div>
           </>
         )}
       </div>

@@ -357,67 +357,113 @@ export function zoneShares(hist: ArrayLike<number>, t: Bands): [number, number, 
   return out as [number, number, number];
 }
 
+/**
+ * The per-zone controls resolved once: the tint colour, how much of it to mix
+ * in, and the saturation and brightness multipliers. Shared by the CPU grade,
+ * the GPU uniforms and the fitter, so the three cannot drift.
+ */
+export type ZoneOps = {
+  colour: [number, number, number];
+  /** Luminance of `colour`, so tinting preserves brightness. */
+  colourLuma: number;
+  tint: number;
+  sat: number;
+  bri: number;
+};
+
+const ZONE_ORDER: ZoneKey[] = ["shadows", "midtones", "highlights", "global"];
+
+export function zoneOps(s: Settings): ZoneOps[] {
+  return ZONE_ORDER.map((k) => {
+    const z = s.zones[k];
+    const colour = hueToRgb(z.hue);
+    return {
+      colour,
+      colourLuma: luma(colour[0], colour[1], colour[2]) || 1,
+      tint: clamp(z.tint / 100, 0, 1),
+      sat: clamp(z.sat / 50, 0, 2),
+      bri: clamp(z.bri / 50, 0, 2),
+    };
+  });
+}
+
+/**
+ * Apply one zone at strength `k` to a normalised r/g/b triple, in place.
+ * Luminance-preserving tint, then saturation around the new luminance, then a
+ * brightness multiplier — in that order, which is what the in-game screen does.
+ */
+function applyZone(c: [number, number, number], o: ZoneOps, k: number) {
+  if (k <= 0.001) return;
+  const l = luma(c[0], c[1], c[2]);
+  const t = o.tint * k;
+  if (t > 0) {
+    // c * (1 - t) + colour * (l / colourLuma) * t, kept bright: the tint colour
+    // is scaled to the pixel's own luminance before it is mixed in
+    const mix = (l / o.colourLuma) * t;
+    const keep = 1 - t;
+    c[0] = c[0] * keep + o.colour[0] * mix;
+    c[1] = c[1] * keep + o.colour[1] * mix;
+    c[2] = c[2] * keep + o.colour[2] * mix;
+  }
+  const sm = 1 + (o.sat - 1) * k;
+  if (sm !== 1) {
+    const l2 = luma(c[0], c[1], c[2]);
+    c[0] = l2 + (c[0] - l2) * sm;
+    c[1] = l2 + (c[1] - l2) * sm;
+    c[2] = l2 + (c[2] - l2) * sm;
+  }
+  const bm = 1 + (o.bri - 1) * k;
+  if (bm !== 1) {
+    c[0] *= bm;
+    c[1] *= bm;
+    c[2] *= bm;
+  }
+}
+
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
   const bands = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  const tintRgb = zs.map((z) => hueToRgb(z.hue));
-  const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
-  const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
-  const briMul = zs.map((z) => clamp(z.bri / 50, 0, 2));
+  const ops = zoneOps(s);
   const w = [0, 0, 0, 1];
+  const c: [number, number, number] = [0, 0, 0];
 
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i] / 255,
-      g = data[i + 1] / 255,
-      b = data[i + 2] / 255;
-    const l0 = luma(r, g, b);
-    const [ws, wm, wh] = zoneWeights(l0, bands);
+    c[0] = data[i] / 255;
+    c[1] = data[i + 1] / 255;
+    c[2] = data[i + 2] / 255;
+    const [ws, wm, wh] = zoneWeights(luma(c[0], c[1], c[2]), bands);
     w[0] = ws;
     w[1] = wm;
     w[2] = wh;
     // index 3 is the first code group, applied to the whole image
-    for (let z = 0; z < 4; z++) {
-      const k = w[z];
-      if (k <= 0.001) continue;
-      const l = luma(r, g, b);
-      const t = tintAmt[z] * k;
-      const c = tintRgb[z];
-      const cl = luma(c[0], c[1], c[2]) || 1;
-      // luminance-preserving tint
-      let nr = r + (l * (c[0] / cl) - r) * t;
-      let ng = g + (l * (c[1] / cl) - g) * t;
-      let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k;
-      const l2 = luma(nr, ng, nb);
-      nr = l2 + (nr - l2) * sm;
-      ng = l2 + (ng - l2) * sm;
-      nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k;
-      r = nr * bm;
-      g = ng * bm;
-      b = nb * bm;
-    }
-    data[i] = r * 255;
-    data[i + 1] = g * 255;
-    data[i + 2] = b * 255;
+    for (let z = 0; z < 4; z++) applyZone(c, ops[z], w[z]);
+    data[i] = c[0] * 255;
+    data[i + 1] = c[1] * 255;
+    data[i + 2] = c[2] * 255;
   }
 }
 
 /** The per-zone inputs applyGrade uses, flattened for the GPU version of the same maths. */
 export function gradeUniforms(s: Settings) {
   const b = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  const ops = zoneOps(s);
   return {
     bands: [b.s0, b.s1, b.h0, b.h1],
-    tint: zs.flatMap((z) => hueToRgb(z.hue)),
-    params: zs.flatMap((z) => [clamp(z.tint / 100, 0, 1), clamp(z.sat / 50, 0, 2), clamp(z.bri / 50, 0, 2)]),
+    tint: ops.flatMap((o) => o.colour),
+    params: ops.flatMap((o) => [o.tint, o.sat, o.bri]),
   };
 }
 
 // Screenshot -> settings
 
-type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
+export type ZoneStat = { r: number; g: number; b: number; l: number; sat: number; n: number };
+
+/** A neutral scene's per-zone luma and saturation, used when no baseline is given. */
+const NEUTRAL_ZONES = [
+  { l: 0.11, sat: 0.3 },
+  { l: 0.42, sat: 0.3 },
+  { l: 0.8, sat: 0.14 },
+];
 
 function zoneStats(data: Uint8ClampedArray, bands: Bands): ZoneStat[] {
   const acc = [0, 1, 2].map(() => ({ r: 0, g: 0, b: 0, l: 0, sat: 0, n: 0 }));
@@ -473,11 +519,6 @@ export function analyse(
   // A zone with no pixels (a screenshot of a letterboxed scene, say) has no
   // statistics to compare; treat it as a neutral scene rather than divide by ~0.
   const b = base && base.length >= 4 ? zoneStats(base, bands) : null;
-  const neutral = [
-    { l: 0.11, sat: 0.3 },
-    { l: 0.42, sat: 0.3 },
-    { l: 0.8, sat: 0.14 },
-  ];
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
     // Nothing in the reference falls in this zone (a flat or a letterboxed
     // screenshot), so no slider value here could change the result.
@@ -494,8 +535,8 @@ export function analyse(
     const hasBase = !!b && b[i].n > 0;
     // without a baseline the scene's own colours inflate the cast, so damp it
     const tint = clamp(mag * (hasBase ? 70 : 35), 0, 60);
-    const refSat = hasBase ? b![i].sat : neutral[i].sat;
-    const refL = hasBase ? b![i].l : neutral[i].l;
+    const refSat = hasBase ? b![i].sat : NEUTRAL_ZONES[i].sat;
+    const refL = hasBase ? b![i].l : NEUTRAL_ZONES[i].l;
     const sat = clamp(50 * (t[i].sat / (refSat || 0.01)), 15, 85);
     const bri = clamp(50 * Math.pow(t[i].l / (refL || 0.01), 0.6), 25, 75);
     s.zones[k] = {
@@ -507,6 +548,142 @@ export function analyse(
   });
   return s;
 }
+
+
+// Scoring a grade against a reference, and fitting one
+
+const FIT_ZONES: ZoneKey[] = ["shadows", "midtones", "highlights"];
+
+/** Zone statistics of a reference screenshot and (optionally) the screen to match from. */
+export type Reference = {
+  target: ZoneStat[];
+  base: ZoneStat[] | null;
+};
+
+/** Read a reference once; scoring and fitting then cost almost nothing. */
+export function readReference(target: Uint8ClampedArray, base: Uint8ClampedArray | null): Reference | null {
+  if (target.length < 4) return null;
+  const bands = thresholds(defaultSettings());
+  return {
+    target: zoneStats(target, bands),
+    base: base && base.length >= 4 ? zoneStats(base, bands) : null,
+  };
+}
+
+/** The zone statistics a scene at `stat` would show after this zone's controls. */
+function predictStat(stat: ZoneStat, ops: ZoneOps[], zone: number): ZoneStat {
+  const c: [number, number, number] = [stat.r, stat.g, stat.b];
+  applyZone(c, ops[zone], 1);
+  applyZone(c, ops[3], 1);
+  return {
+    r: c[0],
+    g: c[1],
+    b: c[2],
+    l: luma(c[0], c[1], c[2]),
+    // Saturation is a ratio, so it scales with the saturation controls and is
+    // unaffected by brightness; tinting moves it too, which this ignores.
+    sat: clamp(stat.sat * ops[zone].sat * ops[3].sat, 0, 1),
+    n: stat.n,
+  };
+}
+
+/** 0 = identical, roughly 1 = unrelated. Chroma counts most, then tone. */
+function zoneDistance(a: ZoneStat, b: ZoneStat): number {
+  const ca = castOf(a);
+  const cb = castOf(b);
+  return Math.hypot(ca.x - cb.x, ca.y - cb.y) * 1.6 + Math.abs(a.l - b.l) * 2.4 + Math.abs(a.sat - b.sat) * 0.9;
+}
+
+/** Mean zone distance for a grade, and how many zones could be compared. */
+function distanceOf(ref: Reference, s: Settings): { mean: number; n: number } {
+  const ops = zoneOps(s);
+  let sum = 0;
+  let n = 0;
+  FIT_ZONES.forEach((_, i) => {
+    const t = ref.target[i];
+    if (t.n < 1) return;
+    const from: ZoneStat = ref.base && ref.base[i].n > 0 ? ref.base[i] : {
+      r: NEUTRAL_ZONES[i].l,
+      g: NEUTRAL_ZONES[i].l,
+      b: NEUTRAL_ZONES[i].l,
+      l: NEUTRAL_ZONES[i].l,
+      sat: NEUTRAL_ZONES[i].sat,
+      n: 1,
+    };
+    sum += zoneDistance(predictStat(from, ops, i), t);
+    n += 1;
+  });
+  return { mean: n ? sum / n : 1, n };
+}
+
+/**
+ * How close a grade would land to the reference, 0–100. Measured on the zone
+ * statistics the converter already computes, not on a re-render, so it updates
+ * while a slider moves. Treat it as a compass, not a promise: the preview is an
+ * approximation of a filter the game applies its own way.
+ */
+export function scoreReference(ref: Reference, s: Settings): number {
+  const { mean, n } = distanceOf(ref, s);
+  if (!n) return 0;
+  return Math.round(clamp(100 * Math.exp(-2.6 * mean), 0, 100));
+}
+
+const FIT_KNOBS: { field: "hue" | "tint" | "sat" | "bri"; min: number; max: number }[] = [
+  { field: "hue", min: 0, max: 360 },
+  { field: "tint", min: 0, max: 100 },
+  { field: "sat", min: 0, max: 100 },
+  { field: "bri", min: 0, max: 100 },
+];
+
+/**
+ * Hill-climb from `start` towards the reference: try each knob either side of
+ * where it is, at a step that halves as it converges. Deterministic, so the
+ * same two screenshots always give the same code.
+ *
+ * Costs a few hundred cheap evaluations over 9 zone statistics — no pixels are
+ * re-graded.
+ */
+export function fitReference(ref: Reference, start: Settings): Settings {
+  let best = cloneSettings(start);
+  let bestScore = scoreReference(ref, best);
+  const steps = [45, 22, 11, 5, 2, 1];
+  for (const coarse of steps) {
+    let improved = true;
+    let guard = 0;
+    while (improved && guard++ < 40) {
+      improved = false;
+      for (const zone of FIT_ZONES) {
+        for (const knob of FIT_KNOBS) {
+          // hue is in degrees, the rest in percent
+          const step = knob.field === "hue" ? coarse * 4 : coarse;
+          for (const dir of [-1, 1]) {
+            const next = cloneSettings(best);
+            const v = clamp(Math.round(next.zones[zone][knob.field] + dir * step), knob.min, knob.max);
+            if (v === next.zones[zone][knob.field]) continue;
+            next.zones[zone][knob.field] = v;
+            const score = scoreReference(ref, next);
+            if (score > bestScore) {
+              best = next;
+              bestScore = score;
+              improved = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+const cloneSettings = (s: Settings): Settings => ({
+  ...s,
+  zones: {
+    global: { ...s.zones.global },
+    shadows: { ...s.zones.shadows },
+    midtones: { ...s.zones.midtones },
+    highlights: { ...s.zones.highlights },
+  },
+});
 
 // Presets
 
