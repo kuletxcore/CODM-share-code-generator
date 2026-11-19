@@ -165,16 +165,17 @@ export function hueToRgb(h: number): [number, number, number] {
 const luma = (r: number, g: number, b: number) =>
   0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-const smooth = (a: number, b: number, x: number) => {
+export const smoothstep = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
   return t * t * (3 - 2 * t);
 };
 
-// Luminance thresholds used by both the preview and the analyser. The falloff
-// shapes are a guess; only the handle positions are confirmed.
-type Bands = { s0: number; s1: number; h0: number; h1: number };
+// Luminance thresholds used by the preview, the analyser and the tone map. The
+// falloff shapes are a guess; only the handle positions are confirmed.
+export type Bands = { s0: number; s1: number; h0: number; h1: number };
 
-function thresholds(s: Settings): Bands {
+/** Where the three zones meet on the Range bar, in 0–1 luminance. */
+export function thresholds(s: Settings): Bands {
   const s0 = clamp(s.shadowPos / 1000, 0, 1);
   const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
   const h1 = clamp(s.highlightPos / 1000, 0, 1);
@@ -182,11 +183,48 @@ function thresholds(s: Settings): Bands {
   return { s0, s1, h0: h1 - width, h1 };
 }
 
-function zoneWeights(l: number, t: Bands) {
-  const ws = 1 - smooth(t.s0, t.s1, l);
-  const wh = smooth(t.h0, t.h1, l) * (1 - ws);
+/** How much each zone claims a pixel at luminance `l`. Always sums to 1. */
+export function zoneWeights(l: number, t: Bands) {
+  const ws = 1 - smoothstep(t.s0, t.s1, l);
+  const wh = smoothstep(t.h0, t.h1, l) * (1 - ws);
   const wm = Math.max(0, 1 - ws - wh);
   return [ws, wm, wh] as const;
+}
+
+/**
+ * Share of a luminance histogram that each zone covers, in percent, using the
+ * same falloff the grade uses. `hist` is indexed by luminance bin.
+ */
+export function zoneShares(hist: ArrayLike<number>, t: Bands): [number, number, number] {
+  const bins = hist.length;
+  let ws = 0;
+  let wm = 0;
+  let wh = 0;
+  let n = 0;
+  for (let i = 0; i < bins; i++) {
+    const count = hist[i];
+    if (!count) continue;
+    const [a, m, h] = zoneWeights((i + 0.5) / bins, t);
+    ws += count * a;
+    wm += count * m;
+    wh += count * h;
+    n += count;
+  }
+  if (!n) return [0, 0, 0];
+  // Largest-remainder rounding, so the three shares always add up to 100 and a
+  // readout never says "34 + 65 + 2".
+  const exact = [ws, wm, wh].map((v) => (v / n) * 100);
+  const out = exact.map(Math.floor);
+  let left = 100 - out.reduce((a, b) => a + b, 0);
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    out[i] += 1;
+    left -= 1;
+  }
+  return out as [number, number, number];
 }
 
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */

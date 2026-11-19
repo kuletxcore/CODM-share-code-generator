@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Settings } from "@/lib/codm";
+import { thresholds, zoneShares, type Settings } from "@/lib/codm";
 
 // Luminance histogram of the preview canvas with the two in-game Range handles on top,
 // so you can see which tones each zone will touch.
@@ -48,11 +48,13 @@ export default function TonalScope({
 
     const X = (t: number) => t * W;
 
-    // where each zone starts and fades out, in luminance
-    const s0 = clamp01(settings.shadowPos / 1000);
-    const s1 = Math.min(1, Math.max(s0, settings.shadowEdge / 1000));
-    const h1 = clamp01(settings.highlightPos / 1000);
-    const h0 = clamp01(Math.min(h1, h1 - Math.max(0.02, (settings.highlightEdge - settings.highlightPos) / 1000)));
+    // where each zone starts and fades out, in luminance — the same bands the
+    // preview grade uses, so the shading under the handles cannot drift from it
+    const bands = thresholds(settings);
+    const s0 = clamp01(bands.s0);
+    const s1 = Math.min(1, Math.max(s0, bands.s1));
+    const h0 = clamp01(bands.h0);
+    const h1 = clamp01(bands.h1);
 
     ctx.fillStyle = "rgba(126,176,255,0.15)";
     ctx.fillRect(0, 0, X(s0), H);
@@ -145,28 +147,7 @@ export default function TonalScope({
     ctx.fillRect(mx - 2, 0, 4, 4);
 
     // share of the frame per zone, using the grade's own falloff
-    if (onShare) {
-      const soft = (a: number, b: number, x: number) => {
-        const t = Math.min(1, Math.max(0, (x - a) / (b - a || 1e-6)));
-        return t * t * (3 - 2 * t);
-      };
-      let ws = 0;
-      let wm = 0;
-      let wh = 0;
-      for (let i = 0; i < BINS; i++) {
-        const l = (i + 0.5) / BINS;
-        const a = 1 - soft(s0, s1, l);
-        const c2 = soft(h0, h1, l) * (1 - a);
-        ws += bins[i] * a;
-        wh += bins[i] * c2;
-        wm += bins[i] * Math.max(0, 1 - a - c2);
-      }
-      onShare([
-        Math.round((ws / n) * 100),
-        Math.round((wm / n) * 100),
-        Math.round((wh / n) * 100),
-      ]);
-    }
+    if (onShare) onShare(zoneShares(bins, bands));
   }, [settings, viewRef, onShare]);
 
   // repaint on the next frame, after the preview has drawn this settings change

@@ -10,6 +10,9 @@ import {
   hueFrom,
   hueParts,
   neutralZone,
+  thresholds,
+  zoneShares,
+  zoneWeights,
   type Settings,
 } from "./codm";
 
@@ -175,5 +178,34 @@ describe("applyGrade", () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(255);
     }
+  });
+});
+
+describe("zone bands", () => {
+  it("gives every luminance a full set of weights", () => {
+    const t = thresholds(defaultSettings());
+    for (let l = 0; l <= 1; l += 0.05) {
+      const [ws, wm, wh] = zoneWeights(l, t);
+      expect(ws).toBeGreaterThanOrEqual(0);
+      expect(wm).toBeGreaterThanOrEqual(0);
+      expect(wh).toBeGreaterThanOrEqual(0);
+      expect(ws + wm + wh).toBeCloseTo(1, 6);
+    }
+  });
+
+  it("folds a histogram into three percentages that add up", () => {
+    const hist = Array.from({ length: 56 }, (_, i) => 1 + i);
+    const [s, m, h] = zoneShares(hist, thresholds(defaultSettings()));
+    expect(s + m + h).toBe(100);
+  });
+
+  it("reports nothing for an empty histogram", () => {
+    expect(zoneShares(new Float32Array(56), thresholds(defaultSettings()))).toEqual([0, 0, 0]);
+  });
+
+  it("widens the shadow band when the handle is dragged right", () => {
+    const base = defaultSettings();
+    const wide = { ...base, shadowPos: 800, shadowEdge: 900 };
+    expect(thresholds(wide).s1).toBeGreaterThan(thresholds(base).s1);
   });
 });
