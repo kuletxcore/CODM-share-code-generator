@@ -42,13 +42,17 @@ export function drawChips(ctx: CanvasRenderingContext2D, w: number, h: number) {
   });
 }
 
-/** Decodes an image file into a canvas no wider than `maxW`. */
-export function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
+/**
+ * Decodes an image file into a canvas whose longer side is at most `max`.
+ * Both sides are capped: a tall phone screenshot would otherwise keep its
+ * full height, which can be more than a GPU takes as one texture.
+ */
+export function fileToCanvas(file: File, max: number): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, maxW / img.naturalWidth);
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(img.naturalWidth * scale));
       c.height = Math.max(1, Math.round(img.naturalHeight * scale));

@@ -128,6 +128,9 @@ function gpuGrader(canvas: HTMLCanvasElement): Grader | null {
 
   let g = build();
   if (!g) return null;
+  // The largest texture and drawing buffer this GPU takes. An upload past it fails and leaves the frame empty.
+  const limit =
+    Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE) ?? 0, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) ?? 0) || 2048;
   let source: { src: GradeSource; w: number; h: number } | null = null;
   let last: { s: Settings; split: number } | null = null;
 
@@ -160,6 +163,20 @@ function gpuGrader(canvas: HTMLCanvasElement): Grader | null {
   return {
     gpu: true,
     setSource(src, w, h) {
+      const k = Math.min(1, limit / Math.max(w, h));
+      if (k < 1) {
+        // too large for this GPU: grade a copy scaled down to what it takes
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.floor(w * k));
+        c.height = Math.max(1, Math.floor(h * k));
+        const ctx = c.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(src, 0, 0, c.width, c.height);
+          src = c;
+          w = c.width;
+          h = c.height;
+        }
+      }
       source = { src, w, h };
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
@@ -182,7 +199,7 @@ function gpuGrader(canvas: HTMLCanvasElement): Grader | null {
 }
 
 /** Longest edge the CPU fallback grades at; keeps a slider drag usable without a GPU. */
-const CPU_MAX_W = 960;
+const CPU_MAX = 960;
 
 function cpuGrader(canvas: HTMLCanvasElement): Grader {
   const ctx = canvas.getContext("2d");
@@ -194,7 +211,7 @@ function cpuGrader(canvas: HTMLCanvasElement): Grader {
   return {
     gpu: false,
     setSource(src, w, h) {
-      const k = Math.min(1, CPU_MAX_W / w);
+      const k = Math.min(1, CPU_MAX / Math.max(w, h));
       const cw = Math.max(1, Math.round(w * k)),
         ch = Math.max(1, Math.round(h * k));
       canvas.width = cw;
