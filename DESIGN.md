@@ -133,3 +133,30 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
 | Editor as a full-screen mode and a single "bench" page | 947ec79d, ed32f292 | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
 | Hash-restore fix under React StrictMode | 2431d576 | Only affects development builds; production runs effects once. |
+
+## What changed after the first shipped version
+
+These are the surfaces added on top of the original design, with the reason each
+one earned its place. Everything above still holds.
+
+| Surface | Where | Why it exists |
+|---|---|---|
+| Look pages `/look/<slug>` | `src/app/look/[slug]`, `src/components/LookDetail.tsx` | A look was gallery state inside one URL. Now each has a page with its own title, canonical and Open Graph image: linkable, indexable, and the place a shared card lands. Layout is deliberately quieter than the home page — still, name, code, anatomy, related looks, sticky copy bar on phones. |
+| Code anatomy | `src/components/CodeAnatomy.tsx` | The code is the thing visitors must trust and the thing the page could not explain. Collapsible, so it costs one row when closed. Groups are colour-coded with the functional colours already in use (blue shadows, amber highlights, yellow Simple), defaults are dimmed, and a tap hands the group back to the editor. |
+| Match score + Auto-match | converter, `src/components/FilterLab.tsx` | The converter used to suggest numbers with no feedback. A 0–100 score makes the result legible and gives the visitor a reason to keep tuning. The meter is the only place a gradient is allowed, because it is measuring something. |
+| Remix | editor, under the zone list | Nothing to do if you did not already know what you wanted. One button, eight curated moods, one undo away. |
+| Undo / redo | header, `Ctrl/⌘ Z` | Sliders are cheap to nudge and were impossible to take back; Reset threw away all three zones. |
+| Share-code dock | fixed bottom bar | The old bar truncated the code with an ellipsis on phones — the one artefact a visit produces could not be read back. It now wraps over two lines, shows how many values are in use, and holds Copy, Paste and QR as toggles so they only take space when used. |
+| Tone-map zone shares | under the histogram | The legend already computed them and showed nothing; "Shadows 34% · Mids 48% · Highlights 18%" is the fastest way to see a handle is in the wrong place. |
+| Restored grade | editor | Building a filter means leaving the page to try it. The last code is kept on the device, with a note and Start fresh; a `#c=` link always wins. |
+| Offline shell | `public/sw.js`, `src/app/manifest.ts` | The tool runs entirely client-side, so an offline copy genuinely works. Navigations network-first, hashed assets cache-first. |
+
+Rules that came out of this work, to keep the new surfaces consistent:
+
+- Any new panel in the editor is a row of the working column, not a floating
+  overlay: the phone layout pins the preview and lets everything else scroll.
+- Anything that claims success (copied, saved, shared) must be built on a real
+  result from the browser, never on the attempt. A blocked clipboard says so.
+- New numbers shown to a visitor must come from the same function the grade uses
+  (`zoneShares`, `thresholds`), so the readout cannot drift from the picture.
+- A look's page and its gallery entry must agree; both read `LOOKS`.
