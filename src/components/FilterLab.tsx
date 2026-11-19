@@ -34,6 +34,7 @@ import ShareQr from "@/components/ShareQr";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { previewDrawn } from "@/lib/previewBus";
 import { useHistory } from "@/lib/useHistory";
+import { readSavedCode, usePersistedCode } from "@/lib/usePersistedCode";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -477,16 +478,28 @@ export default function FilterLab() {
 
   const code = useMemo(() => encode(settings), [settings]);
 
-  // restore from #c=<code>, keep the hash in sync so the URL is shareable
+  // restore from #c=<code> (a shared link), otherwise the grade this device
+  // last held; then keep the hash in sync so the URL is always shareable
+  const [restored, setRestored] = useState(false);
   useEffect(() => {
     const m = location.hash.match(/c=([-\d_]+)/);
-    const s = m && decode(m[1]);
-    // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
+    const fromUrl = m && decode(m[1]);
+    const s = fromUrl || (() => {
+      const saved = readSavedCode();
+      return saved ? decode(saved) : null;
+    })();
+    // one-off read on load; the page is statically rendered so it can't go in
+    // initial state without a hydration mismatch.
     if (!s) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // The whole effect is one read of the hash and storage; the rule prefers a
+    // lazy initial state, which a statically rendered page cannot have.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+    setRestored(!fromUrl);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [setSettings]);
+  usePersistedCode(code);
   useEffect(() => {
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
@@ -632,6 +645,21 @@ export default function FilterLab() {
         </div>
       </div>
       <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
+
+      {restored && (
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-l-2 border-lime bg-lime/10 px-3 py-2 text-xs">
+          <span>Picked up where you left off: your last grade on this device.</span>
+          <button
+            onClick={() => {
+              setSettings(defaultSettings());
+              setRestored(false);
+            }}
+            className="font-display font-bold uppercase tracking-wider text-lime hover:text-text"
+          >
+            Start fresh
+          </button>
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="mt-4 border-l-2 border-red-500 bg-red-500/10 px-3 py-2 text-sm">
