@@ -69,11 +69,28 @@ const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
 
 // Image helpers
 
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
 function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
+    // A phone screenshot is a few MB; anything far bigger is a RAW export or a
+    // mistake, and decoding it would freeze the page.
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("That is not an image. Use a screenshot: PNG, JPG or WebP."));
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      reject(new Error("That image is over 25 MB. A cropped screenshot works better."));
+      return;
+    }
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
+      if (img.naturalWidth < 64 || img.naturalHeight < 64) {
+        URL.revokeObjectURL(url);
+        reject(new Error("That image is too small to measure. Use a full screenshot."));
+        return;
+      }
       const scale = Math.min(1, maxW / img.naturalWidth);
       const c = document.createElement("canvas");
       c.width = Math.max(1, r(img.naturalWidth * scale));
@@ -285,6 +302,21 @@ function Preview({
   // Grade on the GPU when WebGL is available; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
   const [gpuOk, setGpuOk] = useState<boolean | null>(null);
+  // A lost WebGL context (a backgrounded tab, a driver reset) leaves a dead
+  // canvas that cannot host a 2D context. Fall back to the CPU grade and let
+  // React mount a fresh canvas for it.
+  useEffect(() => {
+    const c = view.current;
+    if (!c) return;
+    const lost = (e: Event) => {
+      e.preventDefault();
+      gpu.current?.dispose();
+      gpu.current = null;
+      setGpuOk(false);
+    };
+    c.addEventListener("webglcontextlost", lost);
+    return () => c.removeEventListener("webglcontextlost", lost);
+  }, [view]);
   useEffect(() => {
     const c = view.current;
     if (!c) return;
@@ -380,7 +412,10 @@ function Preview({
         onPointerCancel={() => (wipe.current = null)}
         onDoubleClick={() => setSplit(0)}
       >
-        <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
+        <canvas
+          key={gpuOk === false ? "cpu" : "gpu"}
+          ref={view}
+          className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
           <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
