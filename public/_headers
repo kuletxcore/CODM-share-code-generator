@@ -1,0 +1,25 @@
+# Cache policy for the static export.
+#
+# Hashed build output and fonts never change under a given URL, so they can be
+# cached for a year. Everything else (HTML, the OG card, look stills referenced by
+# name) is short-lived so a deploy is picked up quickly.
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/looks/*
+  Cache-Control: public, max-age=604800
+
+/og.jpg
+  Cache-Control: public, max-age=86400
+
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Baseline hardening. There is no server code, so the policy can be strict.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

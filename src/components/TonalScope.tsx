@@ -12,16 +12,17 @@ const SAMPLE_H = 90;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+/** Smallest gap the two handles may close to, in stored units (1% of the bar). */
+const GAP = 10;
+
 export default function TonalScope({
   viewRef,
   settings,
   onRange,
-  onShare,
 }: {
   viewRef: React.RefObject<HTMLCanvasElement | null>;
   settings: Settings;
   onRange: (patch: { shadowPos?: number; highlightPos?: number }) => void;
-  onShare?: (share: [number, number, number]) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const strip = useRef<HTMLDivElement>(null);
@@ -144,30 +145,7 @@ export default function TonalScope({
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.fillRect(mx - 2, 0, 4, 4);
 
-    // share of the frame per zone, using the grade's own falloff
-    if (onShare) {
-      const soft = (a: number, b: number, x: number) => {
-        const t = Math.min(1, Math.max(0, (x - a) / (b - a || 1e-6)));
-        return t * t * (3 - 2 * t);
-      };
-      let ws = 0;
-      let wm = 0;
-      let wh = 0;
-      for (let i = 0; i < BINS; i++) {
-        const l = (i + 0.5) / BINS;
-        const a = 1 - soft(s0, s1, l);
-        const c2 = soft(h0, h1, l) * (1 - a);
-        ws += bins[i] * a;
-        wh += bins[i] * c2;
-        wm += bins[i] * Math.max(0, 1 - a - c2);
-      }
-      onShare([
-        Math.round((ws / n) * 100),
-        Math.round((wm / n) * 100),
-        Math.round((wh / n) * 100),
-      ]);
-    }
-  }, [settings, viewRef, onShare]);
+  }, [settings, viewRef]);
 
   // repaint on the next frame, after the preview has drawn this settings change
   useEffect(() => {
@@ -197,9 +175,14 @@ export default function TonalScope({
     const r = el.getBoundingClientRect();
     if (!r.width) return;
     const p = Math.min(100, Math.max(0, ((clientX - r.left) / r.width) * 100));
-    const v = Math.round(p * 10);
-    if (drag.current === "s") onRange({ shadowPos: Math.min(v, settings.highlightPos) });
-    else onRange({ highlightPos: Math.max(v, settings.shadowPos) });
+    // Keep the two handles apart so neither zone can end up zero-width (which
+    // used to render as "40% | 40%" with no way back).
+    const raw = Math.round(p * 10);
+    if (drag.current === "s") {
+      onRange({ shadowPos: Math.min(raw, settings.highlightPos - GAP) });
+    } else {
+      onRange({ highlightPos: Math.max(raw, settings.shadowPos + GAP) });
+    }
   };
 
   const start = (which: "s" | "h") => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -215,8 +198,8 @@ export default function TonalScope({
     const colour = shadow ? "#8fc2ff" : "#ffc46b";
     const step = (delta: number) =>
       shadow
-        ? onRange({ shadowPos: Math.min(settings.highlightPos, Math.max(0, raw + delta)) })
-        : onRange({ highlightPos: Math.max(settings.shadowPos, Math.min(1000, raw + delta)) });
+        ? onRange({ shadowPos: Math.min(settings.highlightPos - GAP, Math.max(0, raw + delta)) })
+        : onRange({ highlightPos: Math.max(settings.shadowPos + GAP, Math.min(1000, raw + delta)) });
     return (
       <div
         tabIndex={0}

@@ -57,6 +57,80 @@ export const DEFAULT_CODE =
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
 
+export const CODE_LENGTH = 22;
+
+/**
+ * Accepted range for each of the 22 segments, in stored units, indexed by
+ * segment position. Anything outside these is not a code the game can hold, so
+ * `decode` rejects it instead of quietly clamping to something else.
+ *
+ * Order matches the layout documented above: preset, enabled, four Range bar
+ * values, then four groups of hue_tint_brightness_saturation.
+ */
+export const SEGMENT_RANGES: [number, number][] = [
+  [0, 4], // preset slot
+  [0, 1], // enabled
+  [0, 1000], // shadows handle
+  [0, 1500], // shadows falloff (handle + 100, capped at the bar's end)
+  [0, 1000], // highlights handle
+  [0, 1500], // highlights falloff
+  ...[0, 1, 2, 3].flatMap((): [number, number][] => [
+    [0, 1000], // hue
+    [0, 1000], // tint
+    [-1000, 1000], // brightness (offset around 0)
+    [0, 2000], // saturation
+  ]),
+];
+
+/**
+ * Plain decimal integer: an optional minus then digits, nothing else.
+ *
+ * A minus is only legal for brightness (segments 8, 12, 16 and 20), which is an
+ * offset around 0; the per-segment range check below rejects a negative
+ * anywhere else, so this stays a single cheap pattern.
+ */
+const INTEGER = /^-?\d+$/;
+
+/**
+ * Parse a candidate share code, or return null.
+ *
+ * Deliberately strict: a code is something pasted out of the game, so anything
+ * that is not 22 signed-decimal integers inside the documented ranges is
+ * rejected rather than accepted as a partial match. Accepting junk silently is
+ * how a wrong code ends up in the game.
+ */
+export function decode(code: string): Settings | null {
+  const parts = code.trim().split("_");
+  if (parts.length !== CODE_LENGTH) return null;
+  const n: number[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!INTEGER.test(p)) return null;
+    const v = Number(p);
+    const [lo, hi] = SEGMENT_RANGES[i];
+    if (v < lo || v > hi) return null;
+    n.push(v);
+  }
+  const s = defaultSettings();
+  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
+  ZONES.forEach((k, i) => {
+    const o = 6 + i * 4;
+    s.zones[k] = {
+      hue: (n[o] / 1000) * 360,
+      tint: n[o + 1] / 10,
+      bri: n[o + 2] / 20 + 50,
+      sat: n[o + 3] / 20,
+    };
+  });
+  return s;
+}
+
+/**
+ * Encode settings as a share code.
+ *
+ * Clamps to the same segment ranges `decode` enforces, so the string you copy is
+ * always one the page can read back and the game can hold.
+ */
 export function encode(s: Settings): string {
   const out = [
     s.preset,
@@ -76,26 +150,13 @@ export function encode(s: Settings): string {
       Math.round(z.sat * 20),
     );
   }
-  return out.map((n) => Math.round(n)).join("_");
-}
-
-export function decode(code: string): Settings | null {
-  const parts = code.trim().split("_");
-  if (parts.length !== 22) return null;
-  const n = parts.map((p) => Number(p));
-  if (n.some((v) => !Number.isFinite(v))) return null;
-  const s = defaultSettings();
-  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
-  ZONES.forEach((k, i) => {
-    const o = 6 + i * 4;
-    s.zones[k] = {
-      hue: (n[o] / 1000) * 360,
-      tint: n[o + 1] / 10,
-      bri: n[o + 2] / 20 + 50,
-      sat: n[o + 3] / 20,
-    };
-  });
-  return s;
+  return out
+    .map((v, i) => {
+      const [lo, hi] = SEGMENT_RANGES[i];
+      const rounded = Math.round(v);
+      return Number.isFinite(rounded) ? clamp(rounded, lo, hi) : lo;
+    })
+    .join("_");
 }
 
 // In-game hue controls
@@ -107,8 +168,19 @@ export function decode(code: string): Settings | null {
  */
 export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
 
+/**
+ * Split a hue in degrees into the in-game swatch and 0–100 slider position.
+ *
+ * The stored range is `hue 0–1000 -> 0–360°`, and 1000 is a real value: it is
+ * Magenta with the slider at 100. Wrapping 360 back to 0 would report that as
+ * Red @ 0 and hand the caller the wrong swatch, which then silently rewrites the
+ * hue on the next slider drag. So clamp rather than wrap.
+ *
+ * `prefer` is still accepted for callers that know which swatch the user picked:
+ * it keeps the slider at 100 rather than snapping to the next swatch's 0.
+ */
 export function hueParts(deg: number, prefer?: number): { swatch: number; pos: number } {
-  const d = ((deg % 360) + 360) % 360;
+  const d = Math.min(360, Math.max(0, deg));
   // Slider 100 and the next swatch's 0 are the same raw value; honour the swatch
   // the user picked so the end of the slider doesn't jump to the next colour.
   if (prefer !== undefined) {
@@ -278,6 +350,11 @@ export function analyse(
     { l: 0.8, sat: 0.14 },
   ];
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
+    // A zone with no pixels in it has no measurement to report. Falling through
+    // the arithmetic below would divide by the `|| 1` guard and invent a
+    // confidently wrong tint/saturation for a tonal range the image never had
+    // (a pure white frame reports three non-neutral zones). Leave it neutral.
+    if (t[i].n <= 0) return;
     const ct = castOf(t[i]);
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,

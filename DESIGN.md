@@ -41,7 +41,7 @@ Defined in `src/app/globals.css` under `@theme`. Core palette: ink, panel, text,
 
 The tonal scope adds two functional colours for the Range handles: shadows `#8fc2ff`, highlights `#ffc46b`. They mark which handle is which and appear nowhere else.
 
-**Measured contrast (WCAG AA needs 4.5:1 for body text):** text on ink 16.5:1, text on panel 15.5:1, mute on ink 6.3:1, mute on panel 6.0:1, mute on panel-2 5.5:1, black on CODM yellow 17.1:1, black on lime 12.5:1. Mute on `line` is 4.3:1, so muted text never sits directly on a `line` fill.
+**Measured contrast (WCAG AA needs 4.5:1 for body text):** text on ink 16.5:1, text on panel 15.5:1, mute on ink 6.3:1, mute on panel 6.0:1, mute on panel-2 5.5:1, black on CODM yellow 17.1:1, black on lime 13.5:1. Mute on `line` is 4.3:1, so muted text never sits directly on a `line` fill.
 
 ## Type
 
@@ -76,10 +76,10 @@ States are set where the content breaks, not by device:
 - **Look stage and filmstrip.** One look fills the stage with a slow push-in; the filmstrip below switches looks (click or arrow keys) and auto-plays every 7 s until the visitor picks one, hovers or copies. Reduced motion turns off autoplay and the zoom.
 - **Game chips.** Filter the looks by the game they come from (MW4, Black Ops 7, MWII, Vanguard, MW 2019, Cold War). Games are facts checked against sources, unlike mood labels.
 - **Generator.** Simple/Advanced switch, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
-- **Tone map (the in-game Range bar).** Directly under the preview in Advanced mode: a luminance histogram of what the preview shows, with the two Range handles on top. It replaces the old Range panel and its two sliders, so the split between zones is always in view while any zone is edited. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End); each handle writes edge = handle + 100, as the game does. Hidden in Simple mode, where the range does not apply. On phones it scrolls with the controls, so the pinned viewfinder stays the same height.
+- **Tone map (the in-game Range bar).** Directly under the preview in Advanced mode: a luminance histogram of what the preview shows, with the two Range handles on top. It replaces the old Range panel and its two sliders, so the split between zones is always in view while any zone is edited. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End); each handle writes edge = handle + 100, as the game does when a handle is dragged. A fresh profile carries wider falloffs than that (300 and 500), so the first drag tightens them — this matches the game and is documented in the README. Hidden in Simple mode, where the range does not apply. On phones it scrolls with the controls, so the pinned viewfinder stays the same height.
 - **Preview.** The look applied to a lit three.js scene or to the visitor's own screenshot, graded on the GPU. Drag sideways across it (or use the Compare slider) to see the original; the drag only starts after a deliberate sideways pull so vertical scrolling still works on phones. Double-click resets the split.
 - **Import guide.** Opens after any copy and stays until Done or Esc: the seven in-game steps as a checklist, the code with Copy again, a QR that opens this page with the code on a phone (shown from `sm` up, since a phone visitor is already on their phone), and Save look card. "Skip the steps next time" switches to a short toast.
-- **Look card.** A 1200 by 630 PNG with the look's image, name, code and a QR back to the site, marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise.
+- **Look card.** A 1200 by 630 PNG with the look's image, name, code and a QR back to the site, marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise. Backing out of the share sheet is a cancel, not a failure: it must not fall through to a download. `public/og.jpg` is a static 1200 by 630 card with the same composition, used for link previews by `openGraph`/`twitter` metadata in `src/app/layout.tsx`.
 
 ## Motion
 
@@ -92,7 +92,8 @@ States are set where the content breaks, not by device:
 
 - Visible yellow focus ring on everything (`:focus-visible`), never removed without a replacement.
 - Pointer cursor on every enabled control (set in the base layer, since Tailwind v4 resets buttons to the default cursor); `not-allowed` when disabled.
-- Custom controls use the right roles: the filmstrip is a `tablist`, the mode control is a `switch`, the scope handles are focusable `role="slider"` elements with values and labels.
+- Custom controls use the right roles: the filmstrip is a `tablist` (tabs are labelled, the stage is `aria-labelledby` the selected tab, arrow/Home/End keys rove focus between tabs), the mode control is a `switch`, the scope handles are focusable `role="slider"` elements with values and labels.
+- Live regions only announce deliberate changes. The look stage is `aria-live="off"` until the visitor picks a look or a game chip, because autoplay rotates every 7 s and would otherwise read a new name forever; keyboard focus inside the stage stops the rotation. The share-code readout is not a live region either — it would re-read 22 numbers on every slider keypress.
 - The import guide is a dialog that takes focus when it opens and closes with Esc.
 
 ## Content rules
@@ -115,21 +116,21 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 
 | Picked | From | Why |
 |---|---|---|
-| QR hand-off to a phone and the look card | d55d3f96 (cards also in 947ec79d and 2cad37b9) | The code has to end up on a phone; on desktop that hop was missing. Code-split, so it costs nothing until used. |
-| Tone map in place of the Range sliders, under the preview | d55d3f96 and ed32f292 | Makes the least understood control visible, and keeps it in view while editing any zone. The owner asked for it to replace the Range bar sliders. |
-| Drag across the preview to compare, after a deliberate pull | ed32f292, d55d3f96, 2cad37b9 | Three remakes converged on it; the pull threshold keeps phone scrolling intact. |
-| GPU self-test before trusting the shader | ed32f292 | Cheap guard against a preview that silently never grades. |
-| Filter chips for the looks | 49aa1fc3 and 2cad37b9 (as moods) | Twelve looks need a filter; game names replace subjective mood tags. |
-| One-row header on phones | 49aa1fc3 | Saves about a third of the first phone screen. |
+| QR hand-off to a phone and the look card | the look-card remake (also in two others) | The code has to end up on a phone; on desktop that hop was missing. Code-split, so it costs nothing until used. |
+| Tone map in place of the Range sliders, under the preview | two of the remakes | Makes the least understood control visible, and keeps it in view while editing any zone. The owner asked for it to replace the Range bar sliders. |
+| Drag across the preview to compare, after a deliberate pull | three of the remakes | Three remakes converged on it; the pull threshold keeps phone scrolling intact. |
+| GPU self-test before trusting the shader | one remake | Cheap guard against a preview that silently never grades. |
+| Filter chips for the looks | two remakes (as moods) | Twelve looks need a filter; game names replace subjective mood tags. |
+| One-row header on phones | one remake | Saves about a third of the first phone screen. |
 
 | Dropped | From | Why |
 |---|---|---|
-| Fake tactical HUD chrome: clock, "SYS ONLINE", "STATUS: ACTIVE", "V2.0" | 321859aa | Decorative text that claims a system state that does not exist. |
-| Cyber HUD and "audio-reactive" UI | 63bf5f71 | Does not build (unclosed brace in `scene.ts`); decoration without a job. |
-| Page-wide ambient tint from the active filter | 2431d576 | Clever, but recolours the accent and text with every grade, which puts contrast at the mercy of the look; adds constant GPU work. |
-| Colour wheels for hue and tint | d55d3f96, 2cad37b9 | Hide the 8-swatch plus slider structure players see in game. |
-| Fifteen-feature console: telemetry HUD, macros, blend lab, loadouts, shortcuts overlay | 2cad37b9 | Feature count over clarity; most panels restate the same settings. |
-| "Find your visual edge" marketing hero | 49aa1fc3 | Marketing copy for a free tool; the header already says what the site does. |
-| All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
-| Editor as a full-screen mode and a single "bench" page | 947ec79d, ed32f292 | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
-| Hash-restore fix under React StrictMode | 2431d576 | Only affects development builds; production runs effects once. |
+| Fake tactical HUD chrome: clock, "SYS ONLINE", "STATUS: ACTIVE", "V2.0" | a dropped remake | Decorative text that claims a system state that does not exist. |
+| Cyber HUD and "audio-reactive" UI | a dropped remake | Does not build (unclosed brace in `scene.ts`); decoration without a job. |
+| Page-wide ambient tint from the active filter | a dropped remake | Clever, but recolours the accent and text with every grade, which puts contrast at the mercy of the look; adds constant GPU work. |
+| Colour wheels for hue and tint | two remakes | Hide the 8-swatch plus slider structure players see in game. |
+| Fifteen-feature console: telemetry HUD, macros, blend lab, loadouts, shortcuts overlay | a dropped remake | Feature count over clarity; most panels restate the same settings. |
+| "Find your visual edge" marketing hero | a dropped remake | Marketing copy for a free tool; the header already says what the site does. |
+| All looks shown graded on one 3D frame instead of their images | two remakes | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
+| Editor as a full-screen mode and a single "bench" page | two remakes | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
+| Hash-restore fix under React StrictMode | a dropped remake | Only affects development builds; production runs effects once. |

@@ -45,7 +45,9 @@ function PhoneQr({ code }: { code: string }) {
   return <canvas ref={ref} width={240} height={240} className="h-[120px] w-[120px] shrink-0" aria-hidden />;
 }
 
-async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
+type CardResult = "shared" | "saved" | "cancelled" | "failed";
+
+async function saveCard(p: Copied): Promise<CardResult> {
   const share = await import("@/lib/share");
   const blob = await share.renderShareCard(p);
   if (!blob) return "failed";
@@ -54,8 +56,14 @@ async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
     try {
       await navigator.share({ files: [file], title: p.name ?? "CODM look" });
       return "shared";
-    } catch {
-      // cancelled share sheet: fall through to a download
+    } catch (err) {
+      // Backing out of the share sheet is not a failure. Falling through to a
+      // download here meant that cancelling on iOS/Android still wrote a PNG to
+      // the user's photo library. AbortError (and NotAllowedError on some
+      // browsers) means the user said no, so stop.
+      const name = (err as { name?: string } | null)?.name;
+      if (name === "AbortError" || name === "NotAllowedError") return "cancelled";
+      // Anything else is a real share failure: fall back to a download.
     }
   }
   share.downloadBlob(blob, file.name);
@@ -88,7 +96,7 @@ const readOff = () => {
 export default function ImportGuide() {
   const [open, setOpen] = useState<Copied | null>(null);
   const [toast, setToast] = useState<Copied | null>(null);
-  const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "failed">("idle");
+  const [card, setCard] = useState<"idle" | "busy" | CardResult>("idle");
   const [done, setDone] = useState<number[]>([]);
   const [off, setOff] = useState(false);
   const [again, setAgain] = useState(false);
@@ -142,7 +150,9 @@ export default function ImportGuide() {
         {open && (
           <motion.div
             role="dialog"
+            aria-modal="false"
             aria-labelledby="guide-title"
+            aria-describedby="guide-subject"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
@@ -151,7 +161,14 @@ export default function ImportGuide() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-xs font-bold uppercase tracking-[0.2em] text-lime">
+                {/* Announced once when the dialog opens; the progress counter below
+                    is no longer a live region, which used to re-announce on every
+                    tick of the checklist. */}
+                <p
+                  id="guide-subject"
+                  role="status"
+                  className="font-display text-xs font-bold uppercase tracking-[0.2em] text-lime"
+                >
                   ✓ Code copied{open.name ? ` · ${open.name}` : ""}
                 </p>
                 <h2
@@ -163,8 +180,9 @@ export default function ImportGuide() {
                   Now in CODM
                 </h2>
               </div>
-              <span className="mt-1 font-display text-sm font-bold text-mute" aria-live="polite">
-                {done.length}/{STEPS.length}
+              <span className="mt-1 font-display text-sm font-bold text-mute">
+                <span className="sr-only">{done.length} of {STEPS.length} steps done</span>
+                <span aria-hidden>{done.length}/{STEPS.length}</span>
               </span>
             </div>
 
@@ -248,9 +266,11 @@ export default function ImportGuide() {
                       ? "Card saved ✓"
                       : card === "shared"
                         ? "Card shared ✓"
-                        : card === "failed"
-                          ? "Card failed, try again"
-                          : "Save look card"}
+                        : card === "cancelled"
+                          ? "Share cancelled"
+                          : card === "failed"
+                            ? "Card failed, try again"
+                            : "Save look card"}
                 </button>
               </div>
             </div>

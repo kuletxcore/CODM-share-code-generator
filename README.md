@@ -29,9 +29,15 @@ Live: https://codm.kuletxcore.workers.dev
 Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
 - hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
+  - `1000` is a real value: Magenta with the slider at 100. It is not the same as `0` (Red at 0), and the codec round-trips it.
 - tint `0–1000` = 0–100.
-- brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral).
+- brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral). This is the only segment that can be negative.
 - saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).
+
+`decode()` in `src/lib/codm.ts` enforces those ranges per segment and rejects a
+code that does not match, rather than clamping it into something that only looks
+accepted. `encode()` clamps to the same ranges, so anything the page copies is
+always readable back. `SEGMENT_RANGES` is the single table both use.
 
 The preview is an approximation of the in-game filter.
 
@@ -46,6 +52,21 @@ npm install
 npm run dev
 ```
 
+Checks (the same set CI runs, in `.github/workflows/ci.yml`):
+
+```bash
+npm run check      # typecheck + lint + test
+```
+
+- `npm run typecheck` — `tsc --noEmit`. Run this first on a fresh clone; see the note below.
+- `npm run lint` — ESLint with the Next.js configs.
+- `npm test` — `node --test` over `src/**/*.test.ts`. Node strips the TypeScript
+  types itself, so there is no test runner dependency. The suite covers the share
+  codec: segment ranges, strict rejection of malformed codes, round-tripping every
+  shipped look, the hue swatch/slider split, and `analyse()` on frames missing a
+  tonal band.
+- `npm run build` — the static export.
+
 Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` runs the build first, so Cloudflare Workers Builds works from a clean checkout):
 
 ```bash
@@ -53,6 +74,15 @@ npm run deploy
 ```
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
+
+### Gotcha: route types are generated
+
+Next 16 writes `LayoutProps<'/'>` and friends into `.next/types/`, and generates
+`next-env.d.ts`, which is **gitignored**. That means `next build` typechecks fine
+on a fresh checkout while a bare `tsc --noEmit` fails with
+`Cannot find name 'LayoutProps'`. `src/app/layout.tsx` therefore types `children`
+explicitly instead of relying on the generated `LayoutProps`; keep it that way, or
+typecheck has to run after a build.
 
 ## Disclaimer
 

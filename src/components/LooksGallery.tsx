@@ -85,8 +85,14 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
+  const [focused, setFocused] = useState(false);
+  // Only a deliberate change may be announced. Autoplay rotates every 7s, so a
+  // live region on the stage would read a new look name at the visitor forever.
+  // A one-shot message keeps this from sticking on after the first pick, which
+  // would have let the rotation announce again.
+  const [announcement, setAnnouncement] = useState("");
   const reduce = useReducedMotion();
-  const playing = auto && !hover && !reduce;
+  const playing = auto && !hover && !focused && !reduce;
   const look = shown[Math.min(active, shown.length - 1)];
 
   useEffect(() => {
@@ -102,6 +108,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   }, [playing, active, shown.length]);
 
   const strip = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = strip.current;
     const tab = el?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -114,7 +121,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
 
   const pick = (i: number) => {
     setAuto(false);
-    setActive((i + shown.length) % shown.length);
+    const nextIndex = (i + shown.length) % shown.length;
+    setActive(nextIndex);
+    setAnnouncement(shown[nextIndex] ? `${shown[nextIndex].name}. ${shown[nextIndex].note}` : "");
   };
 
   return (
@@ -143,6 +152,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               onClick={() => {
                 setGame(g);
                 setActive(0);
+                setAnnouncement("");
               }}
               className={`min-h-11 shrink-0 border px-3 font-display text-sm font-bold uppercase tracking-wide transition-colors ${
                 game === g
@@ -160,7 +170,12 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       <div
         role="tabpanel"
         id="look-stage"
-        aria-live="polite"
+        ref={stage}
+        aria-labelledby={`look-tab-${Math.min(active, shown.length - 1)}`}
+        // Keyboard focus inside the stage stops the rotation, so a keyboard
+        // visitor can actually read what is on screen.
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
       >
         <AnimatePresence initial={false}>
@@ -174,6 +189,14 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <Art look={look} />
           </motion.div>
         </AnimatePresence>
+        {/*
+          Announce the look only when the visitor chose it. The stage itself is not
+          a live region: autoplay rotates it, and a live region there would read a
+          new name every 7 s until the visitor touched something.
+        */}
+        <p className="sr-only" role="status">
+          {announcement}
+        </p>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
         <div className="pointer-events-none absolute inset-0 scanlines opacity-60" />
 
@@ -228,16 +251,6 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         aria-label="Looks"
         ref={strip}
         className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") pick(active + 1);
-          else if (e.key === "ArrowLeft") pick(active - 1);
-          else return;
-          e.preventDefault();
-          const strip = e.currentTarget;
-          requestAnimationFrame(() =>
-            (strip.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
-          );
-        }}
       >
         {shown.map((l, i) => (
           <button
@@ -248,6 +261,21 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             aria-controls="look-stage"
             tabIndex={i === active ? 0 : -1}
             onClick={() => pick(i)}
+            onKeyDown={(e) => {
+              let next: number | null = null;
+              if (e.key === "ArrowRight") next = i + 1;
+              else if (e.key === "ArrowLeft") next = i - 1;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = shown.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              pick((next + shown.length) % shown.length);
+              requestAnimationFrame(() => {
+                strip.current
+                  ?.querySelector<HTMLElement>('[aria-selected="true"]')
+                  ?.focus();
+              });
+            }}
             className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
               i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
             }`}

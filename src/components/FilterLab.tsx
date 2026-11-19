@@ -249,7 +249,7 @@ function Preview({
       g?.dispose();
       gpu.current = null;
     };
-  }, []);
+  }, [view]);
   useEffect(() => {
     if (gpuOk && src) gpu.current?.setSource(src);
   }, [gpuOk, src]);
@@ -301,7 +301,7 @@ function Preview({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
+  }, [view, orig, graded, split]);
 
   return (
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
@@ -392,7 +392,9 @@ export default function FilterLab() {
 
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
-    const m = location.hash.match(/c=([-\d_]+)/);
+    // Anchored: only a hash that starts with #c= is ours. The old unanchored
+    // match also caught things like #abc=12_... and query strings.
+    const m = location.hash.match(/^#c=([-\d_]+)$/);
     const s = m && decode(m[1]);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
@@ -401,7 +403,13 @@ export default function FilterLab() {
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
   }, []);
   useEffect(() => {
-    history.replaceState(null, "", `#c=${code}`);
+    // Cosmetic (shareable URL), so never let it take the page down: replaceState
+    // throws SecurityError in a sandboxed iframe or a data:/blob: document.
+    try {
+      history.replaceState(null, "", `#c=${code}`);
+    } catch {
+      /* URL stays as it was; the code bar still works */
+    }
   }, [code]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
@@ -613,10 +621,16 @@ export default function FilterLab() {
                       onRange={(r) =>
                         setSettings((s) => ({
                           ...s,
-                          ...(r.shadowPos !== undefined && { shadowPos: r.shadowPos, shadowEdge: r.shadowPos + 100 }),
+                          // Documented game behaviour: dragging a handle writes its
+                          // falloff as handle + 100. Clamped to the bar so the pair can
+                          // never leave the 0-1500 range the code allows.
+                          ...(r.shadowPos !== undefined && {
+                            shadowPos: r.shadowPos,
+                            shadowEdge: Math.min(1500, r.shadowPos + 100),
+                          }),
                           ...(r.highlightPos !== undefined && {
                             highlightPos: r.highlightPos,
-                            highlightEdge: r.highlightPos + 100,
+                            highlightEdge: Math.min(1500, r.highlightPos + 100),
                           }),
                         }))
                       }
@@ -928,8 +942,11 @@ function CodeBar({
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
+          {/* `polite` here meant a screen reader re-read the whole 22-number
+              string on every arrow key of every slider. The code is copyable
+              text, not an announcement; the "Copied" label is what needs saying. */}
           <output
-            aria-live="polite"
+            aria-live="off"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
