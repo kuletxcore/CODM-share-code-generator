@@ -6,6 +6,7 @@ import {
   analyse,
   applyGrade,
   decode,
+  describeCode,
   hueToRgb,
   defaultSettings,
   encode,
@@ -269,5 +270,36 @@ describe("hueToRgb", () => {
 
   it("returns full-strength primaries on the swatch points", () => {
     expect(hueToRgb(120).map((v) => Math.round(v))).toEqual([0, 1, 0]);
+  });
+});
+
+describe("describeCode", () => {
+  it("explains all 22 numbers in order", () => {
+    const cells = describeCode(DEFAULT_CODE)!;
+    expect(cells).toHaveLength(22);
+    expect(cells.map((c) => c.index)).toEqual([...Array(22).keys()]);
+    expect(cells.every((c) => !c.active)).toBe(true);
+  });
+
+  it("marks only the values that do something", () => {
+    const hajin = LOOKS.find((l) => l.name === "Hajin")!.code;
+    const cells = describeCode(hajin)!;
+    const active = cells.filter((c) => c.active);
+    expect(active.map((c) => c.label)).toContain("Shadows · Tint");
+    // the range bar is untouched in this look
+    expect(cells.filter((c) => c.group === "header" && c.active)).toHaveLength(0);
+  });
+
+  it("reads hue back as the swatch a player sees in game", () => {
+    const s = defaultSettings();
+    s.zones.shadows = { hue: 207, tint: 40, sat: 50, bri: 50 }; // Cyan, 60 along
+    const cells = describeCode(encode(s))!;
+    expect(cells.find((c) => c.index === 10)!.text).toBe("Cyan +60");
+    // the same number read as raw 575 in the game
+    expect(cells.find((c) => c.index === 10)!.raw).toBe(575);
+  });
+
+  it("returns null for a code it cannot read", () => {
+    expect(describeCode("1_2_3")).toBeNull();
   });
 });

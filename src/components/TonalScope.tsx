@@ -253,7 +253,7 @@ export default function TonalScope({
   };
 
   return (
-    <section aria-label="Tonal range" className="flex flex-col gap-1.5">
+    <section id="tonal-range" aria-label="Tonal range" className="flex flex-col gap-1.5 scroll-mt-24">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.22em] text-mute">
           Tonal range

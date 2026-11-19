@@ -128,6 +128,136 @@ export function decode(code: string): Settings | null {
   return s;
 }
 
+// Anatomy of a code
+
+export type CodeGroup = "header" | ZoneKey;
+
+export const GROUP_LABEL: Record<CodeGroup, string> = {
+  header: "Range bar",
+  global: "Simple",
+  shadows: "Shadows",
+  midtones: "Midtones",
+  highlights: "Highlights",
+};
+
+export type CodeField =
+  | "preset"
+  | "enabled"
+  | "shadowPos"
+  | "shadowEdge"
+  | "highlightPos"
+  | "highlightEdge"
+  | "hue"
+  | "tint"
+  | "sat"
+  | "bri";
+
+export type CodeCell = {
+  /** Position in the 22-number code (0-based). */
+  index: number;
+  raw: number;
+  group: CodeGroup;
+  field: CodeField;
+  /** What this number means, in the words the game uses. */
+  label: string;
+  /** The value as a player reads it (percent, swatch, level). */
+  text: string;
+  /** False when the number is at its default and changes nothing. */
+  active: boolean;
+};
+
+type HeaderField = Exclude<CodeField, "hue" | "tint" | "sat" | "bri">;
+
+const HEADER_CELLS: { field: HeaderField; label: string; unit: "%" | "#" | "on/off" }[] = [
+  { field: "preset", label: "Preset slot", unit: "#" },
+  { field: "enabled", label: "Enabled", unit: "on/off" },
+  { field: "shadowPos", label: "Shadows end", unit: "%" },
+  { field: "shadowEdge", label: "Shadows falloff", unit: "%" },
+  { field: "highlightPos", label: "Highlights start", unit: "%" },
+  { field: "highlightEdge", label: "Highlights falloff", unit: "%" },
+];
+
+/** Defaults as they appear in a code's header. */
+const CODE_DEFAULTS: Record<HeaderField, number> = {
+  preset: 0,
+  enabled: 1,
+  shadowPos: 30,
+  shadowEdge: 300,
+  highlightPos: 1000,
+  highlightEdge: 1500,
+};
+
+const ZONE_FIELDS: { field: Extract<CodeField, "hue" | "tint" | "sat" | "bri">; label: string }[] = [
+  { field: "hue", label: "Hue" },
+  { field: "tint", label: "Tint" },
+  { field: "bri", label: "Brightness" },
+  { field: "sat", label: "Saturation" },
+];
+
+/**
+ * Explains each of the 22 numbers in a code. The editor shows this next to the
+ * code so the format stops being opaque, but the code stays the source of
+ * truth: everything here is read back from `decode`.
+ */
+export function describeCode(code: string): CodeCell[] | null {
+  const s = decode(code);
+  if (!s) return null;
+  const raw = code.trim().split("_").map((p) => Number(p.trim()));
+  const cells: CodeCell[] = [];
+  const defaults = defaultSettings();
+
+  HEADER_CELLS.forEach((h, i) => {
+    const v = raw[i];
+    const def = CODE_DEFAULTS[h.field];
+    cells.push({
+      index: i,
+      raw: v,
+      group: "header",
+      field: h.field,
+      label: h.label,
+      text:
+        h.unit === "#"
+          ? `Preset #${s.preset + 1}`
+          : h.unit === "on/off"
+            ? s.enabled
+              ? "On"
+              : "Off"
+            : `${Math.round(v / 10)}%`,
+      active: v !== def,
+    });
+  });
+
+  ZONES.forEach((zone, zi) => {
+    const z = s.zones[zone];
+    const hp = hueParts(z.hue);
+    ZONE_FIELDS.forEach((f, fi) => {
+      const index = 6 + zi * 4 + fi;
+      const neutral = defaults.zones[zone];
+      const value =
+        f.field === "hue"
+          ? `${SWATCH_NAMES[hp.swatch]} +${Math.round(hp.pos)}`
+          : `${Math.round(z[f.field as "tint" | "sat" | "bri"])}`;
+      cells.push({
+        index,
+        raw: raw[index],
+        group: zone,
+        field: f.field,
+        label: `${GROUP_LABEL[zone]} · ${f.label}`,
+        text: value,
+        active:
+          f.field === "hue"
+            ? Math.abs(z.tint) > 0.5
+            : f.field === "tint"
+              ? z.tint > 0.5
+              : Math.abs(z[f.field as "tint" | "sat" | "bri"] - neutral[f.field as "tint" | "sat" | "bri"]) >
+                0.5,
+      });
+    });
+  });
+
+  return cells;
+}
+
 // In-game hue controls
 
 /**

@@ -9,6 +9,7 @@ import {
   defaultSettings,
   drawSample,
   encode,
+  type CodeGroup,
   type Settings,
   type Zone,
   type ZoneKey,
@@ -19,6 +20,7 @@ import {
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
+import CodeAnatomy from "@/components/CodeAnatomy";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { previewDrawn } from "@/lib/previewBus";
 
@@ -455,6 +457,17 @@ export default function FilterLab() {
     return true;
   }, []);
 
+  // Code anatomy taps land on the matching control: a group selects its zone,
+  // the header group points at the Range bar, which has no panel of its own.
+  const goToGroup = useCallback((group: CodeGroup) => {
+    if (group === "header") {
+      document.getElementById("tonal-range")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setAdvanced(true);
+    setPanel(group as ZoneKey);
+  }, []);
+
   const upload = async (f: File) => {
     try {
       setSource(await fileToCanvas(f, 1280));
@@ -808,6 +821,7 @@ export default function FilterLab() {
                       })()}
                   </motion.div>
                 </AnimatePresence>
+                <CodeAnatomy code={code} onPick={goToGroup} />
               </div>
             </div>
           </motion.section>
