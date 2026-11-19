@@ -55,7 +55,10 @@ export function drawQr(
 
 // Canvas helpers
 
-function hsla(h: number, s: number, l: number, a: number) {
+function hsla(hue: number, s: number, l: number, a: number) {
+  // the zones store 0–360 and 360 is a real value (the end of Magenta's
+  // slider); the branch below only knows 0–359, so wrap first
+  const h = ((hue % 360) + 360) % 360;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;

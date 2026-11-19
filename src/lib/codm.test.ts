@@ -3,8 +3,10 @@ import {
   DEFAULT_CODE,
   LOOKS,
   PRESETS,
+  analyse,
   applyGrade,
   decode,
+  hueToRgb,
   defaultSettings,
   encode,
   hueFrom,
@@ -207,5 +209,65 @@ describe("zone bands", () => {
     const base = defaultSettings();
     const wide = { ...base, shadowPos: 800, shadowEdge: 900 };
     expect(thresholds(wide).s1).toBeGreaterThan(thresholds(base).s1);
+  });
+});
+
+describe("analyse", () => {
+  /** A flat RGBA image of one colour. */
+  const flat = (r: number, g: number, b: number, px = 64) => {
+    const data = new Uint8ClampedArray(px * 4);
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+    }
+    return data;
+  };
+
+  it("asks for nothing when the reference is the screen", () => {
+    const shot = flat(90, 110, 140);
+    const s = analyse(shot, shot);
+    for (const z of Object.values(s.zones)) {
+      expect(z.tint).toBe(0);
+      expect(z.sat).toBe(50);
+      expect(z.bri).toBe(50);
+    }
+  });
+
+  it("finds the hue of a red cast and asks for tint", () => {
+    const s = analyse(flat(140, 90, 90), flat(110, 110, 110));
+    const z = s.zones.midtones;
+    expect(z.tint).toBeGreaterThan(5);
+    // red / orange, not cyan
+    expect(z.hue < 60 || z.hue > 300).toBe(true);
+  });
+
+  it("dampens itself when there is no baseline", () => {
+    const target = flat(140, 90, 90);
+    const alone = analyse(target, null);
+    const paired = analyse(target, flat(110, 110, 110));
+    expect(alone.zones.midtones.tint).toBeLessThan(paired.zones.midtones.tint);
+  });
+
+  it("survives an empty or degenerate upload", () => {
+    expect(analyse(new Uint8ClampedArray(0), null)).toEqual(defaultSettings());
+    const s = analyse(flat(0, 0, 0, 4), flat(0, 0, 0, 4));
+    for (const z of Object.values(s.zones)) {
+      expect(Number.isFinite(z.hue)).toBe(true);
+      expect(Number.isFinite(z.sat)).toBe(true);
+      expect(Number.isFinite(z.bri)).toBe(true);
+    }
+  });
+});
+
+describe("hueToRgb", () => {
+  it("wraps hue at 360 to the same colour as 0", () => {
+    expect(hueToRgb(360)).toEqual(hueToRgb(0));
+    expect(hueToRgb(-120)).toEqual(hueToRgb(240));
+  });
+
+  it("returns full-strength primaries on the swatch points", () => {
+    expect(hueToRgb(120).map((v) => Math.round(v))).toEqual([0, 1, 0]);
   });
 });

@@ -337,32 +337,42 @@ export function analyse(
   base: Uint8ClampedArray | null,
 ): Settings {
   const s = defaultSettings();
+  if (target.length < 4) return s;
   const bands = thresholds(s);
   const t = zoneStats(target, bands);
-  const b = base ? zoneStats(base, bands) : null;
+  // A zone with no pixels (a screenshot of a letterboxed scene, say) has no
+  // statistics to compare; treat it as a neutral scene rather than divide by ~0.
+  const b = base && base.length >= 4 ? zoneStats(base, bands) : null;
   const neutral = [
     { l: 0.11, sat: 0.3 },
     { l: 0.42, sat: 0.3 },
     { l: 0.8, sat: 0.14 },
   ];
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
+    // Nothing in the reference falls in this zone (a flat or a letterboxed
+    // screenshot), so no slider value here could change the result.
+    if (t[i].n < 1) {
+      s.zones[k] = neutralZone();
+      return;
+    }
     const ct = castOf(t[i]);
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,
       dy = ct.y - cb.y;
     const mag = Math.hypot(dx, dy);
     const hue = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+    const hasBase = !!b && b[i].n > 0;
     // without a baseline the scene's own colours inflate the cast, so damp it
-    const tint = clamp(mag * (b ? 70 : 35), 0, 60);
-    const refSat = b ? b[i].sat : neutral[i].sat;
-    const refL = b ? b[i].l : neutral[i].l;
+    const tint = clamp(mag * (hasBase ? 70 : 35), 0, 60);
+    const refSat = hasBase ? b![i].sat : neutral[i].sat;
+    const refL = hasBase ? b![i].l : neutral[i].l;
     const sat = clamp(50 * (t[i].sat / (refSat || 0.01)), 15, 85);
     const bri = clamp(50 * Math.pow(t[i].l / (refL || 0.01), 0.6), 25, 75);
     s.zones[k] = {
       hue: Math.round(hue),
       tint: Math.round(tint),
-      sat: Math.round(b ? sat : 50 + (sat - 50) * 0.5),
-      bri: Math.round(b ? bri : 50 + (bri - 50) * 0.5),
+      sat: Math.round(hasBase ? sat : 50 + (sat - 50) * 0.5),
+      bri: Math.round(hasBase ? bri : 50 + (bri - 50) * 0.5),
     };
   });
   return s;
