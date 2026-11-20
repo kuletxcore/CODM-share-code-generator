@@ -321,3 +321,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Every React re-render of the preview re-uploaded 22 uniforms and redrew the full frame, even when nothing changed.
 - **Ship:** Added a code/split signature cache in the GPU grader so identical frames skip the draw.
+
+### 60. Idle histogram sampling
+
+- **Look:** The tone map reallocated its sample canvas and sampled pixels on a fixed 800ms timer for the whole session.
+- **Ship:** Reused the sample canvas, resized only when needed, and moved periodic sampling to idle callbacks while the tab is visible.
