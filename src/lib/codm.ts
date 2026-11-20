@@ -587,11 +587,13 @@ export const LOOKS: Look[] = [
     // youtu.be/Tw7be_2GCHw. Stills and videos agree on darker, more saturated
     // shadows and muted, slightly cool highlights; the videos' green shadow
     // cast came from the one firing range and drops out with the stills.
+    // The card is the owner's own screenshot (Nuketown), cropped clear of an ID string.
     name: "Black Ops 6",
     game: "Black Ops 6",
     note: "Black Ops 6: darker, richer shadows and muted, slightly cool highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_642_20_-120_1160_644_30_0_980_689_30_0_640",
+    image: "/looks/black-ops-6.webp",
   },
   {
     // MWIII, derived relative to the pooled daytime footage of all the games
@@ -600,12 +602,13 @@ export const LOOKS: Look[] = [
     // its facecam) and 429 in-game stills of 96 weapons from the archived IMFDB
     // page (renders and menus filtered out). Both agree on cooler shadows and
     // less saturation throughout; the stills add slightly darker shadows.
-    // No card: every video frame carries HUD and names.
+    // The card is the owner's own screenshot, cropped clear of an ID string.
     name: "MWIII",
     game: "MWIII",
     note: "MWIII: cooler shadows, muted colour across the range",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_547_50_-80_920_656_30_0_920_683_30_20_700",
+    image: "/looks/mwiii.webp",
   },
   {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)

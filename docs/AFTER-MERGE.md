@@ -122,7 +122,7 @@ These use the same method as 2035 and Avalon: per-video medians of the zone anal
 - Both looks were derived three ways (videos only, stills only, both). They agreed before the stills were pooled in.
 - The stills may include campaign shots, which can be graded differently. Their agreement with the multiplayer videos suggests they don't skew the result.
 
-**No cards for MWIII and Black Ops 6.** Every MWIII frame carries HUD, objective markers and player names, and the Black Ops 6 frames carry weapon HUD. Both show on the preview scene, labelled "Preview", until there are clean screenshots.
+**Cards for MWIII and Black Ops 6.** The video frames all carried HUD or player names, so the owner supplied clean screenshots: a rooftop pool for MWIII and Nuketown for Black Ops 6. Both were cropped clear of an ID string in the corner and are labelled "Inspiration", since they show the game, not the code applied.
 
 **IMFDB access.** The live IMFDB pages serve a Cloudflare bot check to scripts, and it was not bypassed. The stills came from the archived copies instead (above).
 
@@ -141,5 +141,5 @@ GitHub CI and the Cloudflare preview build passed on each push. All downloaded v
 
 - **Test on a phone.** Try the scene picker and the screen test on the [preview](https://claude-merge-codm.kuletxcore.workers.dev), then import one creator look in CODM and compare.
 - **Find the handle's real maximum.** Importing a code with the highlights handle at a very large value would show whether the game clamps it or refuses the code.
-- **Cards for MWIII, Black Ops 6 and Serotonin.** Clean screenshots of your own would give them cards. The IMFDB stills were kept to analysis only.
+- **A card for Serotonin.** His video is 360p; a clean screenshot of the look in game would give it a card.
 - **The deferred list** in [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred): recent and favourite codes, per-look pages, a docking code bar, "Needs tweaking" and duel links.
