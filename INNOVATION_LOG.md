@@ -171,3 +171,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The tweak library was not connected to the generator.
 - **Ship:** Mounted QuickTweaks above the zone sliders, with labelled history entries so a whole move undoes in one step.
+
+### 33. Zone value clipboard
+
+- **Look:** Dialling in one zone and wanting it in another meant writing four numbers down; the UI offered no transfer.
+- **Ship:** Added Copy/Paste values per zone using a small JSON payload, with validation and clear feedback.

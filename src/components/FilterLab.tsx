@@ -116,6 +116,7 @@ function Slider({
   max,
   track,
   onChange,
+  onReset,
 }: {
   label: string;
   value: number;
@@ -123,6 +124,7 @@ function Slider({
   max: number;
   track: string;
   onChange: (v: number) => void;
+  onReset?: () => void;
 }) {
   return (
     <label className="grid grid-cols-[6.5rem_1fr_3.75rem] items-center gap-3">
@@ -138,6 +140,8 @@ function Slider({
         value={r(value)}
         style={{ ["--track" as string]: track }}
         onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={onReset}
+        title={onReset ? `${label}: double-click to reset` : undefined}
       />
       <input
         type="number"
@@ -709,7 +713,20 @@ export default function FilterLab() {
                   Advanced
                 </span>
               </div>
-              <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
+              <ul
+                className="flex flex-col gap-1"
+                aria-label="Adjustment groups"
+                hidden={!advanced}
+                onKeyDown={(e) => {
+                  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+                  e.preventDefault();
+                  const i = ADVANCED_PANELS.indexOf(panel);
+                  const next = ADVANCED_PANELS[(i + (e.key === "ArrowDown" ? 1 : ADVANCED_PANELS.length - 1)) % ADVANCED_PANELS.length];
+                  setPanel(next);
+                  const buttons = e.currentTarget.querySelectorAll("button");
+                  buttons[ADVANCED_PANELS.indexOf(next)]?.focus();
+                }}
+              >
                 {ADVANCED_PANELS.map((p) => {
                   const active = p === panel;
                   const z = settings.zones[p];
@@ -880,6 +897,7 @@ export default function FilterLab() {
                                 setHueHint((h) => ({ ...h, [k]: hp.swatch }));
                                 setZone(k, { hue: hueFrom(hp.swatch, v) });
                               }}
+                              onReset={() => setZone(k, { hue: 0 })}
                             />
                             <Slider
                               label="Tint"
@@ -888,6 +906,7 @@ export default function FilterLab() {
                               max={100}
                               track={`linear-gradient(90deg,#666,${hsl(z.hue)})`}
                               onChange={(v) => setZone(k, { tint: v })}
+                              onReset={() => setZone(k, { tint: 0 })}
                             />
                             <Slider
                               label="Saturation"
@@ -896,6 +915,7 @@ export default function FilterLab() {
                               max={100}
                               track={`linear-gradient(90deg,#777,${hsl(z.hue, 100, 50)})`}
                               onChange={(v) => setZone(k, { sat: v })}
+                              onReset={() => setZone(k, { sat: 50 })}
                             />
                             <Slider
                               label="Brightness"
@@ -904,13 +924,43 @@ export default function FilterLab() {
                               max={100}
                               track="linear-gradient(90deg,#000,#fff)"
                               onChange={(v) => setZone(k, { bri: v })}
+                              onReset={() => setZone(k, { bri: 50 })}
                             />
-                            <button
-                              onClick={() => setZone(k, { hue: 0, tint: 0, sat: 50, bri: 50 })}
-                              className="inline-flex min-h-11 items-center self-start font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
-                            >
-                              Reset {PANEL_INFO[k].label}
-                            </button>
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                onClick={() => setZone(k, { hue: 0, tint: 0, sat: 50, bri: 50 })}
+                                className="inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+                              >
+                                ↺ Reset {PANEL_INFO[k].label}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const ok = await copyText(JSON.stringify(settings.zones[k]));
+                                  notify(ok
+                                    ? { title: `${PANEL_INFO[k].label} values copied`, detail: "Paste them into any zone.", tone: "good" }
+                                    : { title: "Copy failed", tone: "warn" });
+                                }}
+                                className="inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+                              >
+                                ⧉ Copy values
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const raw = await navigator.clipboard.readText();
+                                    const z = JSON.parse(raw) as Partial<Zone>;
+                                    if ([z.hue, z.tint, z.sat, z.bri].some((v) => typeof v !== "number")) throw new Error();
+                                    setZone(k, z);
+                                    notify({ title: `Pasted into ${PANEL_INFO[k].label}`, tone: "good" });
+                                  } catch {
+                                    notify({ title: "Nothing to paste", detail: "Copy a zone's values first.", tone: "warn" });
+                                  }
+                                }}
+                                className="inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+                              >
+                                ⇥ Paste values
+                              </button>
+                            </div>
                           </div>
                         );
                       })()}
