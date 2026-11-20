@@ -6,14 +6,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
 
-type Copied = { code: string; name?: string; note?: string; image?: string };
+type Copied = { code: string; name?: string; note?: string; image?: string; source?: "screen-test" };
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
 export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+/** Clipboard write only, started straight from a click so the gesture still counts. */
+export async function copyText(code: string) {
   try {
     await navigator.clipboard.writeText(code);
   } catch {
@@ -24,6 +25,10 @@ export async function copyCode(code: string, name?: string, extra: Omit<Copied, 
     document.execCommand("copy");
     t.remove();
   }
+}
+
+export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  await copyText(code);
   announceCopy(code, name, extra);
 }
 

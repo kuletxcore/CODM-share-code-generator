@@ -3,7 +3,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
-import { copyCode } from "@/components/ImportGuide";
+import { announceCopy, copyText } from "@/components/ImportGuide";
+import { useScreenTest } from "@/components/ScreenTest";
+import ShotFrame from "@/components/ShotFrame";
+import { shotCardImage } from "@/lib/screenPreview";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -60,7 +63,18 @@ function RenderedThumb({ code }: { code: string }) {
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
 
-function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
+function Art({ look, thumb = false, split = 0 }: { look: Look; thumb?: boolean; split?: number }) {
+  const { shot } = useScreenTest();
+  if (shot)
+    return (
+      <ShotFrame
+        code={look.code}
+        w={thumb ? 352 : 960}
+        h={thumb ? 161 : 439}
+        split={split}
+        className="h-full w-full object-cover"
+      />
+    );
   return look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -79,6 +93,9 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 }
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+  const { shot } = useScreenTest();
+  // Hold the Compare chip (or press C) to wipe the plain frame in from the left.
+  const [compare, setCompare] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
@@ -171,7 +188,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             animate={{ opacity: 1, scale: 1, transition: { opacity: { duration: 0.7 }, scale: { duration: DWELL + 1, ease: "easeOut" } } }}
             exit={{ opacity: 0, transition: { duration: 0.7 } }}
           >
-            <Art look={look} />
+            <Art look={look} split={compare && shot ? 0.5 : 0} />
           </motion.div>
         </AnimatePresence>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
@@ -187,8 +204,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
               <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
               <span className="bg-black/70 px-2 py-0.5 text-mute">
-                {look.image ? "Inspiration" : "Preview"}
+                {shot ? "On your screen" : look.image ? "Inspiration" : "Preview"}
               </span>
+              {shot && compare && (
+                <span className="bg-black/70 px-2 py-0.5 text-codm">Original · left</span>
+              )}
             </div>
             <h3
               className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
@@ -201,10 +221,26 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           </motion.div>
           <div className="flex max-w-md gap-1">
             <button
-              onClick={() => {
-                copyCode(look.code, look.name, { note: look.note, image: look.image });
-                setCopied(look.code);
+              onClick={async () => {
                 setAuto(false);
+                setCopied(look.code);
+                // The clipboard write starts inside the click, before any canvas
+                // work, so a slow card render can never cost the copy itself.
+                const write = copyText(look.code);
+                let image = look.image;
+                let note = look.note;
+                let source: "screen-test" | undefined;
+                if (shot) {
+                  // With a screen test on, the card shows the look on the visitor's own frame.
+                  const own = await shotCardImage(shot, look.code);
+                  if (own) {
+                    image = own;
+                    note = `${look.note} — graded on your own screenshot.`;
+                    source = "screen-test";
+                  }
+                }
+                await write;
+                announceCopy(look.code, look.name, { note, image, source });
               }}
               className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
                 copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
@@ -212,6 +248,23 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             >
               {copied === look.code ? "Copied ✓" : "Copy code"}
             </button>
+            {shot && (
+              <button
+                onPointerDown={() => setCompare(true)}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") setCompare(true);
+                }}
+                onKeyUp={() => setCompare(false)}
+                onBlur={() => setCompare(false)}
+                aria-pressed={compare}
+                aria-label="Hold to compare with your ungraded screenshot"
+                className="min-h-11 touch-none select-none bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              >
+                {compare ? "Original" : "Compare"}
+              </button>
+            )}
             <button
               onClick={() => onEdit(look.code)}
               className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"

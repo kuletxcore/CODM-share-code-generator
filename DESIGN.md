@@ -73,6 +73,7 @@ States are set where the content breaks, not by device:
 
 ## Components
 
+- **Screen test.** A drop target above the gallery takes one CODM screenshot (drop, file picker, or paste anywhere on the page; a portrait shot is centre-cropped into a landscape frame). From then on every look — the stage, the twelve filmstrip thumbs and the generator's preview — is graded on the visitor's own frame instead of a stock scene, and Copy's look card is rendered from that frame too. The stage gains a hold-to-compare button that wipes the ungraded frame in from the left, the same gesture as the preview wipe. It is the tool's honesty feature: a look judged on the sample scene is a guess; the same look on your own map is an answer. Images never leave the browser, the shot is downscaled to 1280px once, and grades are cached per size in a small LRU with the stage frame pinned, so autoplay cannot evict it.
 - **Look stage and filmstrip.** One look fills the stage with a slow push-in; the filmstrip below switches looks (click or arrow keys) and auto-plays every 7 s until the visitor picks one, hovers or copies. Reduced motion turns off autoplay and the zoom.
 - **Game chips.** Filter the looks by the game they come from (MW4, Black Ops 7, MWII, Vanguard, MW 2019, Cold War). Games are facts checked against sources, unlike mood labels.
 - **Generator.** Simple/Advanced switch, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
@@ -121,6 +122,8 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | GPU self-test before trusting the shader | ed32f292 | Cheap guard against a preview that silently never grades. |
 | Filter chips for the looks | 49aa1fc3 and 2cad37b9 (as moods) | Twelve looks need a filter; game names replace subjective mood tags. |
 | One-row header on phones | 49aa1fc3 | Saves about a third of the first phone screen. |
+| Screen test: one screenshot graded through every look and the editor | the "all looks on one frame" note below, inverted | The honest comparison works when the frame is the visitor's own. One upload, reused everywhere, and Copy's card comes from it. |
+| Hold-to-compare on the look stage | 2cad37b9 (split view, dropped) | Costs one button and no new layout, and answers "what did the filter change?" in the moment before a copy. |
 
 | Dropped | From | Why |
 |---|---|---|
