@@ -186,3 +186,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Keyboard users could reach the zone list but had no way to move between its three items without tabbing through the whole page.
 - **Ship:** Added Up/Down arrow navigation with focus follow in the zone list.
+
+### 36. Pinned before/after
+
+- **Look:** The compare wipe only showed the untouched scene, so it could not answer 'is this edit better than where I started?'.
+- **Ship:** Added a pinned-before snapshot composited into the wipe's original side, with a labelled badge and clear action.

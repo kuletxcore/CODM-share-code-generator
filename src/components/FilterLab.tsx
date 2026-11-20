@@ -227,12 +227,18 @@ function Preview({
   onUpload,
   onClear,
   view,
+  snapshot,
+  onPin,
+  onFullscreen,
 }: {
   settings: Settings;
   source: HTMLCanvasElement | null;
   onUpload: (f: File) => void;
   onClear: () => void;
   view: React.RefObject<HTMLCanvasElement | null>;
+  snapshot?: Settings | null;
+  onPin?: () => void;
+  onFullscreen?: () => void;
 }) {
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
@@ -251,6 +257,20 @@ function Preview({
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
+  const snapRef = useRef<HTMLCanvasElement>(null);
+
+  // A pinned "before" grade is composited into the original side of the wipe.
+  useEffect(() => {
+    if (!snapshot || !src) return;
+    const c = snapRef.current;
+    if (!c) return;
+    c.width = src.width;
+    c.height = src.height;
+    const data = src.getContext("2d")?.getImageData(0, 0, src.width, src.height);
+    if (!data) return;
+    applyGrade(data.data, snapshot);
+    c.getContext("2d")?.putImageData(data, 0, 0);
+  }, [snapshot, src]);
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
@@ -347,8 +367,20 @@ function Preview({
         onDoubleClick={() => setSplit(0)}
       >
         <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
+        {snapshot && (
+          <canvas
+            ref={snapRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+            style={{ clipPath: `inset(0 0 0 ${split * 100}%)` }}
+          />
+        )}
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
-          {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
+          {split > 0 && (
+            <span className="bg-black/70 px-2 py-0.5 text-mute">
+              {snapshot ? "Before" : "Original"}
+            </span>
+          )}
           <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
           {split === 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Drag to compare</span>}
         </div>
@@ -388,6 +420,22 @@ function Preview({
             Sample scene
           </button>
         )}
+        <button
+          onClick={onPin}
+          className={`cut-sm min-h-11 border px-3 font-display text-sm font-bold uppercase tracking-wider ${
+            snapshot ? "border-codm bg-codm/15 text-codm-light" : "border-line bg-panel-2 text-mute hover:text-text"
+          }`}
+          title="Freeze the current grade and compare it with later edits"
+        >
+          {snapshot ? "◉ Clear before" : "◎ Pin before"}
+        </button>
+        <button
+          onClick={onFullscreen}
+          className="cut-sm min-h-11 border border-line bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+          title="Fullscreen preview (F)"
+        >
+          ⛶ Fullscreen
+        </button>
       </div>
     </div>
   );
@@ -410,6 +458,7 @@ export default function FilterLab() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<Settings | null>(null);
   useGlobalHotkeys();
   useActions(
     useCallback(
@@ -433,6 +482,13 @@ export default function FilterLab() {
           case "toggle-mode":
             setAdvanced((v) => !v);
             break;
+          case "fullscreen-preview": {
+            const stage = view.current?.parentElement;
+            const fail = () => notify({ title: "Fullscreen unavailable", tone: "warn" });
+            if (document.fullscreenElement) document.exitFullscreen().catch(fail);
+            else stage?.requestFullscreen?.().catch(fail);
+            break;
+          }
           case "open-my-looks":
             setLibraryOpen(true);
             break;
@@ -775,6 +831,12 @@ export default function FilterLab() {
                   onUpload={upload}
                   onClear={() => setSource(null)}
                   view={view}
+                  snapshot={snapshot}
+                  onPin={() => {
+                    setSnapshot((s) => (s ? null : settings));
+                    notify(snapshot ? { title: "Before cleared" } : { title: "Before pinned", detail: "Wipe to compare with your edits.", tone: "good" });
+                  }}
+                  onFullscreen={() => act("fullscreen-preview")}
                 />
                 {advanced && (
                   <div className="isolate flex flex-col gap-2 overflow-hidden px-3">
