@@ -501,3 +501,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The inspector highlighted changed values but did not show what they changed from.
 - **Ship:** Added a Show default column so each value can be read as current versus in-game reset.
+
+### 99. Documentation of the new product
+
+- **Look:** The README and design guide described only the original app; a visitor or maintainer could not discover half the new flows.
+- **Ship:** Documented the new surfaces and the rationale of all 100 loops in README.md, DESIGN.md and INNOVATION_LOG.md.

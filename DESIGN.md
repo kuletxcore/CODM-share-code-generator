@@ -133,3 +133,28 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
 | Editor as a full-screen mode and a single "bench" page | 947ec79d, ed32f292 | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
 | Hash-restore fix under React StrictMode | 2431d576 | Only affects development builds; production runs effects once. |
+
+
+## Second pass: the 100-loop innovation exercise
+
+The features below were added one at a time, each after re-reading the app. The
+rubric was conversion, intuitiveness, performance and feel, not feature count
+alone; the full record is in [INNOVATION_LOG.md](INNOVATION_LOG.md).
+
+| Loop | Change | Why it belongs |
+|---|---|---|
+| 1–10 | Toast channel, storage, action bus, code utilities, command palette, hotkeys, undo/redo, paste detection | The shell had no way to offer a next action or reverse a mistake. |
+| 11–20 | My Looks, first-run chooser, favourites, recents, empty states, resume, surprise, deep links | A grade or look was otherwise lost when the tab closed. |
+| 21–30 | Code inspector, character filters, filmstrip copy, A/B compare, look sheet, bulk copy, sharing | The 22 numbers became explorable and look selection became social. |
+| 31–40 | Quick moves, zone clipboard, slider reset, keyboard zones, before pin, fullscreen, loupe, scene switcher | Precision work got directional shortcuts without losing in-game parity. |
+| 41–50 | Match strength, direct convert copy, section drop, code actions, validity signals, haptics, mode-aware guide, checklist progress, post-import loop | The highest-intent moment — getting a code into the game — now closes the loop. |
+| 51–60 | Manifest, service worker, offline notice, metadata, crawler files, font preload, thumb preload, idle scene, GPU dedupe, idle histogram | Installable, resilient and cheaper to start. |
+| 61–70 | Error boundary, focus traps, contrast/forced colours, motion gate, scroll tools, FAQ, changelog, live announcements, rating | Accessibility and orientation across a long, dense page. |
+| 71–80 | Analysis and grading workers, saved thumbnails, query links, nearest look, autocomplete, seeded rolls, named grades, JSON exchange, code history | Heavy work moved off the UI thread; custom grades became first-class data. |
+| 81–90 | Stage chrome, grade swatches, look ticker, animated code readout, hover zoom, toast timers, compact bar, density, swipe, stage decode | The visual language became more like a viewfinder and more responsive. |
+| 91–100 | Local stats, full reset, gallery keys, QR hand-off, default pin, named copy, inspector comparison, docs | Control, reversibility and a complete hand-off. |
+
+The identity rules above still hold: dark only, one yellow accent, cut corners,
+scanlines only on game-imagery surfaces, and no invented claims. The added
+motion (scan sweep, per-number flash, toast timer) is decorative, slow and
+removed for reduced motion. All new storage is local and guarded.

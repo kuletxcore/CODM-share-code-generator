@@ -9,6 +9,16 @@ Live: https://codm.kuletxcore.workers.dev
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
+## Getting around
+
+- **Quick find (⌘K / Ctrl+K / /)** searches looks and actions, and loads a code pasted into the box.
+- **My Looks** keeps saved, favourited and recently viewed grades on this device, with JSON import/export and a code history tab. Everything is local; nothing is uploaded.
+- **Compare** puts two looks on one frame behind a wipe. **Decode** opens a plain-English breakdown of all 22 numbers, with changed values and their defaults.
+- **Quick moves** (Warmer, Cooler, Punchier…), a before pin, a pixel loupe, three sample scenes, zone value clipboard and full undo/redo make fine-tuning faster.
+- **Screenshot → Code** runs measurement in a web worker, has a match-strength control, and can copy or open the result directly.
+- **Hand-off**: copy link or QR to the current grade, save a look card, share sheet, mode-aware import checklist with per-code progress, and a "needs tweaking" route back to the editor with the imported grade pinned.
+- The app is installable from a supporting browser and keeps its shell, fonts and look art available offline. Shortcuts, high contrast, reduced motion and compact spacing are supported.
+
 ## Share code format
 
 22 numbers joined by `_`. Worked out from shared codes and in-game screenshots, not from an official spec.
