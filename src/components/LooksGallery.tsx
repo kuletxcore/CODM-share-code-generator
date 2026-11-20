@@ -83,7 +83,7 @@ export function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
       loading={thumb ? "lazy" : undefined}
       fetchPriority={thumb ? "low" : "high"}
       decoding="async"
-      className="h-full w-full object-cover"
+      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
     />
   ) : (
     <RenderedThumb code={look.code} />
@@ -131,6 +131,10 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const look = shown[Math.min(active, shown.length - 1)] ?? LOOKS[0];
   const [recent, setRecent] = useState<{ name: string; code: string }[]>([]);
   useEffect(() => setRecent(readJson<{ name: string; code: string }[]>(K.recent, [])), [active]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("codm:look-active", { detail: look?.name ?? "" }));
+  }, [look?.name]);
 
   useEffect(() => {
     if (!copied) return;
@@ -314,6 +318,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         </AnimatePresence>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
         <div className="pointer-events-none absolute inset-0 scanlines opacity-60" />
+        <div className="grain opacity-[0.07]" />
+        <div className="stage-sweep" />
+        {(["tl", "tr", "bl", "br"] as const).map((c) => (
+          <span key={c} className={`stage-bracket ${c}`} aria-hidden />
+        ))}
 
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:inset-y-0 sm:w-[58%] sm:justify-end sm:p-8">
           <motion.div
@@ -425,8 +434,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <div className="aspect-[16/7] overflow-hidden">
               <Art look={l} thumb />
             </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
-              {l.name}
+            <div className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 shrink-0 rotate-45 border border-black/50"
+                style={{ background: `hsl(${(decode(l.code)?.zones.midtones.hue ?? 0).toFixed(0)} 90% 55%)` }}
+              />
+              <span className="truncate">{l.name}</span>
             </div>
             {favs.includes(l.code) && (
               <span className="absolute right-1 top-1 bg-codm px-1 font-display text-[10px] text-black" aria-label="Favourite">

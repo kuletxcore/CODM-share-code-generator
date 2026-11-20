@@ -426,3 +426,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Only gallery looks were remembered; custom grades that were never saved vanished from the session.
 - **Ship:** Added a history tab in My Looks that records the last 14 edited codes with timestamps and names.
+
+### 81. Stage chrome and grain
+
+- **Look:** The gallery stage had a flat scanline overlay; it did not read as a viewfinder and felt static between look changes.
+- **Ship:** Added animated corner brackets, a slow scan sweep, and a fine grain layer that all respect reduced-motion settings.

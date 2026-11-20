@@ -566,6 +566,12 @@ export default function FilterLab() {
   const [snapshot, setSnapshot] = useState<Settings | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [lookName, setLookName] = useState(() => getPrefs().name ?? "");
+  const [activeLook, setActiveLook] = useState("");
+  useEffect(() => {
+    const on = (e: Event) => setActiveLook((e as CustomEvent<string>).detail);
+    window.addEventListener("codm:look-active", on);
+    return () => window.removeEventListener("codm:look-active", on);
+  }, []);
   useEffect(() => {
     pushUnique<{ name: string; code: string; at: number }>(
       K.history,
@@ -798,6 +804,11 @@ export default function FilterLab() {
           </p>
         </div>
         <div className="flex items-center gap-1 self-end">
+        {activeLook && (
+          <span className="hidden max-w-40 truncate border-l-2 border-codm px-2 py-1 font-display text-[10px] font-bold uppercase tracking-[0.18em] text-mute lg:block">
+            Now viewing · <span className="text-codm-light">{activeLook}</span>
+          </span>
+        )}
         <button
           onClick={() => act("open-my-looks")}
           aria-label="Open My Looks"
@@ -1429,7 +1440,12 @@ function CodeBar({
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
   const [more, setMore] = useState(false);
+  const previousCode = useRef(code);
+  const diffIndices = useMemo(() => codeDiff(code, previousCode.current), [code]);
   const changed = useMemo(() => codeDiff(code, DEFAULT_CODE).length, [code]);
+  useEffect(() => {
+    previousCode.current = code;
+  }, [code]);
   const inputOk = normalizeCode(input) !== null;
 
   const copy = async () => {
@@ -1500,11 +1516,15 @@ function CodeBar({
             Share code
           </span>
           <output
-            aria-live="polite"
+            aria-live="off"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
-            {code}
+            {code.split("_").map((n, i) => (
+              <span key={i} className={diffIndices.includes(i) ? "code-flash" : undefined}>
+                {i ? "_" : ""}{n}
+              </span>
+            ))}
           </output>
           <span
             title={`${changed} of 22 values differ from the in-game default`}
