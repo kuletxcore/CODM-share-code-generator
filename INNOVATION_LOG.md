@@ -431,3 +431,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The gallery stage had a flat scanline overlay; it did not read as a viewfinder and felt static between look changes.
 - **Ship:** Added animated corner brackets, a slow scan sweep, and a fine grain layer that all respect reduced-motion settings.
+
+### 82. Grade swatches on thumbnails
+
+- **Look:** Filmstrip labels only named a look; there was no quick visual cue of its colour character while scanning.
+- **Ship:** Added a small hue swatch derived from each look's midtone value beside its name.
