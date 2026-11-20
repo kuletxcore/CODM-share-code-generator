@@ -9,6 +9,7 @@ import { codeMood } from "@/lib/codeTools";
 import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
 import { copyText } from "@/lib/clipboard";
+import { act } from "@/lib/actions";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -70,7 +71,7 @@ const CHIPS: (Game | null | "favorites")[] = [
   "favorites",
 ];
 
-function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
+export function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
   return look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -327,6 +328,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
             >
               Customize
+            </button>
+            <button
+              onClick={() => act("open-compare")}
+              className="bg-black/70 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              title="Compare two looks side by side"
+            >
+              Compare
             </button>
             <button
               onClick={async () => {

@@ -29,6 +29,7 @@ import { normalizeCode } from "@/lib/codeTools";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
+import CompareMode from "@/components/CompareMode";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -402,6 +403,7 @@ export default function FilterLab() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   useGlobalHotkeys();
   useActions(
     useCallback(
@@ -430,6 +432,9 @@ export default function FilterLab() {
             break;
           case "open-inspector":
             setInspectOpen(true);
+            break;
+          case "open-compare":
+            setCompareOpen(true);
             break;
           case "save-look": {
             const saved = saveLookCode(code);
@@ -928,6 +933,7 @@ export default function FilterLab() {
       <ImportGuide />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
       <ShortcutsHelp />
+      <CompareMode open={compareOpen} onClose={() => setCompareOpen(false)} onLoad={loadCode} />
       <Onboarding />
       <LookInspector open={inspectOpen} code={code} onClose={() => setInspectOpen(false)} onLoad={loadCode} />
       <MyLooks open={libraryOpen} onClose={() => setLibraryOpen(false)} onLoad={loadCode} currentCode={code} />

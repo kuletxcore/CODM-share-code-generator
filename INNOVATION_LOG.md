@@ -141,3 +141,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Copying a look required waiting for the stage: the filmstrip could only select, so comparing twelve options meant twelve visits to the big card.
 - **Ship:** Added a quick-copy button directly on every thumbnail so any visible look can be copied without changing the stage.
+
+### 27. A/B look comparator
+
+- **Look:** Choosing between two looks meant copying one code, closing the guide, opening the other, and trying to remember the first frame.
+- **Ship:** Added a full A/B compare stage with a wipe divider, inline codes, copy/link/edit actions and keyboard dismissal.
