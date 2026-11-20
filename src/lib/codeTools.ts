@@ -129,3 +129,13 @@ export function randomCode(seed = Math.floor(Math.random() * 1e9)): { code: stri
 
 // Local import kept at the bottom so the module reads top-down.
 import { encode as encodeSettings } from "@/lib/codm";
+
+/** A useful default name for a grade with no author-assigned name. */
+export function suggestName(code: string): string {
+  const look = lookForCode(code);
+  if (look) return look.name;
+  const s = decode(code);
+  if (!s) return "Custom grade";
+  const tags = codeMood(s);
+  return `Custom · ${tags.slice(0, 2).join(" ")}`;
+}

@@ -66,3 +66,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The build caught a union mismatch between the shortcut sheet and the action bus.
 - **Ship:** Added the missing close-overlays action to the typed union so overlays can be dismissed programmatically.
+
+### 12. My Looks library
+
+- **Look:** A copied code disappeared as soon as the tab closed; there was no way to keep a favourite grade or return to an earlier experiment.
+- **Ship:** Added a local library drawer with saved, favourited and recent looks, inline rename/delete, JSON import/export and a one-tap Save current code.
