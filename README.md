@@ -41,10 +41,20 @@ Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Reco
 
 ## Development
 
+Needs Node 22.18 or later (`.node-version` pins 22).
+
 ```bash
 npm install
 npm run dev
 ```
+
+Before pushing, run the same checks as CI (lint, type check, and the share-code tests in `src/lib/codm.test.ts`):
+
+```bash
+npm run check
+```
+
+The tests cover the share-code codec: every look and preset must round-trip unchanged, and malformed or out-of-range codes must be rejected. Add a test when you touch `encode` or `decode`; new looks are covered automatically.
 
 Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` runs the build first, so Cloudflare Workers Builds works from a clean checkout):
 

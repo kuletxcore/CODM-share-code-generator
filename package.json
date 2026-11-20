@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/*.test.ts",
+    "check": "npm run lint && npm run typecheck && npm test",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
@@ -28,5 +31,8 @@
     "tailwindcss": "4.3.3",
     "typescript": "^5",
     "wrangler": "^4.161.0"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

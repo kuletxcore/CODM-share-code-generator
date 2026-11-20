@@ -249,7 +249,7 @@ function Preview({
       g?.dispose();
       gpu.current = null;
     };
-  }, []);
+  }, [view]);
   useEffect(() => {
     if (gpuOk && src) gpu.current?.setSource(src);
   }, [gpuOk, src]);
@@ -301,7 +301,7 @@ function Preview({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
+  }, [view, orig, graded, split]);
 
   return (
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
