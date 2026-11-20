@@ -10,6 +10,7 @@ import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
 import { copyText } from "@/lib/clipboard";
 import { act } from "@/lib/actions";
+import { downloadLookSheet } from "@/lib/contactSheet";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -194,6 +195,31 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             className="min-h-11 border border-line bg-panel/80 px-3 font-display text-xs font-bold uppercase tracking-wide text-mute hover:border-codm hover:text-text"
           >
             ⚄ Surprise me
+          </button>
+          <button
+            onClick={async () => {
+              const ok = await downloadLookSheet(shown);
+              notify(ok
+                ? { title: "Look sheet saved", detail: `${shown.length} looks in one image.`, tone: "good" }
+                : { title: "Could not draw sheet", tone: "warn" });
+            }}
+            title="Download every visible look as one labelled image"
+            className="min-h-11 border border-line bg-panel/80 px-3 font-display text-xs font-bold uppercase tracking-wide text-mute hover:border-codm hover:text-text"
+          >
+            ⤓ Look sheet
+          </button>
+          <button
+            onClick={async () => {
+              const text = shown.map((l) => `${l.name}: ${l.code}`).join("\n");
+              const ok = await copyText(text);
+              notify(ok
+                ? { title: `${shown.length} codes copied`, detail: "One per line, named.", tone: "good" }
+                : { title: "Could not copy", tone: "warn" });
+            }}
+            title="Copy all visible codes, one per line"
+            className="min-h-11 border border-line bg-panel/80 px-3 font-display text-xs font-bold uppercase tracking-wide text-mute hover:border-codm hover:text-text"
+          >
+            ⧉ Copy all
           </button>
         </div>
         <div

@@ -146,3 +146,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Choosing between two looks meant copying one code, closing the guide, opening the other, and trying to remember the first frame.
 - **Ship:** Added a full A/B compare stage with a wipe divider, inline codes, copy/link/edit actions and keyboard dismissal.
+
+### 28. Downloadable look sheet
+
+- **Look:** Players share looks by sending screenshots one at a time; there was no way to hand a squad a single reference of all the options.
+- **Ship:** Added a canvas-rendered, labelled look sheet of the current filtered set and a one-click PNG download.
