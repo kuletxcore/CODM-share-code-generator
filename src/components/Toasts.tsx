@@ -88,6 +88,7 @@ function ToastCard({
 
   const accent =
     t.tone === "good" ? "border-lime" : t.tone === "warn" ? "border-[#ff7a6b]" : "border-codm";
+  const duration = t.ms ?? (t.action ? 6500 : 3800);
   return (
     <motion.div
       layout={!reduce}
@@ -96,7 +97,7 @@ function ToastCard({
       exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: reduce ? 0.01 : 0.2 }}
       role="status"
-      className={`cut pointer-events-auto flex items-center gap-3 border border-line border-l-4 ${accent} bg-panel/95 px-3 py-2.5 shadow-xl backdrop-blur-md`}
+      className={`cut pointer-events-auto relative flex items-center gap-3 overflow-hidden border border-line border-l-4 ${accent} bg-panel/95 px-3 py-2.5 shadow-xl backdrop-blur-md`}
     >
       <div className="min-w-0 flex-1">
         <p className="font-display text-sm font-bold uppercase tracking-wide">{t.title}</p>
@@ -113,6 +114,7 @@ function ToastCard({
           {t.action.label}
         </button>
       )}
+      <span className="toast-progress" style={{ animationDuration: `${duration}ms` }} aria-hidden />
       <button
         aria-label="Dismiss notification"
         onClick={() => close(t.id)}

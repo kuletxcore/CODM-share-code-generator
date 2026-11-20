@@ -13,6 +13,7 @@ export default function MotionGate({ children }: { children: ReactNode }) {
     const value = pref === "reduced" || system;
     setReduced(value);
     document.documentElement.dataset.motion = value ? "reduced" : "auto";
+    document.documentElement.dataset.density = getPrefs().density ?? "comfortable";
   }, []);
 
   useEffect(() => {

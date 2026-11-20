@@ -124,6 +124,25 @@ export function ShortcutsHelp() {
                 className="h-5 w-5 accent-[var(--color-codm)]"
               />
             </label>
+            <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-between gap-3 border-t border-line pt-3 text-sm">
+              <span>
+                Compact spacing
+                <span className="block text-xs text-mute">Fits more of the editor on one screen.</span>
+              </span>
+              <input
+                type="checkbox"
+                defaultChecked={document.documentElement.dataset.density === "compact"}
+                onChange={(e) => {
+                  const value = e.target.checked ? "compact" : "comfortable";
+                  document.documentElement.dataset.density = value;
+                  try {
+                    const prefs = JSON.parse(localStorage.getItem("codm:prefs:v1") ?? "{}");
+                    localStorage.setItem("codm:prefs:v1", JSON.stringify({ ...prefs, density: value }));
+                  } catch {}
+                }}
+                className="h-5 w-5 accent-[var(--color-codm)]"
+              />
+            </label>
             <p className="mt-3 text-xs text-mute">
               Shortcuts pause while you are typing in a field. Everything here also has a button.
             </p>

@@ -269,3 +269,27 @@ input[type="range"].slider:focus-visible::-moz-range-thumb {
   100% { color: inherit; background: transparent; }
 }
 .code-flash { animation: code-flash 0.7s ease-out; }
+
+.toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--color-codm);
+  transform-origin: left;
+  animation-name: toast-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes toast-drain { to { transform: scaleX(0); } }
+[data-motion="reduced"] .toast-progress { display: none; }
+
+:root[data-density="compact"] { --spacing: 0.21rem; }
+:root[data-density="compact"] .cut { font-size: 0.94em; }
+
+@media (max-width: 639px) {
+  .codebar-compact { row-gap: 0.4rem; padding-block: 0.45rem; }
+  .codebar-compact input[type="text"],
+  .codebar-compact form { min-height: 44px; }
+}

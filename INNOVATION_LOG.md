@@ -451,3 +451,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The filmstrip felt static and its small images gave no feedback on hover.
 - **Ship:** Added a slow scale-on-hover to look thumbnails, disabled naturally by reduced-motion CSS.
+
+### 86. Toast timers made visible
+
+- **Look:** Toasts vanished on a fixed timer with no cue that they were about to disappear.
+- **Ship:** Added a draining progress line that matches each toast's lifetime.
