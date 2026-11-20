@@ -2,8 +2,11 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
+
+const BlendAtlas = dynamic(() => import("./BlendAtlas"));
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -79,6 +82,7 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 }
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+  const [collection, setCollection] = useState<"originals" | "atlas">("originals");
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
@@ -86,7 +90,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
   const reduce = useReducedMotion();
-  const playing = auto && !hover && !reduce;
+  const playing = collection === "originals" && auto && !hover && !reduce;
   const look = shown[Math.min(active, shown.length - 1)];
 
   useEffect(() => {
@@ -119,11 +123,17 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
 
   return (
     <section
-      aria-labelledby="looks-title"
+      aria-label="Look collections"
       className="mt-8"
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
     >
+      <div role="group" aria-label="Look collection" className="mb-5 grid grid-cols-2 gap-px border border-line bg-line sm:max-w-lg">
+        {(["originals", "atlas"] as const).map(c => <button key={c} aria-pressed={collection === c} onClick={() => { setCollection(c); setAuto(false); }} className={`min-h-12 p-2 text-left font-display font-bold uppercase tracking-wide ${collection === c ? "bg-text text-black" : "bg-panel text-text hover:bg-panel-2"}`}>
+          <span className="mr-2 font-mono text-xs">{c === "atlas" ? "100" : LOOKS.length}</span>{c === "atlas" ? "Blend atlas" : "Original looks"}
+        </button>)}
+      </div>
+      {collection === "atlas" ? <BlendAtlas onEdit={onEdit} /> : <>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
@@ -272,6 +282,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         ))}
       </div>
 
+      </>}
     </section>
   );
 }

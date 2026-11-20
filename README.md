@@ -61,3 +61,9 @@ A fan-made project. Not affiliated with, endorsed by or connected to Activision,
 ## Design
 
 Visual direction, tokens, layout states and the reasons behind them live in [DESIGN.md](DESIGN.md). Read it before changing UI.
+
+## Blend atlas
+
+Choose **Blend atlas** above the gallery, dial through 100 split-tone recipes, then copy one or choose **Preview & edit** to see it graded. Each recipe inherits shadows from one original and the other settings from a second. The source photographs are inspiration, not gameplay previews.
+
+With Node 22, `node --experimental-strip-types scripts/atlas.mjs` regenerates the catalog. Add `--check` to verify the shipped collection without writing files. Each pass compares candidate grades on the same 27 RGB samples against the originals and previous selections, adding the most distinct remaining recipe by nearest squared RGB distance.

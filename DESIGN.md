@@ -133,3 +133,7 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
 | Editor as a full-screen mode and a single "bench" page | 947ec79d, ed32f292 | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
 | Hash-restore fix under React StrictMode | 2431d576 | Only affects development builds; production runs effects once. |
+
+## Blend atlas
+
+Originals stay first for the shortest copy path. The second collection is an on-demand split-tone archive: two source photographs identify where the shadows and upper tones come from, not a simulated after-image. Preview & edit opens the actual grade. A numbered dial replaces a hundred thumbnails; only the selected pair needs artwork. Diversity selection happens offline, never on the visitor’s phone.
