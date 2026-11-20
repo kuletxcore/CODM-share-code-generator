@@ -61,7 +61,7 @@ States are set where the content breaks, not by device:
 
 | Width | Header | Gallery | Generator |
 |---|---|---|---|
-| under 640 | Logo and title on one row, subtitle below | 4:3 stage, filmstrip and game chips scroll sideways | Stacked; preview pinned at the top (27% of the viewport) while controls scroll |
+| under 640 | Logo and title on one row, subtitle below | 4:3 stage, filmstrip and game chips scroll sideways; screen-test panel below, one short row | Stacked; preview pinned at the top (27% of the viewport) while controls scroll |
 | 640 to 767 | Stacked, large title | 21:9 stage | Stacked, pinned preview |
 | 768 to 1279 | Stacked | 21:9 stage | Stacked, pinned preview grows to 38% of the viewport |
 | 1280 and up | Stacked | 21:9 stage | Zone list, preview and controls in three columns; preview not pinned |
@@ -74,12 +74,16 @@ States are set where the content breaks, not by device:
 ## Components
 
 - **Look stage and filmstrip.** One look fills the stage with a slow push-in; the filmstrip below switches looks (click or arrow keys) and auto-plays every 7 s until the visitor picks one, hovers or copies. Reduced motion turns off autoplay and the zoom.
+- **Screen test.** A panel below the gallery takes one screenshot (drop, file picker, or paste anywhere on the page; a portrait shot is centre-cropped to a landscape frame). From then on the stage, the filmstrip and the generator preview are graded on the visitor's own frame, labelled "Your screen · approx.", and a Compare button on the stage, held down, shows the ungraded frame (holding it stops autoplay). Its button is secondary so Copy stays the one yellow action; when it is on, it says that saved look cards will show the screenshot, which can contain names. The screenshot is a fallback preview source: an image uploaded in the preview itself wins, and "Sample scene" returns to the screen test, then "Remove screen test" to the sample. Nothing leaves the browser.
+- **Stage label.** Says what the picture is: "In game" when it is a CODM capture with that exact code applied (the creator-shared looks), "Inspiration" when it is a reference the look was built from, "Preview" when the look is graded onto a built-in scene, and "Your screen · approx." during a screen test.
 - **Game chips.** Filter the looks by the game they come from (MW4, Black Ops 7, MWII, Vanguard, MW 2019, Cold War). Games are facts checked against sources, unlike mood labels.
-- **Generator.** Simple/Advanced switch, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
+- **Generator.** Simple/Advanced switch, Undo and Redo, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
 - **Tone map (the in-game Range bar).** Directly under the preview in Advanced mode: a luminance histogram of what the preview shows, with the two Range handles on top. It replaces the old Range panel and its two sliders, so the split between zones is always in view while any zone is edited. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End); each handle writes edge = handle + 100, as the game does. Hidden in Simple mode, where the range does not apply. On phones it scrolls with the controls, so the pinned viewfinder stays the same height.
-- **Preview.** The look applied to a lit three.js scene or to the visitor's own screenshot, graded on the GPU. Drag sideways across it (or use the Compare slider) to see the original; the drag only starts after a deliberate sideways pull so vertical scrolling still works on phones. Double-click resets the split.
+- **Preview.** The look applied to a real CODM frame or to the visitor's own screenshot, graded on the GPU. Six built-in scenes are CODM screenshots the owner captured on the default filter, picked so each has deep shade, sky and saturated colour: Shipment 2019 (Modern Warfare 2019), Combine (Black Ops III), Hijacked (Black Ops II), Armada Strike (Black Ops Cold War), Crossfire (Call of Duty 4) and Firing Range (Black Ops), map names checked against Activision and press coverage. A row of 44px buttons switches between them (lime marks the chosen one). The row hides while an upload or the screen test supplies the frame. Drag sideways across it (or use the Compare slider) to see the original; the drag only starts after a deliberate sideways pull so vertical scrolling still works on phones. Double-click resets the split.
+- **Undo and redo.** Share codes are the steps. A drag settles into one step after 400 ms; loading a look or a pasted code is a step; the code a shared link opens with is the starting point, not a step. Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z and Ctrl+Y, except while typing in a field. Up to 50 steps, kept for the visit only.
+- **Code bar.** Copy says "Copied" only when the clipboard took the code and "Blocked" when the browser refused. The paste field finds a code inside surrounding text (a look name, a share link, numbers separated by spaces), then the strict codec decides whether it is valid.
 - **Import guide.** Opens after any copy and stays until Done or Esc: the seven in-game steps as a checklist, the code with Copy again, a QR that opens this page with the code on a phone (shown from `sm` up, since a phone visitor is already on their phone), and Save look card. "Skip the steps next time" switches to a short toast.
-- **Look card.** A 1200 by 630 PNG with the look's image, name, code and a QR back to the site, marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise.
+- **Look card.** A 1200 by 630 PNG with the look's image (or the visitor's graded screenshot during a screen test), name, code and a QR back to the site, always marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise.
 
 ## Motion
 
@@ -93,7 +97,8 @@ States are set where the content breaks, not by device:
 - Visible yellow focus ring on everything (`:focus-visible`), never removed without a replacement.
 - Pointer cursor on every enabled control (set in the base layer, since Tailwind v4 resets buttons to the default cursor); `not-allowed` when disabled.
 - Custom controls use the right roles: the filmstrip is a `tablist`, the mode control is a `switch`, the scope handles are focusable `role="slider"` elements with values and labels.
-- The import guide is a dialog that takes focus when it opens and closes with Esc.
+- The import guide is a non-modal dialog: it takes focus when it opens, closes with Esc, and hands focus back to the control that opened it. When the copy was blocked its heading says so.
+- Nothing that changes on its own is a live region. The autoplaying stage and the code readout are silent; a look the visitor picks is announced once, and copy results go to a status message. Focus inside the stage pauses autoplay. The filmstrip takes arrow keys, Home and End.
 
 ## Content rules
 
@@ -105,11 +110,17 @@ States are set where the content breaks, not by device:
 ## Performance
 
 - Grading runs in a WebGL fragment shader that matches the CPU version within 1/255. On first use it grades a grey pixel and reads it back; a driver that draws nothing falls back to the CPU path.
-- three.js, the QR encoder and the card renderer load with `import()`, off the critical path.
+- three.js (smoke background only), the QR encoder and the card renderer load with `import()`, off the critical path. The preview scenes are 41 to 51 KB WebP stills loaded one at a time, which replaced a three.js scene (about 185 KB gzipped plus a render on the phone).
+- The CPU grade (fallback preview, thumbnails, screen test, cards) builds its per-zone constants once per grade and skips zones that change nothing; `src/lib/grade.test.ts` keeps the original loop as an oracle and asserts identical pixels.
+- Screen-test grades run one per task, are cached per size (28 entries: a thumb and a stage frame for every look), and a replaced screenshot's cached pixels are freed.
+- Uploads are scaled so the long side is at most 1280px, which keeps a portrait phone screenshot under a 2048px GPU texture limit.
+- A link preview image (`public/og.jpg`, 85 KB, brand fonts, marked fan-made) is fetched only by chat and social unfurlers.
 - The filmstrip uses 352px thumbnails, lazy-loaded.
 - Backdrop blur only on the two elements that sit over scrolling content: the fixed code bar and the pinned phone viewfinder.
 
 ## What was merged from the arena remakes, and what was not
+
+Round 2 (nine remakes, judged with fresh-context reviewers) is written up in [docs/ARENA-MERGE-2.md](docs/ARENA-MERGE-2.md), and what followed in [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md). It added the screen test, undo/redo, the link preview card, honest copy results, the screen-reader fixes and a faster CPU grade, and dropped the Blend Atlas, Vibe Finder, Duel, the wall of looks, the live-frame rewrite and both service workers. The tables below are round 1.
 
 Eight remakes branched from the same commit. Ideas that several of them reached independently were weighted more.
 
@@ -130,6 +141,6 @@ Eight remakes branched from the same commit. Ideas that several of them reached 
 | Colour wheels for hue and tint | d55d3f96, 2cad37b9 | Hide the 8-swatch plus slider structure players see in game. |
 | Fifteen-feature console: telemetry HUD, macros, blend lab, loadouts, shortcuts overlay | 2cad37b9 | Feature count over clarity; most panels restate the same settings. |
 | "Find your visual edge" marketing hero | 49aa1fc3 | Marketing copy for a free tool; the header already says what the site does. |
-| All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. |
+| All looks shown graded on one 3D frame instead of their images | 947ec79d, ed32f292 | Honest comparison, but the stills were chosen by the owner and the subtle footage-based looks all look alike on the sample scene. (Round 2's screen test does this on the visitor's own screenshot instead, which is where the comparison is meaningful.) |
 | Editor as a full-screen mode and a single "bench" page | 947ec79d, ed32f292 | Large restructures of a layout that was just tuned for phones (pinned viewfinder); the gain did not justify the churn. |
 | Hash-restore fix under React StrictMode | 2431d576 | Only affects development builds; production runs effects once. |

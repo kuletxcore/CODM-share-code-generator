@@ -90,8 +90,10 @@ const ZONE_RANGES: [number, number][] = [
 /**
  * Parses a share code. Returns null unless it is exactly 22 integers with every
  * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
- * load as a washed-out grade. The Range falloffs only have to be non-negative:
- * their upper limit isn't known.
+ * load as a washed-out grade. The Range handles run 0-1000, the ends of the bar;
+ * the game itself refuses a handle past 1000 and imports the default instead.
+ * The falloffs only have to be non-negative: the game writes handle + 100 after
+ * a drag, but the reset state has 1500, so no tighter limit is known.
  */
 export function decode(code: string): Settings | null {
   const parts = code.trim().split("_");
@@ -116,6 +118,18 @@ export function decode(code: string): Settings | null {
   return s;
 }
 
+/**
+ * Pull a share code out of pasted text such as "Hajin: 0_1_30_...", a share
+ * link, or a code with stray spaces. Returns the 22 numbers joined by "_", or
+ * null. It only finds the code; `decode` still decides whether it is valid.
+ */
+export function extractCode(text: string): string | null {
+  // The run must be exactly 22 numbers: no number may touch it on either side,
+  // or "5 " before a code would shift every value into the wrong slot.
+  const m = text.match(/(?<![\d-][\s,_]*)-?\d+(?:[\s,_]+-?\d+){21}(?![\s,_]*-?\d)/);
+  return m ? m[0].split(/[\s,_]+/).join("_") : null;
+}
+
 // In-game hue controls
 
 /**
@@ -126,7 +140,9 @@ export function decode(code: string): Settings | null {
 export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
 
 export function hueParts(deg: number, prefer?: number): { swatch: number; pos: number } {
-  const d = ((deg % 360) + 360) % 360;
+  // Clamp, don't wrap: raw 1000 (360°) is Magenta at slider 100, not Red at 0.
+  // Wrapping would show the wrong swatch and rewrite the hue on the next drag.
+  const d = Math.min(360, Math.max(0, deg));
   // Slider 100 and the next swatch's 0 are the same raw value; honour the swatch
   // the user picked so the end of the slider doesn't jump to the next colour.
   if (prefer !== undefined) {
@@ -177,43 +193,111 @@ function zoneWeights(l: number, t: Bands) {
   return [ws, wm, wh] as const;
 }
 
+/**
+ * Per-pixel constants for one grade, computed once.
+ *
+ * The zone maths is the same for every pixel, so the only things worth doing per
+ * pixel are the luminance lookup and the four zone blends. `applyGrade` used to
+ * re-derive the tint/amount/multiplier arrays for every pixel; hoisting them here
+ * is what makes a full-frame regrade cheap enough to run inside a pointer move.
+ */
+export type GradePlan = {
+  s0: number;
+  s1: number;
+  h0: number;
+  h1: number;
+  /** Tint colour per zone, pre-divided by its own luma (luminance-preserving). */
+  tint: Float64Array;
+  /** Tint amount 0..1 per zone. */
+  amount: Float64Array;
+  /** Saturation multiplier per zone. */
+  sat: Float64Array;
+  /** Brightness multiplier per zone. */
+  bri: Float64Array;
+  /** 1 when the zone would change anything at all, 0 when it is a no-op. */
+  live: Uint8Array;
+  /** True when no zone can do anything, so the whole grade is a no-op. */
+  neutral: boolean;
+};
+
+export function gradePlan(s: Settings): GradePlan {
+  const b = thresholds(s);
+  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  const tint = new Float64Array(12);
+  const amount = new Float64Array(4);
+  const sat = new Float64Array(4);
+  const bri = new Float64Array(4);
+  const live = new Uint8Array(4);
+  for (let z = 0; z < 4; z++) {
+    const zone = zs[z];
+    const c = hueToRgb(zone.hue);
+    const cl = luma(c[0], c[1], c[2]) || 1;
+    tint[z * 3] = c[0] / cl;
+    tint[z * 3 + 1] = c[1] / cl;
+    tint[z * 3 + 2] = c[2] / cl;
+    amount[z] = clamp(zone.tint / 100, 0, 1);
+    sat[z] = clamp(zone.sat / 50, 0, 2);
+    bri[z] = clamp(zone.bri / 50, 0, 2);
+    live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
+  }
+  return {
+    s0: b.s0,
+    s1: b.s1,
+    h0: b.h0,
+    h1: b.h1,
+    tint,
+    amount,
+    sat,
+    bri,
+    live,
+    neutral: !live[0] && !live[1] && !live[2] && !live[3],
+  };
+}
+
 /** Approximate preview of the filter. Operates in place on RGBA pixel data. */
 export function applyGrade(data: Uint8ClampedArray, s: Settings) {
-  const bands = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  const tintRgb = zs.map((z) => hueToRgb(z.hue));
-  const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
-  const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
-  const briMul = zs.map((z) => clamp(z.bri / 50, 0, 2));
-  const w = [0, 0, 0, 1];
+  paintGrade(data, gradePlan(s));
+}
+
+/**
+ * `applyGrade` with the plan already built. Call this in a loop over several
+ * buffers that share one grade.
+ */
+export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
+  // Nothing to do: the code is the reset state. Skipping the loop entirely is
+  // what makes "no filter" free instead of a full-frame pass.
+  if (plan.neutral) return;
+
+  const { s0, s1, h0, h1, tint, amount, sat, bri, live } = plan;
+  const allLive = live[0] && live[1] && live[2] && live[3];
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i] / 255,
       g = data[i + 1] / 255,
       b = data[i + 2] / 255;
+    // Zone weights come from the pixel's ORIGINAL luminance, all at once.
     const l0 = luma(r, g, b);
-    const [ws, wm, wh] = zoneWeights(l0, bands);
-    w[0] = ws;
-    w[1] = wm;
-    w[2] = wh;
-    // index 3 is the first code group, applied to the whole image
+    const ws = 1 - smooth(s0, s1, l0);
+    const wh = smooth(h0, h1, l0) * (1 - ws);
+    const wm = Math.max(0, 1 - ws - wh);
     for (let z = 0; z < 4; z++) {
-      const k = w[z];
+      if (!allLive && !live[z]) continue;
+      // index 3 is the first code group, applied to the whole image
+      const k = z === 3 ? 1 : z === 0 ? ws : z === 1 ? wm : wh;
       if (k <= 0.001) continue;
       const l = luma(r, g, b);
-      const t = tintAmt[z] * k;
-      const c = tintRgb[z];
-      const cl = luma(c[0], c[1], c[2]) || 1;
+      const t = amount[z] * k;
+      const p = z * 3;
       // luminance-preserving tint
-      let nr = r + (l * (c[0] / cl) - r) * t;
-      let ng = g + (l * (c[1] / cl) - g) * t;
-      let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k;
+      let nr = r + (l * tint[p] - r) * t;
+      let ng = g + (l * tint[p + 1] - g) * t;
+      let nb = b + (l * tint[p + 2] - b) * t;
+      const sm = 1 + (sat[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k;
+      const bm = 1 + (bri[z] - 1) * k;
       r = nr * bm;
       g = ng * bm;
       b = nb * bm;
@@ -289,6 +373,8 @@ export function analyse(
   const s = defaultSettings();
   const bands = thresholds(s);
   const t = zoneStats(target, bands);
+  // zoneStats samples a subset of pixels, so compare against what it counted
+  const counted = t.reduce((sum, z) => sum + z.n, 0);
   const b = base ? zoneStats(base, bands) : null;
   const neutral = [
     { l: 0.11, sat: 0.3 },
@@ -296,6 +382,9 @@ export function analyse(
     { l: 0.8, sat: 0.14 },
   ];
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
+    // (Almost) no pixels in this tonal range: nothing was measured, so leave it
+    // neutral rather than invent a grade from a near-empty bucket.
+    if (t[i].n < counted * 0.005) return;
     const ct = castOf(t[i]);
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,
@@ -421,13 +510,15 @@ export type Look = {
   note: string;
   mode: "Simple" | "Advanced";
   code: string;
-  /** Reference image the look is based on (not a CODM capture). */
+  /** Reference image the look is based on (not a CODM capture), unless `inGame`. */
   image?: string;
+  /** The image is a CODM capture with this exact code applied, so it is labelled "In game". */
+  inGame?: boolean;
   /** Game the look comes from, for the gallery filter. */
   game?: Game;
 };
 
-export const GAMES = ["MW4", "Black Ops 7", "MWII", "Vanguard", "MW 2019", "Cold War"] as const;
+export const GAMES = ["MW4", "Black Ops 7", "Black Ops 6", "MWIII", "MWII", "Vanguard", "MW 2019", "Cold War", "CODM"] as const;
 export type Game = (typeof GAMES)[number];
 
 /** Ready-made looks shown in the gallery. */
@@ -489,6 +580,38 @@ export const LOOKS: Look[] = [
     image: "/looks/havens-hollow-night.webp",
   },
   {
+    // Black Ops 6, derived relative to the pooled daytime footage of all the
+    // games sampled, like 2035 and Avalon. Sources: 396 in-game stills of 125
+    // weapons from the archived IMFDB page (gallery renders and menus filtered
+    // out), plus two weapon-inspect videos on one firing range
+    // (youtu.be/PYKQS55ybeg, oib4jqSmRn0) and the first 15 s of
+    // youtu.be/Tw7be_2GCHw. Stills and videos agree on darker, more saturated
+    // shadows and muted, slightly cool highlights; the videos' green shadow
+    // cast came from the one firing range and drops out with the stills.
+    // The card is the owner's own screenshot (Nuketown), cropped clear of an ID string.
+    name: "Black Ops 6",
+    game: "Black Ops 6",
+    note: "Black Ops 6: darker, richer shadows and muted, slightly cool highlights",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_642_20_-120_1160_644_30_0_980_689_30_0_640",
+    image: "/looks/black-ops-6.webp",
+  },
+  {
+    // MWIII, derived relative to the pooled daytime footage of all the games
+    // sampled. Sources: five multiplayer videos (youtu.be/F-EGowtfMS4,
+    // CRF20NdUcgw, CPv_ll8Tw9A, NHKlrR6UFr0, and cluAqepnjEY cropped clear of
+    // its facecam) and 429 in-game stills of 96 weapons from the archived IMFDB
+    // page (renders and menus filtered out). Both agree on cooler shadows and
+    // less saturation throughout; the stills add slightly darker shadows.
+    // The card is the owner's own screenshot, cropped clear of an ID string.
+    name: "MWIII",
+    game: "MWIII",
+    note: "MWIII: cooler shadows, muted colour across the range",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_547_50_-80_920_656_30_0_920_683_30_20_700",
+    image: "/looks/mwiii.webp",
+  },
+  {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
     name: "Al Mazrah",
     game: "MWII",
@@ -507,6 +630,72 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
     image: "/looks/vondead.webp",
+  },
+  {
+    // Shared by MorganPixy in the pinned comment of their video "Call of Duty
+    // Mobile with Modern Warfare 2022 Color Filter" (youtu.be/DtpgvsKhR5w),
+    // which also shows the in-game settings: Shadows only, Orange swatch,
+    // slider 0, Tint 40, Saturation 35, Brightness 100, shadows handle moved.
+    // The code decodes to exactly those values. The card is a frame from it.
+    name: "MW2022",
+    game: "MWII",
+    note: "MorganPixy's MWII filter: warm orange, washed-out lifted shadows",
+    mode: "Advanced",
+    code: "0_1_189_289_1000_1100_0_0_0_1000_125_396_1000_697_0_0_0_1000_0_0_0_1000",
+    image: "/looks/mw2022.webp",
+    inGame: true,
+  },
+  {
+    // Shared by MorganPixy in the pinned comment of their video "Call Of Duty
+    // Mobile Season 3 2026 - Modern Warfare 2019 Color Filter"
+    // (youtu.be/TImj7OGnM60). They say it suits recent MW 2019 maps on
+    // High/Very High graphics with anti-aliasing and bloom on. The card is a
+    // frame from that video, cropped clear of its picture-in-picture inset.
+    name: "MW2019",
+    game: "MW 2019",
+    note: "MorganPixy's MW 2019 multiplayer filter: darker warm shadows, brighter highlights. Made for MW 2019 maps with bloom on",
+    mode: "Advanced",
+    code: "0_1_259_359_1000_1100_0_0_0_1000_197_129_-204_1000_0_0_-3_990_0_0_195_1007",
+    image: "/looks/mw2019.webp",
+    inGame: true,
+  },
+  {
+    // Shared by DisasterNinja in the pinned comment of "COD Mobile BEST Color
+    // Settings: Make Your Graphics Look Like WARZONE!" (youtu.be/Kq2q9lV2VOY,
+    // 4 Sep 2026), which shows the in-game screen: Simple Red 0 / Tint 23 /
+    // Saturation 77 / Brightness 70, Shadows Lime 0 / 17 / 59 / 78, and both
+    // Range handles at the right end. As posted, the highlights handle reads
+    // 1084, which the game refuses (it imports the default instead); its
+    // falloff is 1094 and the game writes handle + 100, so the handle was 994
+    // and 1084 is a typo. The site owner's in-game remake of the zone values
+    // reads identically. Warzone ran on Black Ops 7 then (Season 05;
+    // Activision's Season 06 announcement, Sep 2026). The card is a frame from
+    // the video, cropped clear of the HUD. The map is Black Ops 6's Nuketown,
+    // identified by its house; the minimap's "Special Forces Base" is CODM's
+    // callout for a team spawn.
+    name: "Warzone",
+    game: "Black Ops 7",
+    note: "DisasterNinja's Warzone look: bright, warm and saturated, with lime-lifted shadows",
+    mode: "Advanced",
+    code: "0_1_974_1074_994_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000",
+    image: "/looks/warzone-bo7.webp",
+    inGame: true,
+  },
+  {
+    // HunterRafi, "Turn COD Mobile into MODERN WARFARE 2019 - COD Mobile Best
+    // Colour Settings" (youtu.be/vi1WYrsuXDs, 2 Jan 2026). No code is posted;
+    // this one is rebuilt from the four settings pages shown at 0:23-0:44
+    // (Simple: Preset #2, Red 98 / Tint 24 / Sat 42 / Bri 56; Shadows Orange
+    // 13/18/51/60; Midtones Orange 14/14/47/75; Highlights Red 0/1/36/70, the
+    // shown Tint 1 being the game's display of 0). Range handles measured from
+    // the bar at about 17.5% and 89%, so they are within about 2% of his.
+    name: "MW2019 (HunterRafi)",
+    game: "MW 2019",
+    note: "HunterRafi's MW 2019 settings: warm, bright midtones and highlights, softer colour",
+    mode: "Advanced",
+    code: "1_1_175_275_890_990_123_240_120_840_141_180_200_1020_143_140_500_940_0_0_400_720",
+    image: "/looks/mw2019-hunterrafi.webp",
+    inGame: true,
   },
   {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
@@ -536,6 +725,54 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: PRESETS[2].code,
     image: "/looks/cold-war.webp",
+  },
+  {
+    // Mr.CODM_PRO_YT, "Low End Device Best Colour graphics settings in CODM BR"
+    // (youtu.be/kRGy1BqMwgo, 13 Nov 2026), made for CODM's Verdansk on low-end
+    // phones. No code is posted; rebuilt from the Simple panel it shows: Blue,
+    // Hue 94, Tint 12, Saturation 51, Brightness 44, Preset #1. The creator's
+    // long video (youtu.be/Daevpv9sPao) shows the same panel at 4:58 and stays
+    // in Simple mode; the rest of it is gameplay with the setting on. The card
+    // is the filtered half of the Short, cropped clear of HUD and watermark.
+    name: "Verdansk Low-End",
+    game: "CODM",
+    note: "Mr.CODM_PRO_YT's setting for CODM Verdansk on low-end phones: slight blue tint, a touch darker",
+    mode: "Simple",
+    code: "0_1_30_300_1000_1500_743_120_-120_1020_0_0_0_1000_0_0_0_1000_0_0_0_1000",
+    image: "/looks/verdansk-low-end.webp",
+    inGame: true,
+  },
+  {
+    // Kith, "The BEST Settings To See Enemies Better in CODM"
+    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). The code is the site owner's own
+    // in-game replication of the settings the video shows: Shadows Cyan 90 /
+    // Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 / 65 / 80 (he raises
+    // the tint only to show the reddish cast it gives, and says to keep it at
+    // 1), Highlights Orange 0 /
+    // Tint 1 / 30 / 50. His narration (the video's captions) states each of
+    // these values, and that highlight hue and tint are left untouched. A code a viewer (@WisdomSlaps) posted under the video
+    // shows the same numbers in game, apart from a Red highlights swatch.
+    // The card is a "Setting: ON" frame from the video.
+    name: "Kith",
+    game: "CODM",
+    note: "Kith's visibility settings: lifted cyan shadows, more saturated mids, softer highlights",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_612_50_1000_1300_12_9_592_1298_125_9_0_598",
+    image: "/looks/kith.webp",
+    inGame: true,
+  },
+  {
+    // Serotonin, "Best Color Settings for CODM to Spot Enemies Faster!"
+    // (youtu.be/MvEatDU4eiE, 30 Jun 2026). His own code, posted in reply to a
+    // viewer under the video. It matches the settings he saves in the video
+    // (Simple Blue 98 / 25 / 25 / 70, Shadows Green 96 / 25 / 90 / 95,
+    // Midtones Red / 15 / 80 / 70, Highlights Red 0 / 25 / 70 / 100) and puts
+    // both Range handles at the ends. No card: the video is 360p.
+    name: "Serotonin",
+    game: "CODM",
+    note: "Serotonin's spotting settings: bright green-tinted shadows, warm saturated mids, very bright highlights",
+    mode: "Advanced",
+    code: "0_1_0_100_1000_1100_747_252_403_505_495_252_900_1802_121_149_406_1594_0_253_1000_1400",
   },
   {
     name: "Default",

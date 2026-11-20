@@ -3,18 +3,21 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
-import { copyCode } from "@/components/ImportGuide";
+import { announceCopy, copyText } from "@/components/ImportGuide";
+import { useScreenTest } from "@/components/ScreenTest";
+import ShotFrame from "@/components/ShotFrame";
+import { DEFAULT_SAMPLE, loadSample } from "@/lib/samples";
+import { shotCardImage } from "@/lib/screenPreview";
 
-// One render of the 3D scene shared by every card without an image; each
-// look's graded pixels are cached so it is graded once.
+// One CODM still shared by every card without an image; each look's graded
+// pixels are cached so it is graded once.
 const W = 960,
   H = 438;
 let base: Promise<ImageData> | null = null;
 const graded = new Map<string, Promise<ImageData>>();
 
 function baseImage(): Promise<ImageData> {
-  base ??= import("@/lib/scene")
-    .then((m) => m.renderScene(W, H, { chips: false }))
+  base ??= loadSample(DEFAULT_SAMPLE, W, H)
     .catch(() => null)
     .then((c) => {
       if (c) return c.getContext("2d")!.getImageData(0, 0, W, H);
@@ -60,7 +63,18 @@ function RenderedThumb({ code }: { code: string }) {
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
 
-function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
+function Art({ look, thumb = false, split = 0 }: { look: Look; thumb?: boolean; split?: number }) {
+  const { shot } = useScreenTest();
+  if (shot)
+    return (
+      <ShotFrame
+        code={look.code}
+        w={thumb ? 352 : 960}
+        h={thumb ? 161 : 439}
+        split={split}
+        className="h-full w-full object-cover"
+      />
+    );
   return look.image ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -79,14 +93,23 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 }
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+  const { shot } = useScreenTest();
+  // Hold the Compare chip to wipe the plain frame in from the left.
+  const [compare, setCompare] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
+  const [focused, setFocused] = useState(false);
+  // Only a deliberate change may be announced. Autoplay rotates every 7s, so a
+  // live region on the stage would read a new look name at the visitor forever.
+  // A one-shot message keeps this from sticking on after the first pick, which
+  // would have let the rotation announce again.
+  const [announcement, setAnnouncement] = useState("");
   const reduce = useReducedMotion();
-  const playing = auto && !hover && !reduce;
+  const playing = auto && !hover && !focused && !reduce;
   const look = shown[Math.min(active, shown.length - 1)];
 
   useEffect(() => {
@@ -114,7 +137,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
 
   const pick = (i: number) => {
     setAuto(false);
-    setActive((i + shown.length) % shown.length);
+    const nextIndex = (i + shown.length) % shown.length;
+    setActive(nextIndex);
+    setAnnouncement(shown[nextIndex] ? `${shown[nextIndex].name}. ${shown[nextIndex].note}` : "");
   };
 
   return (
@@ -143,6 +168,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               onClick={() => {
                 setGame(g);
                 setActive(0);
+                setAnnouncement("");
               }}
               className={`min-h-11 shrink-0 border px-3 font-display text-sm font-bold uppercase tracking-wide transition-colors ${
                 game === g
@@ -160,7 +186,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       <div
         role="tabpanel"
         id="look-stage"
-        aria-live="polite"
+        aria-labelledby={`look-tab-${Math.min(active, shown.length - 1)}`}
+        // Keyboard focus inside the stage stops the rotation, so a keyboard
+        // visitor can actually read what is on screen.
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
       >
         <AnimatePresence initial={false}>
@@ -171,9 +201,17 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             animate={{ opacity: 1, scale: 1, transition: { opacity: { duration: 0.7 }, scale: { duration: DWELL + 1, ease: "easeOut" } } }}
             exit={{ opacity: 0, transition: { duration: 0.7 } }}
           >
-            <Art look={look} />
+            <Art look={look} split={compare && shot ? 0.5 : 0} />
           </motion.div>
         </AnimatePresence>
+        {/*
+          Announce the look only when the visitor chose it. The stage itself is not
+          a live region: autoplay rotates it, and a live region there would read a
+          new name every 7 s until the visitor touched something.
+        */}
+        <p className="sr-only" role="status">
+          {announcement}
+        </p>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/35 sm:to-transparent" />
         <div className="pointer-events-none absolute inset-0 scanlines opacity-60" />
 
@@ -187,8 +225,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
               <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
               <span className="bg-black/70 px-2 py-0.5 text-mute">
-                {look.image ? "Inspiration" : "Preview"}
+                {shot ? "Your screen · approx." : look.inGame ? "In game" : look.image ? "Inspiration" : "Preview"}
               </span>
+              {shot && compare && (
+                <span className="bg-black/70 px-2 py-0.5 text-codm">Original · left</span>
+              )}
             </div>
             <h3
               className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
@@ -201,10 +242,26 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           </motion.div>
           <div className="flex max-w-md gap-1">
             <button
-              onClick={() => {
-                copyCode(look.code, look.name, { note: look.note, image: look.image });
-                setCopied(look.code);
+              onClick={async () => {
                 setAuto(false);
+                // The clipboard write starts inside the click, before any canvas
+                // work, so a slow card render can never cost the copy itself.
+                const write = copyText(look.code);
+                let image = look.image;
+                let note = look.note;
+                let source: "screen-test" | undefined;
+                if (shot) {
+                  // With a screen test on, the card shows the look on the visitor's own frame.
+                  const own = await shotCardImage(shot, look.code);
+                  if (own) {
+                    image = own;
+                    note = `${look.note} Graded on your own screenshot.`;
+                    source = "screen-test";
+                  }
+                }
+                const ok = await write;
+                if (ok) setCopied(look.code);
+                announceCopy(look.code, look.name, { note, image, source, blocked: !ok });
               }}
               className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
                 copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
@@ -212,6 +269,29 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             >
               {copied === look.code ? "Copied ✓" : "Copy code"}
             </button>
+            {shot && (
+              <button
+                onPointerDown={() => {
+                  // stop autoplay so the look can't change under the finger
+                  setAuto(false);
+                  setCompare(true);
+                }}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    setAuto(false);
+                    setCompare(true);
+                  }
+                }}
+                onKeyUp={() => setCompare(false)}
+                onBlur={() => setCompare(false)}
+                aria-label="Hold to compare with your ungraded screenshot"
+                className="min-h-11 touch-none select-none bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              >
+                {compare ? "Original" : "Compare"}
+              </button>
+            )}
             <button
               onClick={() => onEdit(look.code)}
               className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
@@ -228,16 +308,6 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         aria-label="Looks"
         ref={strip}
         className="-mx-4 mt-2 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") pick(active + 1);
-          else if (e.key === "ArrowLeft") pick(active - 1);
-          else return;
-          e.preventDefault();
-          const strip = e.currentTarget;
-          requestAnimationFrame(() =>
-            (strip.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus(),
-          );
-        }}
       >
         {shown.map((l, i) => (
           <button
@@ -248,6 +318,21 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             aria-controls="look-stage"
             tabIndex={i === active ? 0 : -1}
             onClick={() => pick(i)}
+            onKeyDown={(e) => {
+              let next: number | null = null;
+              if (e.key === "ArrowRight") next = i + 1;
+              else if (e.key === "ArrowLeft") next = i - 1;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = shown.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              pick((next + shown.length) % shown.length);
+              requestAnimationFrame(() => {
+                strip.current
+                  ?.querySelector<HTMLElement>('[aria-selected="true"]')
+                  ?.focus();
+              });
+            }}
             className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
               i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
             }`}

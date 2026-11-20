@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyse,
   applyGrade,
+  DEFAULT_CODE,
   decode,
+  extractCode,
   defaultSettings,
   drawSample,
   encode,
@@ -15,11 +17,14 @@ import {
   SWATCH_NAMES,
   hueFrom,
   hueParts,
+  LOOKS,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { ScreenTestBar, ScreenTestProvider, useScreenTest } from "@/components/ScreenTest";
+import { DEFAULT_SAMPLE, loadSample, SAMPLES, type SampleId } from "@/lib/samples";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -56,12 +61,17 @@ const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
 
 // Image helpers
 
-function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
+/**
+ * Decode an image into a canvas whose longest side is at most `maxSide`. Capping
+ * the long side, not just the width, keeps a portrait phone screenshot
+ * (1080x2400) under the 2048px texture limit some phone GPUs have.
+ */
+function fileToCanvas(file: File, maxSide: number): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, maxW / img.naturalWidth);
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas");
       c.width = Math.max(1, r(img.naturalWidth * scale));
       c.height = Math.max(1, r(img.naturalHeight * scale));
@@ -218,23 +228,25 @@ function Preview({
   onClear: () => void;
   view: React.RefObject<HTMLCanvasElement | null>;
 }) {
+  const { shot, clear: clearShot } = useScreenTest();
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
+  const [scene, setScene] = useState<SampleId>(DEFAULT_SAMPLE);
+  // The drawn fallback shows until the chosen CODM still has loaded.
   useEffect(() => {
     let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
+    loadSample(scene)
       .then((c) => {
-        if (live && c) setSample(c);
+        if (live) setSample(c);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, []);
+  }, [scene]);
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
-  const src = source ?? sample;
+  // The screen test outranks the built-in scene: your own frame, graded live.
+  const src = source ?? shot?.canvas ?? sample;
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
@@ -333,7 +345,9 @@ function Preview({
         <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
-          <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
+          <span className="bg-codm px-2 py-0.5 text-black">
+            {!source && shot ? "Filtered · your screen · approx." : "Filtered · approx."}
+          </span>
           {split === 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Drag to compare</span>}
         </div>
       </div>
@@ -364,20 +378,48 @@ function Preview({
             }}
           />
         </label>
-        {source && (
+        {source ? (
           <button
             onClick={onClear}
-            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+            className="min-h-11 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
           >
             Sample scene
           </button>
-        )}
+        ) : shot ? (
+          <button
+            onClick={clearShot}
+            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+          >
+            Remove screen test
+          </button>
+        ) : null}
       </div>
+      {!source && !shot && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div role="radiogroup" aria-label="Sample scene" className="flex flex-wrap gap-1">
+            {SAMPLES.map((s) => (
+              <button
+                key={s.id}
+                role="radio"
+                aria-checked={scene === s.id}
+                onClick={() => setScene(s.id)}
+                title={`${s.label} (${s.game})`}
+                className={`min-h-11 border px-3 font-display text-sm font-bold uppercase tracking-wider transition-colors ${
+                  scene === s.id ? "border-lime bg-lime/15 text-text" : "border-line bg-panel-2 text-mute hover:text-text"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-mute">CODM screenshots on the default filter, captured for this site.</p>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function FilterLab() {
+function Editor() {
   const [mode, setMode] = useState<Mode>("build");
   const view = useRef<HTMLCanvasElement>(null);
   const [advanced, setAdvanced] = useState(true);
@@ -390,12 +432,17 @@ export default function FilterLab() {
 
   const code = useMemo(() => encode(settings), [settings]);
 
+  // undo/redo history, see the effect below the hash sync
+  const steps = useRef({ past: [] as string[], future: [] as string[], last: DEFAULT_CODE, skip: false });
+
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
-    const m = location.hash.match(/c=([-\d_]+)/);
+    const m = location.hash.match(/^#c=([-\d_]+)$/);
     const s = m && decode(m[1]);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
+    // the shared code is the starting point, not an undoable step
+    steps.current.last = encode(s);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
@@ -404,13 +451,76 @@ export default function FilterLab() {
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
 
+  // Undo/redo over share codes. A drag settles into one step after a short
+  // pause; loading a look or a pasted code is a step too, so it can be undone.
+  // `skip` marks changes made by undo/redo or the URL restore, which aren't steps.
+  const [canStep, setCanStep] = useState({ undo: false, redo: false });
+  const syncSteps = () =>
+    setCanStep({ undo: steps.current.past.length > 0, redo: steps.current.future.length > 0 });
+  useEffect(() => {
+    const h = steps.current;
+    if (h.skip) {
+      h.skip = false;
+      h.last = code;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (code === h.last) return;
+      h.past.push(h.last);
+      if (h.past.length > 50) h.past.shift();
+      h.future = [];
+      h.last = code;
+      syncSteps();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [code]);
+  const step = useCallback(
+    (dir: "undo" | "redo") => {
+      const h = steps.current;
+      // commit an edit still inside its settle pause, so undo returns to before it
+      if (code !== h.last) {
+        h.past.push(h.last);
+        h.future = [];
+        h.last = code;
+      }
+      const from = dir === "undo" ? h.past : h.future;
+      const to = dir === "undo" ? h.future : h.past;
+      const next = from.pop();
+      const s = next && decode(next);
+      if (!s) return syncSteps();
+      to.push(h.last);
+      h.last = next;
+      h.skip = true;
+      setSettings(s);
+      syncSteps();
+    },
+    [code],
+  );
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      // text fields keep their own undo; sliders have none, so they get ours
+      const t = e.target as HTMLElement;
+      if (t.closest("textarea, [contenteditable]")) return;
+      if (t instanceof HTMLInputElement && t.type !== "range") return;
+      const k = e.key.toLowerCase();
+      if (k === "z") step(e.shiftKey ? "redo" : "undo");
+      else if (k === "y") step("redo");
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [step]);
+
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
     setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
   }, []);
 
   const loadCode = useCallback((c: string) => {
-    const s = decode(c);
+    const found = extractCode(c);
+    const s = found && decode(found);
     if (!s) return false;
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
@@ -473,6 +583,8 @@ export default function FilterLab() {
           document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       />
+
+      <ScreenTestBar looks={LOOKS.length} />
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
@@ -554,6 +666,19 @@ export default function FilterLab() {
                 >
                   Advanced
                 </span>
+              </div>
+              <div className="-mt-4 grid grid-cols-2 gap-1">
+                {(["undo", "redo"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => step(d)}
+                    disabled={!canStep[d]}
+                    aria-keyshortcuts={d === "undo" ? "Control+Z Meta+Z" : "Control+Shift+Z Meta+Shift+Z Control+Y"}
+                    className="min-h-11 bg-panel-2 font-display text-sm font-bold uppercase tracking-wider hover:bg-line disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {d === "undo" ? "↶ Undo" : "Redo ↷"}
+                  </button>
+                ))}
               </div>
               <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
                 {ADVANCED_PANELS.map((p) => {
@@ -783,7 +908,32 @@ export default function FilterLab() {
   );
 }
 
+export default function FilterLab() {
+  return (
+    <ScreenTestProvider>
+      <Editor />
+    </ScreenTestProvider>
+  );
+}
+
 // Converter
+
+/** The screen test clears the "your screen" step: use that shot as the baseline. */
+function ConverterShotHint() {
+  const { shot } = useScreenTest();
+  if (!shot) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-l-2 border-lime bg-lime/10 px-3 py-2 text-xs">
+      <span className="font-display font-bold uppercase tracking-wider text-lime">
+        Screen test on
+      </span>
+      <span>
+        Use that same frame as the baseline: drop it into &ldquo;Your screen&rdquo; and the match is
+        measured against your own picture.
+      </span>
+    </p>
+  );
+}
 
 function Converter({
   onApply,
@@ -818,6 +968,7 @@ function Converter({
       className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"
     >
       <div className="flex flex-col gap-4">
+        <ConverterShotHint />
         <div className="grid gap-4 md:grid-cols-2">
           <DropZone
             title="Reference look"
@@ -911,14 +1062,13 @@ function CodeBar({
   onLoad: (c: string) => boolean;
   onReset: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "ok" | "failed">("");
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
 
   const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
+    setCopied((await copyCode(code)) ? "ok" : "failed");
+    setTimeout(() => setCopied(""), 1400);
   };
 
   return (
@@ -928,8 +1078,8 @@ function CodeBar({
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
+          {/* not a live region: it would read all 22 numbers on every slider step */}
           <output
-            aria-live="polite"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
@@ -939,8 +1089,11 @@ function CodeBar({
             onClick={copy}
             className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
           >
-            {copied ? "Copied" : "Copy"}
+            {copied === "ok" ? "Copied" : copied === "failed" ? "Blocked" : "Copy"}
           </button>
+          <span role="status" className="sr-only">
+            {copied === "ok" ? "Code copied" : copied === "failed" ? "Your browser blocked copying. Select the code and copy it." : ""}
+          </span>
         </div>
         <form
           className="flex items-center gap-2"

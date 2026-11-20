@@ -6,25 +6,44 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
 
-type Copied = { code: string; name?: string; note?: string; image?: string };
+type Copied = { code: string; name?: string; note?: string; image?: string; source?: "screen-test"; blocked?: boolean };
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
 export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+/** Clipboard write only, started straight from a click so the gesture still counts. Resolves false when both copy routes failed. */
+export async function copyText(code: string) {
   try {
     await navigator.clipboard.writeText(code);
+    return true;
   } catch {
+    // the fallback has to focus a textarea; give focus back to the Copy button after
+    const was = document.activeElement as HTMLElement | null;
     const t = document.createElement("textarea");
     t.value = code;
     document.body.appendChild(t);
     t.select();
-    document.execCommand("copy");
+    let ok: boolean;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
     t.remove();
+    was?.focus({ preventScroll: true });
+    return ok;
   }
-  announceCopy(code, name, extra);
+}
+
+/** Puts the code on the clipboard and opens the guide. Resolves false when both copy routes failed. */
+export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  const ok = await copyText(code);
+  // Open the guide either way: it shows the code with Copy again, which is the
+  // way out when the browser blocked the clipboard.
+  announceCopy(code, name, { ...extra, blocked: !ok });
+  return ok;
 }
 
 /** QR that opens this page on a phone with the code loaded (#c= restores it). */
@@ -45,7 +64,7 @@ function PhoneQr({ code }: { code: string }) {
   return <canvas ref={ref} width={240} height={240} className="h-[120px] w-[120px] shrink-0" aria-hidden />;
 }
 
-async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
+async function saveCard(p: Copied): Promise<"shared" | "saved" | "cancelled" | "failed"> {
   const share = await import("@/lib/share");
   const blob = await share.renderShareCard(p);
   if (!blob) return "failed";
@@ -54,8 +73,11 @@ async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
     try {
       await navigator.share({ files: [file], title: p.name ?? "CODM look" });
       return "shared";
-    } catch {
-      // cancelled share sheet: fall through to a download
+    } catch (e) {
+      // Backing out of the share sheet means "no", so don't download anyway.
+      // Anything else (iOS throws NotAllowedError once the tap is too old after
+      // the render) falls through to a download so the card isn't lost.
+      if ((e as Error).name === "AbortError") return "cancelled";
     }
   }
   share.downloadBlob(blob, file.name);
@@ -88,10 +110,10 @@ const readOff = () => {
 export default function ImportGuide() {
   const [open, setOpen] = useState<Copied | null>(null);
   const [toast, setToast] = useState<Copied | null>(null);
-  const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "failed">("idle");
+  const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "cancelled" | "failed">("idle");
   const [done, setDone] = useState<number[]>([]);
   const [off, setOff] = useState(false);
-  const [again, setAgain] = useState(false);
+  const [again, setAgain] = useState<"" | "ok" | "failed">("");
   const heading = useRef<HTMLHeadingElement>(null);
   const reduce = useReducedMotion();
 
@@ -118,8 +140,15 @@ export default function ImportGuide() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // what had focus before the guide opened (usually a Copy button); it gets focus back on close
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+      opener.current = null;
+      return;
+    }
+    opener.current ??= document.activeElement as HTMLElement | null;
     heading.current?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
     window.addEventListener("keydown", key);
@@ -151,8 +180,11 @@ export default function ImportGuide() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-xs font-bold uppercase tracking-[0.2em] text-lime">
-                  ✓ Code copied{open.name ? ` · ${open.name}` : ""}
+                <p
+                  className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${open.blocked ? "text-text" : "text-lime"}`}
+                >
+                  {open.blocked ? "Copy blocked · select the code below" : "✓ Code copied"}
+                  {open.name ? ` · ${open.name}` : ""}
                 </p>
                 <h2
                   id="guide-title"
@@ -214,15 +246,12 @@ export default function ImportGuide() {
               </code>
               <button
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(open.code);
-                  } catch {}
-                  setAgain(true);
-                  setTimeout(() => setAgain(false), 1400);
+                  setAgain((await copyText(open.code)) ? "ok" : "failed");
+                  setTimeout(() => setAgain(""), 1400);
                 }}
                 className="cut-sm min-h-11 shrink-0 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
               >
-                {again ? "Copied ✓" : "Copy again"}
+                {again === "ok" ? "Copied ✓" : again === "failed" ? "Blocked" : "Copy again"}
               </button>
             </div>
 
@@ -286,7 +315,8 @@ export default function ImportGuide() {
             className="cut fixed inset-x-4 bottom-36 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 lg:bottom-24"
           >
             <span className="font-display text-base font-extrabold uppercase tracking-wide text-codm">
-              Code copied{toast.name ? ` · ${toast.name}` : ""}
+              {toast.blocked ? "Copy blocked" : "Code copied"}
+              {toast.name ? ` · ${toast.name}` : ""}
             </span>
             <button
               onClick={() => {

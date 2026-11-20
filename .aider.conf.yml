@@ -1,0 +1,2 @@
+# Aider: load the shared agent instructions as read-only context.
+read: [AGENTS.md, DESIGN.md]
