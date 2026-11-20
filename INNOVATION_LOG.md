@@ -441,3 +441,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The header never reflected what was on the stage, so after scrolling to the editor there was no reminder of the chosen look.
 - **Ship:** Added a Now viewing chip in the header driven by gallery state.
+
+### 84. Animated code readout
+
+- **Look:** When a grade changed, the 22-number string changed all at once with no indication of which values moved.
+- **Ship:** Split the code into per-number spans that flash on change and highlight only the edited positions.
