@@ -196,3 +196,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** On a phone the pinned viewfinder is only 27% of the viewport; fine grading details were hard to judge.
 - **Ship:** Added a fullscreen preview action reachable from the preview controls, the palette and the F key.
+
+### 38. Pixel loupe
+
+- **Look:** Subtle footage-based grades are hard to read at a thumbnail size, and there was no way to inspect a single region without uploading and zooming the image elsewhere.
+- **Ship:** Added a toggleable 4× loupe that follows the pointer over the live graded preview.

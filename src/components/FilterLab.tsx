@@ -258,6 +258,21 @@ function Preview({
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
   const snapRef = useRef<HTMLCanvasElement>(null);
+  const loupeRef = useRef<HTMLCanvasElement>(null);
+  const [loupe, setLoupe] = useState(false);
+  const [loupeAt, setLoupeAt] = useState({ x: 0.5, y: 0.5 });
+  useEffect(() => {
+    if (!loupe) return;
+    const c = loupeRef.current,
+      v = view.current;
+    if (!c || !v) return;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const sx = Math.min(v.width - 1, Math.max(1, loupeAt.x * v.width));
+    const sy = Math.min(v.height - 1, Math.max(1, loupeAt.y * v.height));
+    ctx.drawImage(v, sx - 24, sy - 24, 48, 48, 0, 0, c.width, c.height);
+  }, [loupe, loupeAt, settings, split]);
 
   // A pinned "before" grade is composited into the original side of the wipe.
   useEffect(() => {
@@ -349,6 +364,13 @@ function Preview({
           wipe.current = { x: e.clientX, y: e.clientY, on: false };
         }}
         onPointerMove={(e) => {
+          if (loupe) {
+            const b = e.currentTarget.getBoundingClientRect();
+            setLoupeAt({
+              x: Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)),
+              y: Math.min(1, Math.max(0, (e.clientY - b.top) / b.height)),
+            });
+          }
           const w = wipe.current;
           if (!w) return;
           // only a deliberate sideways pull starts the wipe, so vertical scrolls pass through
@@ -373,6 +395,16 @@ function Preview({
             aria-hidden
             className="pointer-events-none absolute inset-0 h-full w-full object-contain"
             style={{ clipPath: `inset(0 0 0 ${split * 100}%)` }}
+          />
+        )}
+        {loupe && (
+          <canvas
+            ref={loupeRef}
+            width={128}
+            height={128}
+            aria-hidden
+            className="pointer-events-none absolute z-20 h-32 w-32 border-2 border-codm bg-black shadow-[0_0_0_3px_rgba(0,0,0,0.7)]"
+            style={{ left: `calc(${loupeAt.x * 100}% - 64px)`, top: `calc(${loupeAt.y * 100}% - 64px)` }}
           />
         )}
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
@@ -428,6 +460,16 @@ function Preview({
           title="Freeze the current grade and compare it with later edits"
         >
           {snapshot ? "◉ Clear before" : "◎ Pin before"}
+        </button>
+        <button
+          onClick={() => setLoupe((v) => !v)}
+          aria-pressed={loupe}
+          className={`cut-sm min-h-11 border px-3 font-display text-sm font-bold uppercase tracking-wider ${
+            loupe ? "border-codm bg-codm/15 text-codm-light" : "border-line bg-panel-2 text-mute hover:text-text"
+          }`}
+          title="4× pixel inspector; move the pointer over the preview"
+        >
+          ⌕ Loupe
         </button>
         <button
           onClick={onFullscreen}
