@@ -176,3 +176,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Dialling in one zone and wanting it in another meant writing four numbers down; the UI offered no transfer.
 - **Ship:** Added Copy/Paste values per zone using a small JSON payload, with validation and clear feedback.
+
+### 34. Double-click slider reset
+
+- **Look:** Returning a single value to neutral required dragging a precise slider back to its centre, with no visual marker for neutral.
+- **Ship:** Added double-click-to-reset on hue, tint, saturation and brightness sliders, plus tooltips advertising the gesture.
