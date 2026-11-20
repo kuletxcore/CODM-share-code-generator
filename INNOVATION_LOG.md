@@ -391,3 +391,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A library row showed a long code and name but no visual reminder of the grade it held.
 - **Ship:** Added a small captured preview to each saved look, taken from the live preview canvas at save time.
+
+### 74. Query-string deep links
+
+- **Look:** Only hash links worked; codes and looks sent as ?code= or ?look= links were ignored.
+- **Ship:** Added query-string restore for both the editor code and the gallery look, alongside the existing hash format.
