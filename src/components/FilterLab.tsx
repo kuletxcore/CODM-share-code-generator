@@ -613,7 +613,18 @@ export default function FilterLab() {
             setCompareOpen(true);
             break;
           case "save-look": {
-            const saved = saveLookCode(code);
+            let thumb: string | undefined;
+            try {
+              const v = view.current;
+              if (v?.width) {
+                const t = document.createElement("canvas");
+                t.width = 128;
+                t.height = 72;
+                t.getContext("2d")?.drawImage(v, 0, 0, 128, 72);
+                thumb = t.toDataURL("image/jpeg", 0.45);
+              }
+            } catch {}
+            const saved = saveLookCode(code, thumb);
             notify(
               saved
                 ? { title: "Look saved", detail: saved.name, tone: "good", action: { label: "Open library", run: () => act("open-my-looks") } }
@@ -670,7 +681,8 @@ export default function FilterLab() {
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
     const m = location.hash.match(/c=([-\d_]+)/);
-    const s = m && decode(m[1]);
+    const q = new URLSearchParams(location.search).get("code");
+    const s = (m && decode(m[1])) || (q && decode(q));
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect

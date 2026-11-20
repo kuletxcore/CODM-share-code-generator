@@ -386,3 +386,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Browsers without WebGL graded half a million pixels on the main thread on every slider move, making the editor stutter.
 - **Ship:** Added a CPU grading worker with request IDs to discard stale frames, keeping the synchronous path as a fallback.
+
+### 73. Saved looks with thumbnails
+
+- **Look:** A library row showed a long code and name but no visual reminder of the grade it held.
+- **Ship:** Added a small captured preview to each saved look, taken from the live preview canvas at save time.

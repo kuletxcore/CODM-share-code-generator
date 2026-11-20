@@ -98,7 +98,8 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
   // A #look=Hajin link opens that look on the stage without touching #c= codes.
   useEffect(() => {
-    const name = decodeURIComponent(location.hash.match(/look=([^&]+)/)?.[1] ?? "");
+    const queryName = new URLSearchParams(location.search).get("look") ?? "";
+    const name = decodeURIComponent(location.hash.match(/look=([^&]+)/)?.[1] ?? queryName);
     const i = LOOKS.findIndex((l) => l.name.toLowerCase() === name.toLowerCase());
     if (i < 0) return;
     setAuto(false);

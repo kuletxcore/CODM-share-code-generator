@@ -54,6 +54,8 @@ export type SavedLook = {
   name: string;
   code: string;
   note?: string;
+  /** Small JPEG preview of the grade, captured from the preview canvas. */
+  thumb?: string;
   created: number;
 };
 

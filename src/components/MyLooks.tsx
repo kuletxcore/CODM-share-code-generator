@@ -14,13 +14,14 @@ import { act } from "@/lib/actions";
 type Recent = { name: string; code: string; at: number };
 
 /** Save from anywhere in the app (header button, keyboard S, command palette). */
-export function saveLookCode(code: string): SavedLook | null {
+export function saveLookCode(code: string, thumb?: string): SavedLook | null {
   const list = readJson<SavedLook[]>(K.looks, []);
   if (list.some((l) => l.code === code)) return null;
   const item: SavedLook = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     name: suggestName(code),
     code,
+    thumb,
     created: Date.now(),
   };
   writeJson(K.looks, [item, ...list]);
@@ -201,7 +202,13 @@ export default function MyLooks({
                   ) : (
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate font-display text-base font-bold uppercase tracking-wide">{row.name}</p>
+                        <div className="flex items-center gap-2">
+                          {row.item?.thumb && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={row.item.thumb} alt="" className="h-9 w-16 shrink-0 border border-line object-cover" />
+                          )}
+                          <p className="truncate font-display text-base font-bold uppercase tracking-wide">{row.name}</p>
+                        </div>
                         <p className="truncate font-mono text-[10px] text-mute">{row.code}</p>
                         <p className="mt-0.5 font-display text-[10px] uppercase tracking-wider text-mute">{row.meta}</p>
                       </div>
