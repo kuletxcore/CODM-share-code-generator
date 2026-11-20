@@ -67,7 +67,7 @@ npm run deploy
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
 
-Preview scenes (`public/samples/`) are stills from MorganPixy's YouTube video "CODM Season 10 2026 - New and Reworked Weapons Showcase", recorded on the default filter with no HUD; the site credits the channel under the scene picker.
+Preview scenes (`public/samples/`) are CODM frames on the default filter. Combine, Hijacked and Crossfire are the owner's own captures; Shipment 2019 and Armada Strike are stills from MorganPixy's YouTube video "CODM Season 10 2026 - New and Reworked Weapons Showcase" (no HUD). The page credits whichever scene is shown.
 
 ## Disclaimer
 

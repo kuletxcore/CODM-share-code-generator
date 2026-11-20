@@ -36,6 +36,8 @@ What changed on `claude-merge` after the arena round 2 merge was written up in [
 - Gallery cards without their own image use the Shipment frame.
 - The scene module is `src/lib/samples.ts`.
 
+**Update: the owner's own captures.** Combine, Hijacked and Crossfire now use screenshots the owner took in CODM on default settings, cropped to 16:9 clear of the HUD at the edges. Shipment 2019 and Armada Strike keep MorganPixy's frames until the owner's captures of those maps arrive. The credit line follows the chosen scene.
+
 ## 2. Three looks shared by creators
 
 | Look | Creator | Game chip | Source |

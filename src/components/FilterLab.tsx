@@ -24,7 +24,7 @@ import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { ScreenTestBar, ScreenTestProvider, useScreenTest } from "@/components/ScreenTest";
-import { DEFAULT_SAMPLE, loadSample, SAMPLE_CREDIT, SAMPLES, type SampleId } from "@/lib/samples";
+import { DEFAULT_SAMPLE, loadSample, SAMPLES, type SampleId } from "@/lib/samples";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -412,7 +412,11 @@ function Preview({
               </button>
             ))}
           </div>
-          <p className="text-xs text-mute">CODM stills on the default filter, from {SAMPLE_CREDIT}&apos;s weapons showcase.</p>
+          <p className="text-xs text-mute">
+            {SAMPLES.find((s) => s.id === scene)?.by === "owner"
+              ? "A CODM screenshot on the default filter, captured for this site."
+              : "A CODM still on the default filter, from MorganPixy\u2019s weapons showcase."}
+          </p>
         </div>
       )}
     </div>
