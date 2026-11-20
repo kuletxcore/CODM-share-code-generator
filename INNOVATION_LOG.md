@@ -56,3 +56,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The new hooks were dormant; the visitor still had no visible undo and no way to trigger shortcuts from the shell.
 - **Ship:** Connected the history hook to settings, added visible undo/redo/help controls, wired action dispatch and mounted the shortcut sheet.
+
+### 10. Clipboard code detection
+
+- **Look:** Codes travel through chat and notes; visitors had to focus a small paste field at the bottom of the page to use one.
+- **Ship:** Added a global paste listener that spots a 22-number code anywhere and offers a one-tap Load toast.
