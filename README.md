@@ -71,3 +71,5 @@ A fan-made project. Not affiliated with, endorsed by or connected to Activision,
 ## Design
 
 Visual direction, tokens, layout states and the reasons behind them live in [DESIGN.md](DESIGN.md). Read it before changing UI.
+
+AI coding agents (any tool) start from [AGENTS.md](AGENTS.md); `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md` and `.aider.conf.yml` only point to it.
