@@ -3,7 +3,7 @@
 // A/B stage: decide between two looks by wiping across a single frame.
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import { LOOKS, type Look } from "@/lib/codm";
 import { Art } from "@/components/LooksGallery";

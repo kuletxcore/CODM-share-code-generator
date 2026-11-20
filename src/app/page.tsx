@@ -5,6 +5,7 @@ import ServiceWorker from "@/components/ServiceWorker";
 import Connectivity from "@/components/Connectivity";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import MotionGate from "@/components/MotionGate";
+import ScrollTools from "@/components/ScrollTools";
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
       <ToastHost />
       <ServiceWorker />
       <Connectivity />
+      <ScrollTools />
     </main>
   );
 }

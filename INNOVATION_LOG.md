@@ -351,3 +351,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The new focus-trap helper and motion gate had no UI or consumers, so keyboard focus could still escape overlays and animation had no in-app switch.
 - **Ship:** Applied focus traps to every dialog and added a Reduce animation toggle to the shortcut sheet.
+
+### 66. Scroll orientation
+
+- **Look:** The page runs from a cinematic stage into a dense editor; there was no indicator of position and no quick way back from the footer.
+- **Ship:** Added a thin progress bar and a back-to-top button that appears after the first screen.

@@ -3,7 +3,7 @@
 // Decode the share code into the things a player can recognise in game.
 
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import { DEFAULT_CODE } from "@/lib/codm";
 import { codeDiff, describeCode, lookForCode, suggestName } from "@/lib/codeTools";
