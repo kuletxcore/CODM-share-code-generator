@@ -151,3 +151,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Players share looks by sending screenshots one at a time; there was no way to hand a squad a single reference of all the options.
 - **Ship:** Added a canvas-rendered, labelled look sheet of the current filtered set and a one-click PNG download.
+
+### 29. Bulk copy codes
+
+- **Look:** Trying several looks meant copying codes one at a time from the stage.
+- **Ship:** Added Copy all, which puts every visible look's code on the clipboard as named, newline-separated entries.
