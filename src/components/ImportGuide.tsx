@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
 
-type Copied = { code: string; name?: string; note?: string; image?: string; source?: "screen-test" };
+type Copied = { code: string; name?: string; note?: string; image?: string; source?: "screen-test"; blocked?: boolean };
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
 export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
@@ -19,6 +19,8 @@ export async function copyText(code: string) {
     await navigator.clipboard.writeText(code);
     return true;
   } catch {
+    // the fallback has to focus a textarea; give focus back to the Copy button after
+    const was = document.activeElement as HTMLElement | null;
     const t = document.createElement("textarea");
     t.value = code;
     document.body.appendChild(t);
@@ -30,6 +32,7 @@ export async function copyText(code: string) {
       ok = false;
     }
     t.remove();
+    was?.focus({ preventScroll: true });
     return ok;
   }
 }
@@ -39,7 +42,7 @@ export async function copyCode(code: string, name?: string, extra: Omit<Copied, 
   const ok = await copyText(code);
   // Open the guide either way: it shows the code with Copy again, which is the
   // way out when the browser blocked the clipboard.
-  announceCopy(code, name, extra);
+  announceCopy(code, name, { ...extra, blocked: !ok });
   return ok;
 }
 
@@ -137,8 +140,15 @@ export default function ImportGuide() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // what had focus before the guide opened (usually a Copy button); it gets focus back on close
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+      opener.current = null;
+      return;
+    }
+    opener.current ??= document.activeElement as HTMLElement | null;
     heading.current?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
     window.addEventListener("keydown", key);
@@ -170,8 +180,11 @@ export default function ImportGuide() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-xs font-bold uppercase tracking-[0.2em] text-lime">
-                  ✓ Code copied{open.name ? ` · ${open.name}` : ""}
+                <p
+                  className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${open.blocked ? "text-text" : "text-lime"}`}
+                >
+                  {open.blocked ? "Copy blocked · select the code below" : "✓ Code copied"}
+                  {open.name ? ` · ${open.name}` : ""}
                 </p>
                 <h2
                   id="guide-title"

@@ -259,8 +259,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
                     source = "screen-test";
                   }
                 }
-                if (await write) setCopied(look.code);
-                announceCopy(look.code, look.name, { note, image, source });
+                const ok = await write;
+                if (ok) setCopied(look.code);
+                announceCopy(look.code, look.name, { note, image, source, blocked: !ok });
               }}
               className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
                 copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
