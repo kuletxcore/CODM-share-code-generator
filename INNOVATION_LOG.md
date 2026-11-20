@@ -261,3 +261,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A grade that looked wrong in game meant starting over: the visitor had to find the editor and rebuild from memory.
 - **Ship:** Wired 'Needs tweaking' back into the generator with the imported grade pinned as the before state for immediate comparison.
+
+### 51. Installable app manifest
+
+- **Look:** A tool used beside a game was still just a browser tab with no home-screen presence or shareable app identity.
+- **Ship:** Added a web app manifest with brand colours, shortcuts to looks and the converter, and the yellow mark as an icon.
