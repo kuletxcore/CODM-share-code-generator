@@ -461,3 +461,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** On phones the fixed code bar took a large share of the viewport above the keyboard.
 - **Ship:** Tightened its vertical spacing at small widths without shrinking any touch target below 44px.
+
+### 88. Density preference
+
+- **Look:** The dense editor had no way to fit more controls on screen on a short laptop display.
+- **Ship:** Added a persisted compact-spacing toggle that scales the Tailwind spacing unit, applied at startup.
