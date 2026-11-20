@@ -26,6 +26,7 @@ import { useHistory } from "@/lib/useHistory";
 import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
 import { normalizeCode } from "@/lib/codeTools";
+import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -395,7 +396,9 @@ export default function FilterLab() {
   const setSettings = hist.set;
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const code = useMemo(() => encode(settings), [settings]);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   useGlobalHotkeys();
   useActions(
     useCallback(
@@ -419,6 +422,18 @@ export default function FilterLab() {
           case "toggle-mode":
             setAdvanced((v) => !v);
             break;
+          case "open-my-looks":
+            setLibraryOpen(true);
+            break;
+          case "save-look": {
+            const saved = saveLookCode(code);
+            notify(
+              saved
+                ? { title: "Look saved", detail: saved.name, tone: "good", action: { label: "Open library", run: () => act("open-my-looks") } }
+                : { title: "Already saved", detail: "That code is in My Looks.", tone: "warn" },
+            );
+            break;
+          }
           case "focus-editor": {
             const tab = (detail as { tab?: string } | undefined)?.tab;
             if (tab && ZONE_TABS.includes(tab as ZoneKey)) {
@@ -430,7 +445,7 @@ export default function FilterLab() {
           }
         }
       },
-      [hist.undo, hist.redo, hist.canUndo, hist.canRedo],
+      [hist.undo, hist.redo, hist.canUndo, hist.canRedo, code],
     ),
   );
 
@@ -463,8 +478,6 @@ export default function FilterLab() {
     window.addEventListener("paste", on);
     return () => window.removeEventListener("paste", on);
   }, [hist.reset]);
-
-  const code = useMemo(() => encode(settings), [settings]);
 
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
@@ -541,6 +554,14 @@ export default function FilterLab() {
           </p>
         </div>
         <div className="flex items-center gap-1 self-end">
+        <button
+          onClick={() => act("open-my-looks")}
+          aria-label="Open My Looks"
+          title="My Looks"
+          className="cut-sm flex h-11 items-center gap-2 border border-line bg-panel/80 px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:border-codm hover:text-text"
+        >
+          ☆ <span className="hidden sm:inline">My Looks</span>
+        </button>
         <button
           onClick={() => act("undo")}
           disabled={!hist.canUndo}
@@ -895,6 +916,7 @@ export default function FilterLab() {
       <ImportGuide />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
       <ShortcutsHelp />
+      <MyLooks open={libraryOpen} onClose={() => setLibraryOpen(false)} onLoad={loadCode} currentCode={code} />
     </div>
   );
 }

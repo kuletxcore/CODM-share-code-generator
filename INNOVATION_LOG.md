@@ -71,3 +71,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A copied code disappeared as soon as the tab closed; there was no way to keep a favourite grade or return to an earlier experiment.
 - **Ship:** Added a local library drawer with saved, favourited and recent looks, inline rename/delete, JSON import/export and a one-tap Save current code.
+
+### 13. Library wired into the shell
+
+- **Look:** The drawer had no trigger and saving from a shortcut did nothing; the feature was unreachable.
+- **Ship:** Connected My Looks to the action bus and header, exposed a shared save helper, and kept the code memo above the handler dependencies.

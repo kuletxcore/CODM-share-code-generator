@@ -12,6 +12,20 @@ import { act } from "@/lib/actions";
 
 type Recent = { name: string; code: string; at: number };
 
+/** Save from anywhere in the app (header button, keyboard S, command palette). */
+export function saveLookCode(code: string): SavedLook | null {
+  const list = readJson<SavedLook[]>(K.looks, []);
+  if (list.some((l) => l.code === code)) return null;
+  const item: SavedLook = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: suggestName(code),
+    code,
+    created: Date.now(),
+  };
+  writeJson(K.looks, [item, ...list]);
+  return item;
+}
+
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
   const a = document.createElement("a");
@@ -57,25 +71,16 @@ export default function MyLooks({
   }, [open, onClose]);
 
   const save = () => {
-    const list = readJson<SavedLook[]>(K.looks, []);
-    if (list.some((l) => l.code === currentCode)) {
+    const item = saveLookCode(currentCode);
+    if (!item) {
       notify({ title: "Already saved", detail: "That code is in My Looks.", tone: "warn" });
       return;
     }
-    const item: SavedLook = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: suggestName(currentCode),
-      code: currentCode,
-      created: Date.now(),
-    };
-    writeJson(K.looks, [item, ...list]);
     refresh();
     notify({ title: "Look saved", detail: item.name, tone: "good", action: { label: "Rename", run: () => {
       setTab("saved");
       setEditing(item.id);
       setDraft(item.name);
-      onClose();
-      act("open-my-looks");
     } } });
   };
 
@@ -102,7 +107,7 @@ export default function MyLooks({
     }
   };
 
-  const rows =
+  const rows: { key: string; name: string; code: string; meta: string; item?: SavedLook }[] =
     tab === "saved"
       ? looks.map((l) => ({ key: l.id, name: l.name, code: l.code, meta: new Date(l.created).toLocaleDateString(), item: l }))
       : tab === "favorites"
@@ -172,11 +177,11 @@ export default function MyLooks({
               )}
               {rows.map((row) => (
                 <div key={row.key} className="mb-2 border border-line bg-panel-2/60 p-3">
-                  {editing === (row as { item?: SavedLook }).item?.id ? (
+                  {editing === row.item?.id ? (
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        rename((row as { item: SavedLook }).item.id);
+                        rename(row.item!.id);
                       }}
                       className="flex gap-2"
                     >
@@ -204,11 +209,11 @@ export default function MyLooks({
                         >
                           Load
                         </button>
-                        {"item" in row && (
+                        {row.item && (
                           <>
                             <button
                               onClick={() => {
-                                setEditing((row as { item: SavedLook }).item.id);
+                                setEditing(row.item!.id);
                                 setDraft(row.name);
                               }}
                               aria-label={`Rename ${row.name}`}
@@ -218,7 +223,7 @@ export default function MyLooks({
                             </button>
                             <button
                               onClick={() => {
-                                writeJson(K.looks, looks.filter((l) => l.id !== (row as { item: SavedLook }).item.id));
+                                writeJson(K.looks, looks.filter((l) => l.id !== row.item!.id));
                                 refresh();
                               }}
                               aria-label={`Delete ${row.name}`}
