@@ -456,3 +456,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Toasts vanished on a fixed timer with no cue that they were about to disappear.
 - **Ship:** Added a draining progress line that matches each toast's lifetime.
+
+### 87. Compact mobile code bar
+
+- **Look:** On phones the fixed code bar took a large share of the viewport above the keyboard.
+- **Ship:** Tightened its vertical spacing at small widths without shrinking any touch target below 44px.
