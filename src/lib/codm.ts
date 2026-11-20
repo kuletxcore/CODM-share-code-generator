@@ -517,7 +517,7 @@ export type Look = {
   game?: Game;
 };
 
-export const GAMES = ["MW4", "Black Ops 7", "MWII", "Vanguard", "MW 2019", "Cold War"] as const;
+export const GAMES = ["MW4", "Black Ops 7", "Black Ops 6", "MWIII", "MWII", "Vanguard", "MW 2019", "Cold War", "CODM"] as const;
 export type Game = (typeof GAMES)[number];
 
 /** Ready-made looks shown in the gallery. */
@@ -645,6 +645,22 @@ export const LOOKS: Look[] = [
     inGame: true,
   },
   {
+    // HunterRafi, "Turn COD Mobile into MODERN WARFARE 2019 - COD Mobile Best
+    // Colour Settings" (youtu.be/vi1WYrsuXDs, 2 Jan 2026). No code is posted;
+    // this one is rebuilt from the four settings pages shown at 0:23-0:44
+    // (Simple: Preset #2, Red 98 / Tint 24 / Sat 42 / Bri 56; Shadows Orange
+    // 13/18/51/60; Midtones Orange 14/14/47/75; Highlights Red 0/1/36/70, the
+    // shown Tint 1 being the game's display of 0). Range handles measured from
+    // the bar at about 17.5% and 89%, so they are within about 2% of his.
+    name: "MW2019 (HunterRafi)",
+    game: "MW 2019",
+    note: "HunterRafi's MW 2019 settings: warm, bright midtones and highlights, softer colour",
+    mode: "Advanced",
+    code: "1_1_175_275_890_990_123_240_120_840_141_180_200_1020_143_140_500_940_0_0_400_720",
+    image: "/looks/mw2019-hunterrafi.webp",
+    inGame: true,
+  },
+  {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Caldera",
     game: "Vanguard",
@@ -672,6 +688,49 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: PRESETS[2].code,
     image: "/looks/cold-war.webp",
+  },
+  {
+    // Mr.CODM_PRO_YT, "Low End Device Best Colour graphics settings in CODM BR"
+    // (youtu.be/kRGy1BqMwgo, 13 Nov 2026), made for CODM's Verdansk on low-end
+    // phones. No code is posted; rebuilt from the Simple panel it shows: Blue,
+    // Hue 94, Tint 12, Saturation 51, Brightness 44. The card is the filtered
+    // half of that Short, cropped clear of the HUD and the creator's watermark.
+    name: "Verdansk Low-End",
+    game: "CODM",
+    note: "Mr.CODM_PRO_YT's setting for CODM Verdansk on low-end phones: slight blue tint, a touch darker",
+    mode: "Simple",
+    code: "0_1_30_300_1000_1500_743_120_-120_1020_0_0_0_1000_0_0_0_1000_0_0_0_1000",
+    image: "/looks/verdansk-low-end.webp",
+    inGame: true,
+  },
+  {
+    // Kith, "The BEST Settings To See Enemies Better in CODM"
+    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). No code is posted; rebuilt from the
+    // final state of each page in his walkthrough (1:19, 1:41, 1:53): Shadows
+    // Cyan 90 / Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / 90 / 65 / 80,
+    // Highlights Orange 0 / 1 (shown; 0 in code) / 30 / 50; Range left at the
+    // ends; Preset #5. The card is a "Setting: ON" frame from the video.
+    name: "Kith",
+    game: "CODM",
+    note: "Kith's visibility settings: lifted cyan shadows, strong red-tinted mids, softer highlights",
+    mode: "Advanced",
+    code: "4_1_30_300_1000_1500_0_0_0_1000_613_50_1000_1300_13_900_600_1300_125_0_0_600",
+    image: "/looks/kith.webp",
+    inGame: true,
+  },
+  {
+    // Serotonin, "Best Color Settings for CODM to Spot Enemies Faster!"
+    // (youtu.be/MvEatDU4eiE, 30 Jun 2026). A tutorial that tries several
+    // colours; this is the state he saves in the closing recap (6:24-6:32):
+    // Simple Blue 98 / Tint 25 / Sat 25 / Bri 70 (Preset #1), Highlights Red
+    // 0 / 25 / 70 / 100, Midtones Red 98 / 15 / 80 / 70, and the last Shadows
+    // page shown (3:13-3:18), Green 96 / 25 / 90 / 95. Range at the default.
+    // No card: the video is 360p, so the look is shown on the preview scene.
+    name: "Serotonin",
+    game: "CODM",
+    note: "Serotonin's spotting settings: bright green-tinted shadows, warm saturated mids, very bright highlights",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_748_250_400_500_495_250_900_1800_123_150_400_1600_0_250_1000_1400",
   },
   {
     name: "Default",
