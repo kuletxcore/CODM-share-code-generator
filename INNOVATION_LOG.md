@@ -421,3 +421,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A grade could only travel as an opaque 22-number string; there was no way to send a named grade to someone with context.
 - **Ship:** Added copy/import of a small named JSON payload in the inspector.
+
+### 80. Code history tab
+
+- **Look:** Only gallery looks were remembered; custom grades that were never saved vanished from the session.
+- **Ship:** Added a history tab in My Looks that records the last 14 edited codes with timestamps and names.
