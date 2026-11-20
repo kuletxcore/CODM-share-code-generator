@@ -21,3 +21,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Saved state was about to be added, but direct localStorage calls would crash in private mode and on quota errors.
 - **Ship:** Added a guarded storage module with JSON helpers, typed preferences and a saved-look schema.
+
+### 3. Decoupled action bus
+
+- **Look:** UI pieces were being threaded through props: the palette, shortcuts and future overlays would each need a new prop on FilterLab.
+- **Ship:** Added a typed app-action event bus and useActions hook so any control can request a shell action without prop drilling.
