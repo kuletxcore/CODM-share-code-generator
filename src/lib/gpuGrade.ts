@@ -1,4 +1,4 @@
-import { defaultSettings, gradeUniforms, type Settings } from "@/lib/codm";
+import { defaultSettings, encode, gradeUniforms, type Settings } from "@/lib/codm";
 
 /*
  * applyGrade from codm.ts, run as a WebGL fragment shader. Same maths per
@@ -114,15 +114,23 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uSplitX = u("uSplitX");
   let w = 1,
     h = 1;
+  let lastCode = "";
+  let lastSplit = -1;
 
   return {
     setSource(src) {
+      lastCode = "";
+      lastSplit = -1;
       w = canvas.width = src.width;
       h = canvas.height = src.height;
       gl.viewport(0, 0, w, h);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     },
     render(s, split) {
+      const code = encode(s);
+      if (code === lastCode && split === lastSplit) return;
+      lastCode = code;
+      lastSplit = split;
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);

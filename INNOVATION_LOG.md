@@ -306,3 +306,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The custom display and mono fonts were discovered only after CSS loaded, causing a visible type swap on the title and every code.
 - **Ship:** Preloaded the three typefaces used above the fold.
+
+### 57. Adjacent thumbnail preload
+
+- **Look:** Scrolling the filmstrip showed blank cards for a moment while each new thumbnail was fetched.
+- **Ship:** Added idle preloading of neighbouring look thumbnails so selecting the next look feels instant.

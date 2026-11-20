@@ -81,8 +81,8 @@ export default function TonalScope({
       return;
     }
     const o = ghost.current ?? (ghost.current = document.createElement("canvas"));
-    o.width = SAMPLE_W;
-    o.height = SAMPLE_H;
+    if (o.width !== SAMPLE_W) o.width = SAMPLE_W;
+    if (o.height !== SAMPLE_H) o.height = SAMPLE_H;
     const octx = o.getContext("2d", { willReadFrequently: true });
     if (!octx) return;
     octx.drawImage(src, 0, 0, SAMPLE_W, SAMPLE_H);
@@ -177,10 +177,27 @@ export default function TonalScope({
 
   // the 3D scene and uploads arrive after first paint, so re-read the canvas now and then
   useEffect(() => {
-    const poll = window.setInterval(() => {
+    let timer = 0;
+    let cancelled = false;
+    const poll = () => {
+      if (cancelled) return;
       if (!document.hidden) paint();
-    }, 800);
-    return () => clearInterval(poll);
+      const later = (fn: () => void) =>
+        typeof requestIdleCallback === "function"
+          ? requestIdleCallback(fn, { timeout: 1400 })
+          : (timer = window.setTimeout(fn, 1100));
+      later(poll);
+    };
+    const start = (fn: () => void) =>
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(fn, { timeout: 1400 })
+        : (timer = window.setTimeout(fn, 1100));
+    start(poll);
+    return () => {
+      cancelled = true;
+      if (typeof cancelIdleCallback === "function") cancelIdleCallback(timer);
+      else window.clearTimeout(timer);
+    };
   }, [paint]);
 
   useEffect(() => {

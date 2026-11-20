@@ -252,14 +252,23 @@ function Preview({
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
   useEffect(() => {
     let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
-      .then((c) => {
-        if (live && c && scene === "urban") setSample(c);
-      })
-      .catch(() => {});
+    let timer = 0;
+    const later = (fn: () => void) =>
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(fn, { timeout: 1200 })
+        : (timer = window.setTimeout(fn, 350));
+    const id = later(() => {
+      import("@/lib/scene")
+        .then((m) => m.renderScene(960, 540))
+        .then((c) => {
+          if (live && c && scene === "urban") setSample(c);
+        })
+        .catch(() => {});
+    });
     return () => {
       live = false;
+      if (typeof cancelIdleCallback === "function") cancelIdleCallback(id);
+      else window.clearTimeout(timer);
     };
   }, [scene]);
   const [split, setSplit] = useState(0);
