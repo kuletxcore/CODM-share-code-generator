@@ -101,3 +101,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** An empty favourites filter left the stage showing an unrelated look, and chips hid how many looks they contained.
 - **Ship:** Added a proper empty state with a reset action, per-chip counts, and a guard against undefined look selection.
+
+### 19. Resume and Surprise me
+
+- **Look:** Returning visitors had to scan twelve titles again, and there was no low-friction way to explore.
+- **Ship:** Added a Resume shortcut to the last viewed look and a Surprise me button that jumps to a random look with one tap.
