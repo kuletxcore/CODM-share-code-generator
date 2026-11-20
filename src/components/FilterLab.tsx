@@ -35,6 +35,7 @@ import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
 import { copyText } from "@/lib/clipboard";
 import Changelog from "@/components/Changelog";
+import Feedback from "@/components/Feedback";
 import QuickTweaks from "@/components/QuickTweaks";
 import { getPrefs, setPref } from "@/lib/storage";
 
@@ -1510,6 +1511,7 @@ function Notes() {
           Shortcuts
         </button>
         <Changelog />
+        <Feedback />
       </div>
       <div className="grid gap-8 md:grid-cols-3">
       <div>

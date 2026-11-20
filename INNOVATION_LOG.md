@@ -371,3 +371,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A code changes on every slider move, but nothing announced the result to assistive technology.
 - **Ship:** Added a polite live region announcing how far the current code has moved from the in-game default.
+
+### 70. Local rating widget
+
+- **Look:** There was no signal of whether the tool helped a player get a code into the game, and no unobtrusive way for them to say so.
+- **Ship:** Added a three-tap rating dialog that stores the answer locally and thanks the visitor without analytics or network calls.
