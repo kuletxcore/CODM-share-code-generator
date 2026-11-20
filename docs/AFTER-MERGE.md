@@ -112,12 +112,19 @@ These use the same method as 2035 and Avalon: per-video medians of the zone anal
 
 | Look | Sources | Result | Confidence |
 |---|---|---|---|
-| MWIII | Five multiplayer videos. The cluAqepnjEY slices were cropped to the left 70% to remove the facecam. | Cooler shadows; less saturated across the range | Medium: 3 of 5 videos lean cool in the shadows, 2 lean warm; all are less saturated than the pool |
-| Black Ops 6 | Two weapon-inspect videos on one firing range, plus the first 15 s of a desert map (Tw7be_2GCHw, one map only) | Darker, green-leaning shadows; muted highlights | Low, and the note says so. The two range videos disagree on the shadow tint, likely because the weapon fills the frame. |
+| MWIII | Five multiplayer videos (the cluAqepnjEY slices cropped to the left 70% to remove the facecam), plus 429 in-game stills of 96 weapons from the archived IMFDB page | Cooler shadows; less saturated across the range; slightly darker shadows | Medium-high: the stills and the videos agree |
+| Black Ops 6 | 396 in-game stills of 125 weapons from the archived IMFDB page, plus two weapon-inspect videos on one firing range and the first 15 s of a desert map | Darker, more saturated shadows; muted, slightly cool highlights | Medium: the stills and the videos agree, except on a green shadow cast that only the firing range showed and the stills drop |
+
+**IMFDB stills.** The owner fetched the galleries from the Wayback Machine copies of the IMFDB pages, onto the `grok-refs` branch (1,200 images, 704 MB).
+- They were used only as analysis input, never merged into the site's branch, because 704 MB would weigh down every clone and Cloudflare build.
+- About a third were weapon renders on dark backdrops or menu shots. These were filtered out automatically: more than half dark, not roughly 16:9, or one flat backdrop colour.
+- Each weapon's in-game shots count as one group, the way each video counts as one.
+- Both looks were derived three ways (videos only, stills only, both). They agreed before the stills were pooled in.
+- The stills may include campaign shots, which can be graded differently. Their agreement with the multiplayer videos suggests they don't skew the result.
 
 **No cards for MWIII and Black Ops 6.** Every MWIII frame carries HUD, objective markers and player names, and the Black Ops 6 frames carry weapon HUD. Both show on the preview scene, labelled "Preview", until there are clean screenshots.
 
-**IMFDB not used.** The IMFDB galleries for MWIII and Black Ops 6 serve a Cloudflare bot check to scripts. It was not bypassed, so neither gallery was used.
+**IMFDB access.** The live IMFDB pages serve a Cloudflare bot check to scripts, and it was not bypassed. The stills came from the archived copies instead (above).
 
 **New chips.** `GAMES` gained **CODM**, **MWIII** and **Black Ops 6**.
 
@@ -134,5 +141,5 @@ GitHub CI and the Cloudflare preview build passed on each push. All downloaded v
 
 - **Test on a phone.** Try the scene picker and the screen test on the [preview](https://claude-merge-codm.kuletxcore.workers.dev), then import one creator look in CODM and compare.
 - **Find the handle's real maximum.** Importing a code with the highlights handle at a very large value would show whether the game clamps it or refuses the code.
-- **Better Black Ops 6 source.** Multiplayer footage across several maps would replace the two-scene Black Ops 6 look. Clean screenshots would give MWIII, Black Ops 6 and Serotonin cards.
+- **Cards for MWIII, Black Ops 6 and Serotonin.** Clean screenshots of your own would give them cards. The IMFDB stills were kept to analysis only.
 - **The deferred list** in [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred): recent and favourite codes, per-look pages, a docking code bar, "Needs tweaking" and duel links.
