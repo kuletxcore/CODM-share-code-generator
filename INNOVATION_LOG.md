@@ -546,3 +546,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Comparing against the in-game reset required finding a small button under the preview.
 - **Ship:** Added a pin-default action to the command palette and the shell.
+
+### 96. Named grade links
+
+- **Look:** Links copied from the code bar restored a code but dropped its name.
+- **Ship:** Included the grade name in copied links and share-sheet URLs.
