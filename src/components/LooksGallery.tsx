@@ -6,7 +6,6 @@ import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } fr
 import { copyCode } from "@/components/ImportGuide";
 import { K, readJson, writeJson } from "@/lib/storage";
 import { codeMood } from "@/lib/codeTools";
-import { decode, type Settings } from "@/lib/codm";
 import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
 import { copyText } from "@/lib/clipboard";
@@ -113,7 +112,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     });
   };
   const moodOf = (look: Look) => {
-    const s = decode(look.code) as Settings;
+    const s = decode(look.code);
     return s ? codeMood(s) : [];
   };
   const MOODS = [...new Set(LOOKS.flatMap(moodOf))].sort();

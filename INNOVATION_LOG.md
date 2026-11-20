@@ -131,3 +131,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Game filters answer where a look came from, not what it looks like; with twelve looks the useful question is warm, cool, vivid or muted.
 - **Ship:** Added computed character chips derived from each code's own values, combined with game/favourite filters and a live result count.
+
+### 25. Fix duplicate import
+
+- **Look:** The character-filter change broke the build because decode was imported twice in the gallery.
+- **Ship:** Removed the duplicate import and restored a green build before continuing the loop.
