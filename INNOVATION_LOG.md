@@ -411,3 +411,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The palette advertised 'Roll a random grade' but no handler existed.
 - **Ship:** Wired the randomize action to a seeded generator with a re-roll toast and history reset.
+
+### 78. Named grades
+
+- **Look:** Saved grades all inherited a generic name, so a library of experiments was hard to scan.
+- **Ship:** Added a persisted name field in the code bar and used it for saved looks.
