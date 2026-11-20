@@ -18,6 +18,7 @@ A fan-made colour-filter share-code generator for Call of Duty: Mobile, live at 
 
 - [README.md](README.md): the 22-number share-code format, how to use a code in game, commands.
 - [DESIGN.md](DESIGN.md): the UI contract (tokens, type, layout states, accessibility, content rules) and why. Read it before any UI change; drift from it is a bug, and a UI change updates it.
+- [ARENA-MERGE-2.md](ARENA-MERGE-2.md): which remake ideas were taken or rejected, and why. Check it before reintroducing one.
 
 ## Commands
 
@@ -35,7 +36,7 @@ npm run build     # static export into out/
 1. **Typecheck needs generated types.** `npm run typecheck` runs `next typegen` before `tsc`; a bare `tsc --noEmit` on a clean clone fails on `LayoutProps`.
 2. **The share codec is strict on purpose.** `decode()` in `src/lib/codm.ts` only accepts 22 integers inside the documented ranges. Do not loosen it; a silently coerced code is a wrong grade in the player's game. Negative brightness (-1000 to 1000) is legal.
 3. **Codec facts come from in-game screenshots.** The README marks what is confirmed. Do not change the mapping (hue = swatch × 125 + slider × 1.25, brightness and saturation offsets) without new in-game evidence.
-4. **The preview grades on the GPU, with a CPU fallback.** `src/lib/gpuGrade.ts` must match `applyGrade` in `codm.ts`; change both together.
+4. **The preview grades on the GPU, with a CPU fallback.** `src/lib/gpuGrade.ts` must match `applyGrade` in `codm.ts`; change both together. `src/lib/grade.test.ts` keeps the original CPU loop as an oracle: an intentional change to the grade maths updates the oracle in the same commit, nothing else does.
 5. **`next dev` rewrites the block at the top of this file.** Leave it, and commit it if it changes.
 
 ## Conventions
