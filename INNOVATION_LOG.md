@@ -341,3 +341,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Muted text and thin borders were hard to see for visitors with high-contrast or forced-colour settings.
 - **Ship:** Added high-contrast token overrides, forced-colour fallbacks and a global reduced-motion override.
+
+### 64. Motion preference gate
+
+- **Look:** Motion was controlled only by the OS setting; there was no in-app way to turn animation off.
+- **Ship:** Added a motion gate that applies system and in-app preference to both CSS and Motion components.
