@@ -206,3 +206,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Every look was judged on one street scene; subtle warm and cool grades read differently against sky, skin and sand.
 - **Ship:** Added procedural desert-range and operator-portrait preview scenes alongside the original urban sample.
+
+### 40. Scene switcher persisted
+
+- **Look:** The extra scenes had no route into the preview.
+- **Ship:** Added a scene switcher in the preview controls, kept the 3D scene only for urban, and persisted the choice across visits.
