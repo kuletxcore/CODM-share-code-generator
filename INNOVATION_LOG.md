@@ -81,3 +81,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The landing page opened into a long visual gallery with two editor modes below the fold; a visitor had to guess where to start.
 - **Ship:** Added a first-run chooser with three clear routes — copy a look, build a filter, or convert a screenshot — remembered after the first visit.
+
+### 15. Chooser wired to the page
+
+- **Look:** The onboarding overlay was disconnected from the converter mode and not mounted.
+- **Ship:** Mounted the chooser in the shell and connected its converter route to the existing mode switch.
