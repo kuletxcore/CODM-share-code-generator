@@ -486,3 +486,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** There was no way to clear preferences, history, favourites and saved looks at once; privacy-minded visitors had to dig through each storage key.
 - **Ship:** Added a two-tap Confirm reset action in My Looks that clears every app key and reloads.
+
+### 93. Keyboard gallery control
+
+- **Look:** Arrow keys worked only after focusing the filmstrip; the stage itself had no global keyboard navigation.
+- **Ship:** Added Left/Right actions that move the gallery look from anywhere outside a text field, and documented them in the shortcut sheet.
