@@ -476,3 +476,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The code inspector was only reachable from the fixed bar at the bottom of the page, far from the look being considered.
 - **Ship:** Added a Decode action directly on the look stage.
+
+### 91. Local session stats
+
+- **Look:** The help sheet listed shortcuts but gave no sense of how much work the tool had already done on this device.
+- **Ship:** Added factual local counters for codes edited and looks saved to the help panel.

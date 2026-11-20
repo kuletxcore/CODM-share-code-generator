@@ -5,6 +5,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { act, useActions } from "@/lib/actions";
+import { K, readJson } from "@/lib/storage";
 
 const SHORTCUTS: [string, string][] = [
   ["⌘K  /  Ctrl+K  /  /", "Open quick find"],
@@ -16,6 +17,7 @@ const SHORTCUTS: [string, string][] = [
   ["F", "Fullscreen preview"],
   ["S", "Save current look"],
   ["R", "Roll a seeded random grade"],
+  ["← · →", "Previous / next look"],
   ["Esc", "Close any overlay"],
 ];
 
@@ -49,6 +51,10 @@ export function useGlobalHotkeys() {
         act("save-look");
       } else if (e.key === "r" || e.key === "R") {
         act("randomize");
+      } else if (e.key === "ArrowRight") {
+        act("gallery-next");
+      } else if (e.key === "ArrowLeft") {
+        act("gallery-prev");
       } else if (["1", "2", "3"].includes(e.key)) {
         act("focus-editor", { tab: ["shadows", "midtones", "highlights"][Number(e.key) - 1] });
       }
@@ -61,6 +67,14 @@ export function useGlobalHotkeys() {
 /** Self-contained overlay: subscribes to the open-help action itself. */
 export function ShortcutsHelp() {
   const [open, setOpen] = useState(false);
+  const [stats, setStats] = useState({ edits: 0, saved: 0 });
+  useActions((a) => {
+    if (a === "open-help")
+      setStats({
+        edits: readJson<unknown[]>(K.history, []).length,
+        saved: readJson<unknown[]>(K.looks, []).length,
+      });
+  });
   useActions((a) => {
     if (a === "open-help") setOpen((v) => !v);
     if (a === "close-overlays") setOpen(false);
@@ -143,6 +157,9 @@ export function ShortcutsHelp() {
                 className="h-5 w-5 accent-[var(--color-codm)]"
               />
             </label>
+            <p className="mt-3 border-t border-line pt-3 font-mono text-[11px] text-mute">
+              On this device: {stats.edits} codes edited · {stats.saved} looks saved · nothing uploaded.
+            </p>
             <p className="mt-3 text-xs text-mute">
               Shortcuts pause while you are typing in a field. Everything here also has a button.
             </p>

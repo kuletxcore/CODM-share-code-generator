@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import { K, pushUnique, readJson, removeKey, writeJson, type SavedLook } from "@/lib/storage";
 import { suggestName } from "@/lib/codeTools";
+import { LOOKS } from "@/lib/codm";
 import { notify } from "@/components/Toasts";
 import { act } from "@/lib/actions";
 
@@ -48,7 +49,7 @@ export default function MyLooks({
   onLoad: (code: string) => void;
   currentCode: string;
 }) {
-  const [tab, setTab] = useState<"saved" | "favorites" | "recent" | "history">("saved");
+  const [tab, setTab] = useState<"saved" | "favorites" | "recent" | "history" | "built-in">("saved");
   const [looks, setLooks] = useState<SavedLook[]>([]);
   const [favs, setFavs] = useState<string[]>([]);
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -123,6 +124,8 @@ export default function MyLooks({
           })
         : tab === "recent"
           ? recent.map((r) => ({ key: r.code, name: r.name, code: r.code, meta: "Recently viewed" }))
+          : tab === "built-in"
+          ? LOOKS.map((l) => ({ key: `b-${l.name}`, name: l.name, code: l.code, meta: l.game ?? "Default" }))
           : history.map((r) => ({ key: `${r.code}-${r.at}`, name: r.name, code: r.code, meta: new Date(r.at).toLocaleString() }));
 
   return (
@@ -159,7 +162,7 @@ export default function MyLooks({
             </div>
 
             <div className="flex gap-1 border-b border-line px-4 py-2">
-              {(["saved", "favorites", "recent", "history"] as const).map((t) => (
+              {(["saved", "favorites", "recent", "history", "built-in"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -170,7 +173,7 @@ export default function MyLooks({
                 >
                   {t}
                   <span className="ml-1 font-mono text-[10px]">
-                    {t === "saved" ? looks.length : t === "favorites" ? favs.length : t === "recent" ? recent.length : history.length}
+                    {t === "saved" ? looks.length : t === "favorites" ? favs.length : t === "recent" ? recent.length : t === "history" ? history.length : LOOKS.length}
                   </span>
                 </button>
               ))}
@@ -183,6 +186,7 @@ export default function MyLooks({
                   {tab === "favorites" && "Tap the star on a gallery look to keep it here."}
                   {tab === "recent" && "Looks you open will show up here."}
                   {tab === "history" && "Every code you have edited this session stays here."}
+                  {tab === "built-in" && "All ready-made looks, ready to load into the generator."}
                 </div>
               )}
               {rows.map((row) => (
@@ -274,6 +278,21 @@ export default function MyLooks({
                   Clear local library
                 </button>
               )}
+              <button
+                onClick={(e) => {
+                  const btn = e.currentTarget;
+                  if (btn.dataset.armed !== "1") {
+                    btn.dataset.armed = "1";
+                    btn.textContent = "Tap again to erase every local setting";
+                    return;
+                  }
+                  Object.values(K).forEach(removeKey);
+                  location.reload();
+                }}
+                className="col-span-2 min-h-10 text-xs text-[#ff7a6b] hover:underline"
+              >
+                Reset all app data
+              </button>
             </div>
           </motion.aside>
         </motion.div>

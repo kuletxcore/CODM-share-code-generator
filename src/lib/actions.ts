@@ -23,7 +23,9 @@ export type AppAction =
   | "fullscreen-preview"
   | "revisit-onboarding"
   | "share-tool"
-  | "close-overlays";
+  | "close-overlays"
+  | "gallery-next"
+  | "gallery-prev";
 
 export function act(action: AppAction, detail?: unknown) {
   if (typeof window !== "undefined")

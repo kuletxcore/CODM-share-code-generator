@@ -9,7 +9,7 @@ import { codeMood } from "@/lib/codeTools";
 import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
 import { copyText } from "@/lib/clipboard";
-import { act } from "@/lib/actions";
+import { act, useActions } from "@/lib/actions";
 import { downloadLookSheet } from "@/lib/contactSheet";
 
 // One render of the 3D scene shared by every card without an image; each
@@ -131,6 +131,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const look = shown[Math.min(active, shown.length - 1)] ?? LOOKS[0];
   const [recent, setRecent] = useState<{ name: string; code: string }[]>([]);
   useEffect(() => setRecent(readJson<{ name: string; code: string }[]>(K.recent, [])), [active]);
+
+  useActions((a) => {
+    if (a === "gallery-next") pick(active + 1);
+    if (a === "gallery-prev") pick(active - 1);
+  });
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("codm:look-active", { detail: look?.name ?? "" }));
