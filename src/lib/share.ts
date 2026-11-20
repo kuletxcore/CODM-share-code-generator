@@ -355,7 +355,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   ctx.fillText(lineA, PX + 16, codeY + 38);
   ctx.fillText(lineB, PX + 16, codeY + 64);
 
-  const qr = await qrMatrix(shareUrl(p.code));
+  const qr = await qrMatrix(shareUrl(p.code, p.name));
   const qrSize = 150;
   const qrX = PX;
   const qrY = CARD_H - 40 - qrSize;

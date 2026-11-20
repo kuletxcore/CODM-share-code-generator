@@ -491,3 +491,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Arrow keys worked only after focusing the filmstrip; the stage itself had no global keyboard navigation.
 - **Ship:** Added Left/Right actions that move the gallery look from anywhere outside a text field, and documented them in the shortcut sheet.
+
+### 97. Named copy format
+
+- **Look:** A code copied with a name had to be typed out separately; the clipboard format was always bare numbers.
+- **Ship:** Added a toggle in the code actions to copy 'Name — code' while keeping the default bare-code behaviour.

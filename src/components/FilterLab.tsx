@@ -36,6 +36,7 @@ import CompareMode from "@/components/CompareMode";
 import { copyText } from "@/lib/clipboard";
 import Changelog from "@/components/Changelog";
 import Feedback from "@/components/Feedback";
+import GradeQr from "@/components/GradeQr";
 import QuickTweaks from "@/components/QuickTweaks";
 import { getPrefs, setPref, pushUnique, K } from "@/lib/storage";
 
@@ -235,6 +236,7 @@ function Preview({
   view,
   snapshot,
   onPin,
+  onPinDefault,
   onFullscreen,
 }: {
   settings: Settings;
@@ -244,6 +246,7 @@ function Preview({
   view: React.RefObject<HTMLCanvasElement | null>;
   snapshot?: Settings | null;
   onPin?: () => void;
+  onPinDefault?: () => void;
   onFullscreen?: () => void;
 }) {
   const [scene, setScene] = useState<SceneKind>(() => getPrefs().scene ?? "urban");
@@ -535,6 +538,13 @@ function Preview({
           ⌕ Loupe
         </button>
         <button
+          onClick={onPinDefault}
+          className="cut-sm min-h-11 border border-line bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+          title="Compare this grade with the in-game default"
+        >
+          ⌗ Pin default
+        </button>
+        <button
           onClick={onFullscreen}
           className="cut-sm min-h-11 border border-line bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
           title="Fullscreen preview (F)"
@@ -713,6 +723,13 @@ export default function FilterLab() {
     const m = location.hash.match(/c=([-\d_]+)/);
     const q = new URLSearchParams(location.search).get("code");
     const s = (m && decode(m[1])) || (q && decode(q));
+    const n = location.hash.match(/[&?]n=([^&]+)/)?.[1];
+    if (n) {
+      const label = decodeURIComponent(n);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLookName(label);
+      setPref("name", label);
+    }
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1011,6 +1028,10 @@ export default function FilterLab() {
                   onPin={() => {
                     setSnapshot((s) => (s ? null : settings));
                     notify(snapshot ? { title: "Before cleared" } : { title: "Before pinned", detail: "Wipe to compare with your edits.", tone: "good" });
+                  }}
+                  onPinDefault={() => {
+                    setSnapshot(defaultSettings());
+                    notify({ title: "Default pinned", detail: "Wipe to compare against the reset state.", tone: "good" });
                   }}
                   onFullscreen={() => act("fullscreen-preview")}
                 />
@@ -1440,6 +1461,7 @@ function CodeBar({
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
   const [more, setMore] = useState(false);
+  const [withName, setWithName] = useState(false);
   const previousCode = useRef(code);
   const diffIndices = useMemo(() => codeDiff(code, previousCode.current), [code]);
   const changed = useMemo(() => codeDiff(code, DEFAULT_CODE).length, [code]);
@@ -1449,7 +1471,7 @@ function CodeBar({
   const inputOk = normalizeCode(input) !== null;
 
   const copy = async () => {
-    await copyCode(code);
+    await copyCode(withName && name.trim() ? `${name.trim()} — ${code}` : code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
@@ -1493,6 +1515,22 @@ function CodeBar({
           <button onClick={downloadText} className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line">
             ⤓ Save .txt
           </button>
+          <button
+            onClick={() => setWithName((v) => !v)}
+            aria-pressed={withName}
+            title="Include the grade name in the copied text"
+            className={`min-h-11 border px-3 font-display text-xs font-bold uppercase tracking-wide ${
+              withName ? "border-codm bg-codm/15 text-codm-light" : "border-line bg-panel-2 text-mute hover:text-text"
+            }`}
+          >
+            {withName ? "Copy: name + code" : "Copy: code only"}
+          </button>
+          <div className="flex items-center gap-3 border border-line bg-panel-2 px-2 py-1">
+            <GradeQr code={code} />
+            <span className="max-w-32 font-display text-[11px] leading-tight text-mute">
+              Scan to open this grade on your phone.
+            </span>
+          </div>
           <label className="flex min-w-48 flex-1 items-center gap-2 border border-line bg-panel-2 px-2">
             <span className="font-display text-[10px] font-bold uppercase tracking-wider text-mute">Name</span>
             <input

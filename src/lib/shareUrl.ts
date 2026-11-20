@@ -8,7 +8,8 @@ export type DeployPayload = {
 };
 
 /** Absolute link that restores this grade; the page reads `#c=<code>` on load. */
-export function shareUrl(code: string): string {
+export function shareUrl(code: string, name?: string): string {
   if (typeof window === "undefined") return "";
-  return `${window.location.origin}${window.location.pathname}#c=${code}`;
+  const label = name ? `&n=${encodeURIComponent(name)}` : "";
+  return `${window.location.origin}${window.location.pathname}#c=${code}${label}`;
 }

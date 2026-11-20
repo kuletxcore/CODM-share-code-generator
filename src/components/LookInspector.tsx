@@ -30,6 +30,8 @@ export default function LookInspector({
   onLoad: (code: string) => void;
 }) {
   const [diffOnly, setDiffOnly] = useState(false);
+  const [showDefault, setShowDefault] = useState(false);
+  const defaultFields = useMemo(() => describeCode(DEFAULT_CODE), []);
   const dialog = useRef<HTMLDivElement>(null);
   useFocusTrap(dialog, !!open);
   const fields = useMemo(() => describeCode(code), [code]);
@@ -73,10 +75,16 @@ export default function LookInspector({
               <p className="text-xs text-mute">
                 {diff.length ? `${diff.length} of 22 values differ from the in-game default.` : "This is the in-game default code."}
               </p>
-              <label className="flex min-h-10 cursor-pointer items-center gap-2 font-display text-xs font-bold uppercase tracking-wide text-mute">
-                <input type="checkbox" checked={diffOnly} onChange={(e) => setDiffOnly(e.target.checked)} className="h-4 w-4 accent-[var(--color-codm)]" />
-                Changed only
-              </label>
+              <div className="flex gap-3">
+                <label className="flex min-h-10 cursor-pointer items-center gap-2 font-display text-xs font-bold uppercase tracking-wide text-mute">
+                  <input type="checkbox" checked={diffOnly} onChange={(e) => setDiffOnly(e.target.checked)} className="h-4 w-4 accent-[var(--color-codm)]" />
+                  Changed only
+                </label>
+                <label className="flex min-h-10 cursor-pointer items-center gap-2 font-display text-xs font-bold uppercase tracking-wide text-mute">
+                  <input type="checkbox" checked={showDefault} onChange={(e) => setShowDefault(e.target.checked)} className="h-4 w-4 accent-[var(--color-lime)]" />
+                  Show default
+                </label>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -98,6 +106,9 @@ export default function LookInspector({
                           </dt>
                           <dd className={`font-mono text-xs tabular-nums ${diff.includes(f.i) ? "text-codm-light" : "text-text"}`}>
                             {f.value}
+                            {showDefault && (
+                              <span className="ml-2 text-mute">/ {defaultFields?.[f.i]?.value}</span>
+                            )}
                           </dd>
                         </div>
                       ))}
