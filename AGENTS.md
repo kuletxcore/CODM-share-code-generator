@@ -18,7 +18,8 @@ A fan-made colour-filter share-code generator for Call of Duty: Mobile, live at 
 
 - [README.md](README.md): the 22-number share-code format, how to use a code in game, commands.
 - [DESIGN.md](DESIGN.md): the UI contract (tokens, type, layout states, accessibility, content rules) and why. Read it before any UI change; drift from it is a bug, and a UI change updates it.
-- [ARENA-MERGE-2.md](ARENA-MERGE-2.md): which remake ideas were taken or rejected, and why. Check it before reintroducing one.
+- [docs/ARENA-MERGE-2.md](docs/ARENA-MERGE-2.md): which remake ideas were taken or rejected, and why. Check it before reintroducing one.
+- [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md): what changed after that merge, including the in-game evidence behind the share-code rules.
 
 ## Commands
 

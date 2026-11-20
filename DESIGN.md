@@ -120,7 +120,7 @@ States are set where the content breaks, not by device:
 
 ## What was merged from the arena remakes, and what was not
 
-Round 2 (nine remakes, judged with fresh-context reviewers) is written up in [ARENA-MERGE-2.md](ARENA-MERGE-2.md). It added the screen test, undo/redo, the link preview card, honest copy results, the screen-reader fixes and a faster CPU grade, and dropped the Blend Atlas, Vibe Finder, Duel, the wall of looks, the live-frame rewrite and both service workers. The tables below are round 1.
+Round 2 (nine remakes, judged with fresh-context reviewers) is written up in [docs/ARENA-MERGE-2.md](docs/ARENA-MERGE-2.md), and what followed in [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md). It added the screen test, undo/redo, the link preview card, honest copy results, the screen-reader fixes and a faster CPU grade, and dropped the Blend Atlas, Vibe Finder, Duel, the wall of looks, the live-frame rewrite and both service workers. The tables below are round 1.
 
 Eight remakes branched from the same commit. Ideas that several of them reached independently were weighted more.
 
