@@ -316,3 +316,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The three.js scene imported and rendered during first paint, competing with the fonts and gallery the visitor sees immediately.
 - **Ship:** Deferred scene rendering to browser idle time with a timeout fallback, and kept the flat sample as the first frame.
+
+### 59. GPU render dedupe
+
+- **Look:** Every React re-render of the preview re-uploaded 22 uniforms and redrew the full frame, even when nothing changed.
+- **Ship:** Added a code/split signature cache in the GPU grader so identical frames skip the draw.
