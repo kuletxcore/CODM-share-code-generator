@@ -24,6 +24,7 @@ import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { ScreenTestBar, ScreenTestProvider, useScreenTest } from "@/components/ScreenTest";
+import { DEFAULT_SAMPLE, loadSample, SAMPLE_CREDIT, SAMPLES, type SampleId } from "@/lib/samples";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -229,19 +230,19 @@ function Preview({
 }) {
   const { shot, clear: clearShot } = useScreenTest();
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
-  // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
+  const [scene, setScene] = useState<SampleId>(DEFAULT_SAMPLE);
+  // The drawn fallback shows until the chosen CODM still has loaded.
   useEffect(() => {
     let live = true;
-    import("@/lib/scene")
-      .then((m) => m.renderScene(960, 540))
+    loadSample(scene)
       .then((c) => {
-        if (live && c) setSample(c);
+        if (live) setSample(c);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, []);
+  }, [scene]);
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   // The screen test outranks the built-in scene: your own frame, graded live.
@@ -380,7 +381,7 @@ function Preview({
         {source ? (
           <button
             onClick={onClear}
-            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+            className="min-h-11 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
           >
             Sample scene
           </button>
@@ -393,6 +394,27 @@ function Preview({
           </button>
         ) : null}
       </div>
+      {!source && !shot && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div role="radiogroup" aria-label="Sample scene" className="flex flex-wrap gap-1">
+            {SAMPLES.map((s) => (
+              <button
+                key={s.id}
+                role="radio"
+                aria-checked={scene === s.id}
+                onClick={() => setScene(s.id)}
+                title={`${s.label} (${s.game})`}
+                className={`min-h-11 border px-3 font-display text-sm font-bold uppercase tracking-wider transition-colors ${
+                  scene === s.id ? "border-lime bg-lime/15 text-text" : "border-line bg-panel-2 text-mute hover:text-text"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-mute">CODM stills on the default filter, from {SAMPLE_CREDIT}&apos;s weapons showcase.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -126,6 +126,10 @@ These are worth doing; this round stayed focused on the clear picks.
 - **"Needs tweaking"** (5a181f54): after import, reopen the editor with the imported grade pinned for comparison. The pin wipe needs its inverted clip fixed first.
 - **Duel links** (9a3eb115), on top of the screen test.
 
+## Follow-up: real scenes instead of the three.js scene
+
+fae6c3f0's one-frame preview used an AI-generated stand-in. The idea was right, since a believable frame shows a grade better than a low-poly scene, but the image was not a CODM capture. The owner supplied a clean, HUD-free showcase video instead, and the preview now uses five real CODM stills from it (Shipment 2019, Combine, Hijacked, Armada Strike, Crossfire; names checked against published sources), recorded on the default filter, credited to the channel, and checked for gamer tags. `src/lib/scene.ts` and the three.js preview render are gone; three.js now only draws the smoke background.
+
 ## Agent-agnostic repo
 
 [AGENTS.md](AGENTS.md) is now the one set of instructions for any coding agent. Codex, Copilot, Cursor, Windsurf, Jules and others read it directly. `CLAUDE.md` and `GEMINI.md` import it with `@AGENTS.md`, `.github/copilot-instructions.md` points to it, and `.aider.conf.yml` loads it as read-only context. Nothing is generated, so nothing can drift.

@@ -7,7 +7,7 @@ Live: https://codm.kuletxcore.workers.dev
 - **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Screen test**: drop one CODM screenshot (or paste it with Ctrl+V) and every look in the gallery, plus the generator's preview, is graded on your own frame (an approximation of the in-game filter). Hold Compare to see the ungraded original. Look cards you save then show your screenshot. Nothing is uploaded; the shot stays in the tab.
-- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
+- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on one of five real CODM scenes or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
 ## Share code format
@@ -64,6 +64,8 @@ npm run deploy
 ```
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
+
+Preview scenes (`public/samples/`) are stills from MorganPixy's YouTube video "CODM Season 10 2026 - New and Reworked Weapons Showcase", recorded on the default filter with no HUD; the site credits the channel under the scene picker.
 
 ## Disclaimer
 

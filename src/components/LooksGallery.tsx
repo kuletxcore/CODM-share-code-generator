@@ -6,18 +6,18 @@ import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } fr
 import { announceCopy, copyText } from "@/components/ImportGuide";
 import { useScreenTest } from "@/components/ScreenTest";
 import ShotFrame from "@/components/ShotFrame";
+import { DEFAULT_SAMPLE, loadSample } from "@/lib/samples";
 import { shotCardImage } from "@/lib/screenPreview";
 
-// One render of the 3D scene shared by every card without an image; each
-// look's graded pixels are cached so it is graded once.
+// One CODM still shared by every card without an image; each look's graded
+// pixels are cached so it is graded once.
 const W = 960,
   H = 438;
 let base: Promise<ImageData> | null = null;
 const graded = new Map<string, Promise<ImageData>>();
 
 function baseImage(): Promise<ImageData> {
-  base ??= import("@/lib/scene")
-    .then((m) => m.renderScene(W, H, { chips: false }))
+  base ??= loadSample(DEFAULT_SAMPLE, W, H)
     .catch(() => null)
     .then((c) => {
       if (c) return c.getContext("2d")!.getImageData(0, 0, W, H);
