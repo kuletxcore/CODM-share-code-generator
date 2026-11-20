@@ -471,3 +471,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** On a phone the filmstrip could be scrolled but the large stage itself had no gesture for moving between looks.
 - **Ship:** Added a deliberate horizontal swipe on the stage that selects the next or previous look without stealing vertical scrolling.
+
+### 90. Decode from the stage
+
+- **Look:** The code inspector was only reachable from the fixed bar at the bottom of the page, far from the look being considered.
+- **Ship:** Added a Decode action directly on the look stage.
