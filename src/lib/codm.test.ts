@@ -63,7 +63,8 @@ test("decode rejects malformed codes", () => {
     "negative tint": swap(7, "-1"),
     "brightness out of range": swap(8, "1001"),
     "saturation out of range": swap(9, "2001"),
-    "shadow handle out of range": swap(2, "1001"),
+    "negative shadow handle": swap(2, "-1"),
+    "negative highlight handle": swap(4, "-5"),
     "negative falloff": swap(3, "-1"),
     empty: "",
   };
@@ -141,4 +142,18 @@ test("MW2022 decodes to the settings shown in MorganPixy's video", () => {
   assert.equal(Math.round(sh.bri), 100);
   assert.equal(s.shadowPos, 189);
   assert.equal(s.shadowEdge, s.shadowPos + 100);
+});
+
+test("Warzone decodes to the settings shown in DisasterNinja's video", () => {
+  const look = LOOKS.find((l) => l.name === "Warzone");
+  assert.ok(look);
+  const s = decode(look.code);
+  assert.ok(s, "a game-written handle past 1000 must decode");
+  const g = s.zones.global;
+  const sh = s.zones.shadows;
+  assert.deepEqual(hueParts(g.hue), { swatch: 0, pos: 0 }); // Red, slider 0
+  assert.deepEqual([g.tint, g.sat, g.bri].map(Math.round), [23, 77, 70]);
+  assert.deepEqual(hueParts(sh.hue), { swatch: 2, pos: 0 }); // Lime, slider 0
+  assert.deepEqual([sh.tint, sh.sat, sh.bri].map(Math.round), [17, 59, 78]);
+  assert.equal(s.highlightPos, 1084);
 });

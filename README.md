@@ -4,8 +4,8 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
-- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, MW2022, MW2019, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
-  - MW2022 and MW2019 are MorganPixy's own codes, from the pinned comments of their filter videos. The MW2022 video shows the in-game settings, which match the code exactly.
+- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, MW2022, MW2019, Warzone, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
+  - MW2022 and MW2019 are MorganPixy's own codes and Warzone is DisasterNinja's, each from the pinned comment of the creator's filter video. The MW2022 and Warzone videos show the in-game settings, which match the codes exactly.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Screen test**: drop one CODM screenshot (or paste it with Ctrl+V) and every look in the gallery, plus the generator's preview, is graded on your own frame (an approximation of the in-game filter). Hold Compare to see the ungraded original. Look cards you save then show your screenshot. Nothing is uploaded; the shot stays in the tab.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on one of five real CODM scenes or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
@@ -19,9 +19,9 @@ Live: https://codm.kuletxcore.workers.dev
 | --- | --- | --- |
 | 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed) | 0 |
 | 1 | enabled | 1 |
-| 2 | Range bar shadows handle, 0–1000 (confirmed) | 30 |
+| 2 | Range bar shadows handle, 0–1000 on the bar (confirmed); game-written codes can go past 1000 and the handle is drawn at the end | 30 |
 | 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
-| 4 | Range bar highlights handle, 0–1000 (confirmed) | 1000 |
+| 4 | Range bar highlights handle, as above (1084 seen in a game-written code) | 1000 |
 | 5 | highlights falloff; handle + 100 after a drag | 1500 |
 | 6–9 | group 1: the **Simple** Customize Color screen, whole image (confirmed) | `0_0_0_1000` |
 | 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |

@@ -212,6 +212,9 @@ export default function TonalScope({
   const handle = (which: "s" | "h") => {
     const shadow = which === "s";
     const raw = shadow ? settings.shadowPos : settings.highlightPos;
+    // Game-written codes can put a handle past the end of the bar (1084 seen in
+    // DisasterNinja's code); the game draws it at the end, so do the same.
+    const shown = Math.min(1000, raw);
     const colour = shadow ? "#8fc2ff" : "#ffc46b";
     const step = (delta: number) =>
       shadow
@@ -225,8 +228,8 @@ export default function TonalScope({
         aria-orientation="horizontal"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={Math.round(raw / 10)}
-        aria-valuetext={`${Math.round(raw / 10)} percent`}
+        aria-valuenow={Math.round(shown / 10)}
+        aria-valuetext={`${Math.round(shown / 10)} percent`}
         onPointerDown={start(which)}
         onPointerMove={(e) => move(e.clientX)}
         onPointerUp={(e) => {
@@ -247,7 +250,7 @@ export default function TonalScope({
           e.preventDefault();
         }}
         className="group absolute inset-y-0 z-10 w-11 -translate-x-1/2 cursor-ew-resize touch-none"
-        style={{ left: `${raw / 10}%` }}
+        style={{ left: `${shown / 10}%` }}
         title={shadow ? "Where shadows end" : "Where highlights begin"}
       >
         <span
@@ -273,9 +276,9 @@ export default function TonalScope({
           Tonal range
         </h3>
         <p className="font-mono text-[10px] tabular-nums text-mute">
-          <span className="text-[#8fc2ff]">◀ {Math.round(settings.shadowPos / 10)}%</span>
+          <span className="text-[#8fc2ff]">◀ {Math.round(Math.min(1000, settings.shadowPos) / 10)}%</span>
           <span className="mx-2 text-line">|</span>
-          <span className="text-[#ffc46b]">{Math.round(settings.highlightPos / 10)}% ▶</span>
+          <span className="text-[#ffc46b]">{Math.round(Math.min(1000, settings.highlightPos) / 10)}% ▶</span>
         </p>
       </div>
       <div ref={strip} className="relative">

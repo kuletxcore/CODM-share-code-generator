@@ -90,8 +90,10 @@ const ZONE_RANGES: [number, number][] = [
 /**
  * Parses a share code. Returns null unless it is exactly 22 integers with every
  * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
- * load as a washed-out grade. The Range falloffs only have to be non-negative:
- * their upper limit isn't known.
+ * load as a washed-out grade. The Range handles and falloffs only have to be
+ * non-negative: their upper limit isn't known, and the game itself writes
+ * handles past the end of the bar (DisasterNinja's Warzone code, whose in-game
+ * settings screen matches it, has the highlights handle at 1084).
  */
 export function decode(code: string): Settings | null {
   const parts = code.trim().split("_");
@@ -99,8 +101,7 @@ export function decode(code: string): Settings | null {
   const n = parts.map(Number);
   const inRange = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
   if (!inRange(n[0], [0, 4]) || !inRange(n[1], [0, 1])) return null;
-  if (!inRange(n[2], [0, 1000]) || !inRange(n[4], [0, 1000])) return null;
-  if (n[3] < 0 || n[5] < 0) return null;
+  if (n[2] < 0 || n[3] < 0 || n[4] < 0 || n[5] < 0) return null;
   for (let i = 6; i < 22; i++) if (!inRange(n[i], ZONE_RANGES[(i - 6) % 4])) return null;
   const s = defaultSettings();
   [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
@@ -623,6 +624,24 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: "0_1_259_359_1000_1100_0_0_0_1000_197_129_-204_1000_0_0_-3_990_0_0_195_1007",
     image: "/looks/mw2019.webp",
+    inGame: true,
+  },
+  {
+    // Shared by DisasterNinja in the pinned comment of "COD Mobile BEST Color
+    // Settings: Make Your Graphics Look Like WARZONE!" (youtu.be/Kq2q9lV2VOY,
+    // 4 Sep 2026), which shows the in-game screen: Simple Red 0 / Tint 23 /
+    // Saturation 77 / Brightness 70, Shadows Lime 0 / 17 / 59 / 78, and both
+    // Range handles at the right end. The code decodes to exactly those values.
+    // Warzone ran on Black Ops 7 then (Season 05; Activision's Season 06
+    // announcement, Sep 2026). The card is a frame from the video, cropped
+    // clear of the HUD; the owner identifies the map as Black Ops 6's Nuketown
+    // (its minimap reads "Special Forces Base"; not confirmed by a published source).
+    name: "Warzone",
+    game: "Black Ops 7",
+    note: "DisasterNinja's Warzone look: bright, warm and saturated, with lime-lifted shadows",
+    mode: "Advanced",
+    code: "0_1_974_1074_1084_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000",
+    image: "/looks/warzone-bo7.webp",
     inGame: true,
   },
   {
