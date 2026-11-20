@@ -13,7 +13,8 @@ export function announceCopy(code: string, name?: string, extra: Omit<Copied, "c
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+/** Clipboard write only, so callers can start it inside the click that asked for it. */
+export async function copyText(code: string) {
   try {
     await navigator.clipboard.writeText(code);
   } catch {
@@ -24,6 +25,10 @@ export async function copyCode(code: string, name?: string, extra: Omit<Copied, 
     document.execCommand("copy");
     t.remove();
   }
+}
+
+export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  await copyText(code);
   announceCopy(code, name, extra);
 }
 

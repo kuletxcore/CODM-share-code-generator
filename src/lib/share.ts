@@ -399,3 +399,123 @@ export function cardFilename(p: DeployPayload) {
     .replace(/(^-|-$)/g, "");
   return `codm-${slug || "grade"}.png`;
 }
+
+// The duel card: the match itself, so "which of these two?" is shareable.
+
+/**
+ * 1200×630 card: two looks split down the middle on one frame, both names, both
+ * codes, and a QR that reopens the same pairing (`#d=a~b`).
+ */
+export async function renderDuelCard(p: {
+  a: { code: string; name: string };
+  b: { code: string; name: string };
+  /** Composed duel frame from the WebGL/2D view; a painted plate is used without it. */
+  frame?: HTMLCanvasElement | null;
+  url: string;
+}): Promise<Blob | null> {
+  await ensureFonts();
+  const canvas = document.createElement("canvas");
+  canvas.width = CARD_W;
+  canvas.height = CARD_H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.fillStyle = "#0a0b0a";
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  // The frame fills the top 470px, split exactly where the visitor left it.
+  const FRAME_H = 470;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CARD_W, FRAME_H);
+  ctx.clip();
+  if (p.frame) {
+    const s = Math.max(CARD_W / p.frame.width, FRAME_H / p.frame.height);
+    const dw = p.frame.width * s;
+    const dh = p.frame.height * s;
+    ctx.drawImage(p.frame, (CARD_W - dw) / 2, (FRAME_H - dh) / 2, dw, dh);
+  } else {
+    drawPlate(ctx, p.b.code, CARD_W, FRAME_H);
+    drawPlate(ctx, p.a.code, CARD_W / 2, FRAME_H);
+  }
+  ctx.restore();
+  const fade = ctx.createLinearGradient(0, FRAME_H - 150, 0, FRAME_H);
+  fade.addColorStop(0, "rgba(10,11,10,0)");
+  fade.addColorStop(1, "#0a0b0a");
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, FRAME_H - 150, CARD_W, 150);
+
+  // the divider, the same yellow the live duel uses
+  ctx.fillStyle = "#ffea3b";
+  ctx.fillRect(CARD_W / 2 - 2, 0, 4, FRAME_H);
+
+  // side labels
+  const label = (x: number, name: string, side: string, align: CanvasTextAlign) => {
+    ctx.textAlign = align;
+    ctx.fillStyle = "#ffea3b";
+    ctx.font = '500 13px "Obel Mono", monospace';
+    ctx.fillText(side.toUpperCase(), x, 52);
+    ctx.fillStyle = "#f2f4ef";
+    fitFont(ctx, name.toUpperCase(), 470, 52, 24, (s) => `900 ${s}px "Hitmarker Normal", "Hitmarker Condensed", sans-serif`);
+    ctx.textAlign = align;
+    ctx.fillText(name.toUpperCase(), x, 100);
+    ctx.textAlign = "left";
+  };
+  label(40, p.a.name, "Left", "left");
+  label(CARD_W - 40, p.b.name, "Right", "right");
+
+  // badge
+  ctx.save();
+  ctx.translate(824, 604);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = "#ffea3b";
+  ctx.fillRect(-5, -5, 10, 10);
+  ctx.restore();
+  ctx.fillStyle = "#ffea3b";
+  ctx.font = '500 14px "Obel Mono", monospace';
+  spaced(ctx, "DUEL · FAN-MADE FILTER LAB", 846, 610, 3);
+
+  // both codes, small, under their own side
+  const codeLine = (x: number, code: string, align: CanvasTextAlign) => {
+    ctx.textAlign = align;
+    ctx.fillStyle = "#9aa094";
+    fitFont(ctx, code, 480, 15, 9, (s) => `500 ${s}px "Obel Mono", monospace`);
+    ctx.fillText(code, x, 560);
+    ctx.textAlign = "left";
+  };
+  codeLine(40, p.a.code, "left");
+  codeLine(CARD_W - 40, p.b.code, "right");
+
+  const qr = await qrMatrix(p.url);
+  const qrSize = 118;
+  const qrX = 40;
+  const qrY = CARD_H - 40 - qrSize;
+  ctx.fillStyle = "#ffea3b";
+  ctx.fillRect(qrX - 5, qrY - 5, qrSize + 10, qrSize + 10);
+  drawQr(ctx, qr, qrX, qrY, qrSize, { quiet: 2 });
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#9aa094";
+  ctx.font = '400 15px "Hitmarker Text", system-ui, sans-serif';
+  wrapText(ctx, "Scan to open this duel and drag the divider yourself.", 360, 2).forEach(
+    (line, i) => ctx.fillText(line, qrX + qrSize + 20, qrY + 40 + i * 22),
+  );
+
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/png"));
+}
+
+/** Share the duel card through the system sheet when possible, else download it. */
+export async function shareDuelCard(p: Parameters<typeof renderDuelCard>[0]): Promise<"shared" | "saved" | "failed"> {
+  const blob = await renderDuelCard(p);
+  if (!blob) return "failed";
+  const file = new File([blob], "codm-duel.png", { type: "image/png" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: `${p.a.name} vs ${p.b.name}` });
+      return "shared";
+    } catch {
+      // cancelled: fall through to a download
+    }
+  }
+  downloadBlob(blob, file.name);
+  return "saved";
+}

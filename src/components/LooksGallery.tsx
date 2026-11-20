@@ -78,7 +78,13 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
   );
 }
 
-export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+export default function LooksGallery({
+  onEdit,
+  onDuel,
+}: {
+  onEdit: (code: string) => void;
+  onDuel: (code: string) => void;
+}) {
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
@@ -199,7 +205,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             </h3>
             <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
           </motion.div>
-          <div className="flex max-w-md gap-1">
+          <div className="flex max-w-md flex-wrap gap-1">
             <button
               onClick={() => {
                 copyCode(look.code, look.name, { note: look.note, image: look.image });
@@ -211,6 +217,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               }`}
             >
               {copied === look.code ? "Copied ✓" : "Copy code"}
+            </button>
+            <button
+              onClick={() => onDuel(look.code)}
+              className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              title={`Put ${look.name} against another look on the same frame`}
+            >
+              Duel ⇄
             </button>
             <button
               onClick={() => onEdit(look.code)}

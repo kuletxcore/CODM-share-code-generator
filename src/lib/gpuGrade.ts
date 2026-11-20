@@ -62,9 +62,73 @@ void main(){
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
+/*
+ * The duel shader, a second program so a driver that rejects it only costs the
+ * duel its GPU path: the single-grade preview above stays as it was.
+ * WebGL1 cannot portably take array parameters, so both sides are indexed with
+ * constants and picked by a bool.
+ */
+const FRAG_DUEL = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec4 uBands;
+uniform vec3 uTint[4];
+uniform vec3 uP[4];
+uniform vec4 uBands2;
+uniform vec3 uTint2[4];
+uniform vec3 uP2[4];
+uniform vec2 uSize;
+uniform float uSplitX;
+
+float luma(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float smoothB(float a, float b, float x){
+  float d = b - a; if (d == 0.0) d = 1e-6;
+  float t = clamp((x - a) / d, 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
+  if (k <= 0.001) return c;
+  float l = luma(c);
+  float t = p.x * k;
+  float cl = luma(tint); if (cl == 0.0) cl = 1.0;
+  vec3 n = c + (l * (tint / cl) - c) * t;
+  float sm = 1.0 + (p.y - 1.0) * k;
+  float l2 = luma(n);
+  n = vec3(l2) + (n - vec3(l2)) * sm;
+  return n * (1.0 + (p.z - 1.0) * k);
+}
+vec3 graded(vec3 c, bool alt){
+  vec4 bands = alt ? uBands2 : uBands;
+  float l0 = luma(c);
+  float ws = 1.0 - smoothB(bands.x, bands.y, l0);
+  float wh = smoothB(bands.z, bands.w, l0) * (1.0 - ws);
+  float wm = max(0.0, 1.0 - ws - wh);
+  c = zone(c, alt ? uTint2[0] : uTint[0], alt ? uP2[0] : uP[0], ws);
+  c = zone(c, alt ? uTint2[1] : uTint[1], alt ? uP2[1] : uP[1], wm);
+  c = zone(c, alt ? uTint2[2] : uTint[2], alt ? uP2[2] : uP[2], wh);
+  c = zone(c, alt ? uTint2[3] : uTint[3], alt ? uP2[3] : uP[3], 1.0);
+  return clamp(c, 0.0, 1.0);
+}
+void main(){
+  vec3 c = texture2D(uTex, vUv).rgb;
+  float col = floor(vUv.x * uSize.x);
+  if (col >= uSplitX - 2.0 && col <= uSplitX) {
+    gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
+    return;
+  }
+  gl_FragColor = vec4(graded(c, col < uSplitX), 1.0);
+}`;
+
 export type GradeGpu = {
   setSource: (src: HTMLCanvasElement) => void;
   render: (s: Settings, split: number) => void;
+  /** Left of `split` shows `left`, right of it `right`. False if WebGL can't duel. */
+  renderDuel: (left: Settings, right: Settings, split: number) => boolean;
   dispose: () => void;
 };
 
@@ -90,6 +154,20 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
   gl.useProgram(prog);
+
+  // The duel program is optional: if a driver rejects it, the caller falls back
+  // to the CPU and the single-grade preview is untouched either way.
+  const duel = (() => {
+    const fs2 = sh(gl.FRAGMENT_SHADER, FRAG_DUEL);
+    if (!fs2) return null;
+    const p = gl.createProgram()!;
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs2);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) return null;
+    return p;
+  })();
+  const ud = (n: string) => (duel ? gl.getUniformLocation(duel, n) : null);
 
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -132,10 +210,33 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform1f(uSplitX, Math.min(w, Math.round(w * split)));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
+    renderDuel(left, right, split) {
+      if (!duel) return false;
+      gl.useProgram(duel);
+      const gl2 = gradeUniforms(left);
+      const gr = gradeUniforms(right);
+      gl.uniform4fv(ud("uBands2"), gl2.bands);
+      gl.uniform3fv(ud("uTint2"), gl2.tint);
+      gl.uniform3fv(ud("uP2"), gl2.params);
+      gl.uniform4fv(ud("uBands"), gr.bands);
+      gl.uniform3fv(ud("uTint"), gr.tint);
+      gl.uniform3fv(ud("uP"), gr.params);
+      gl.uniform2f(ud("uSize"), w, h);
+      gl.uniform1f(ud("uSplitX"), Math.min(w, Math.round(w * split)));
+      // attribute arrays are per-program state, so point the duel program at the quad
+      const loc2 = gl.getAttribLocation(duel, "aPos");
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(loc2);
+      gl.vertexAttribPointer(loc2, 2, gl.FLOAT, false, 0, 0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      return true;
+    },
     dispose() {
       gl.deleteTexture(tex);
       gl.deleteBuffer(buf);
       gl.deleteProgram(prog);
+      if (duel) gl.deleteProgram(duel);
     },
   };
 }

@@ -20,6 +20,8 @@ import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import Duel, { seedFromHash, type DuelSeed } from "@/components/Duel";
+import { openingPair, rivalOf } from "@/lib/duel";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -387,22 +389,32 @@ export default function FilterLab() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // null = closed. `#d=a~b` opens straight into a match.
+  const [duel, setDuel] = useState<DuelSeed | null>(null);
 
   const code = useMemo(() => encode(settings), [settings]);
 
-  // restore from #c=<code>, keep the hash in sync so the URL is shareable
+  // Restore from the URL on load, then keep the hash in sync so links are
+  // shareable. `#d=a~b` is a duel, `#c=<code>` a single grade. The page is
+  // statically rendered, so the hash can't be read for initial state.
   useEffect(() => {
+    const shared = seedFromHash(location.hash);
+    if (shared) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDuel(shared);
+      return;
+    }
     const m = location.hash.match(/c=([-\d_]+)/);
     const s = m && decode(m[1]);
-    // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
   }, []);
   useEffect(() => {
+    // the duel owns the hash while it is open
+    if (duel) return;
     history.replaceState(null, "", `#c=${code}`);
-  }, [code]);
+  }, [code, duel]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
@@ -416,6 +428,22 @@ export default function FilterLab() {
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
     return true;
   }, []);
+
+  const closeDuel = useCallback(() => {
+    setDuel(null);
+    history.replaceState(null, "", `#c=${encode(settings)}`);
+  }, [settings]);
+
+  const pickDuel = useCallback(
+    (c: string) => {
+      loadCode(c);
+      setDuel(null);
+      setMode("build");
+      history.replaceState(null, "", `#c=${c}`);
+      document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [loadCode],
+  );
 
   const upload = async (f: File) => {
     try {
@@ -467,6 +495,7 @@ export default function FilterLab() {
       </header>
 
       <LooksGallery
+        onDuel={(c) => setDuel({ a: c, b: rivalOf(c) })}
         onEdit={(c) => {
           loadCode(c);
           setMode("build");
@@ -476,7 +505,7 @@ export default function FilterLab() {
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
-        <nav aria-label="Mode" className="flex gap-1">
+        <nav aria-label="Mode" className="flex flex-wrap items-center gap-1">
           {(
             [
               ["build", "Generator"],
@@ -500,6 +529,14 @@ export default function FilterLab() {
               )}
             </button>
           ))}
+          <button
+            onClick={() => setDuel(openingPair())}
+            className="cut-sm ml-1 inline-flex min-h-11 items-center gap-1.5 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+            title="Two looks on one frame, split by a divider you drag"
+          >
+            <span className="h-2 w-2 rotate-45 bg-codm" />
+            Duel two looks
+          </button>
         </nav>
       </div>
       <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
@@ -775,6 +812,8 @@ export default function FilterLab() {
           />
         )}
       </AnimatePresence>
+
+      <Duel seed={duel} onClose={closeDuel} onPick={pickDuel} />
 
       <Notes />
       <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />

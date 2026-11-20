@@ -6,6 +6,7 @@ Live: https://codm.kuletxcore.workers.dev
 
 - **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
+- **Duel**: two looks on one frame, split by a divider you drag. Any look can be challenged (`Duel ⇄` on the stage, or "Duel two looks" above the generator); the roster sets either side, the pairing is saved in the URL as `#d=a~b`, and "Keep left/right" drops the winner into the generator. Share it as a link or as a 1200×630 duel card with both names, both codes and a QR back to the match.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
@@ -34,6 +35,11 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 - saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).
 
 The preview is an approximation of the in-game filter.
+
+## URL
+
+- `#c=<code>` restores a single grade in the generator.
+- `#d=<codeA>~<codeB>` opens a duel between two grades. The codes are digits and underscores only, so `~` never occurs inside one; a malformed or identical pair is ignored rather than guessed at.
 
 ## Using a code in game
 
