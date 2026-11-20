@@ -106,3 +106,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Returning visitors had to scan twelve titles again, and there was no low-friction way to explore.
 - **Ship:** Added a Resume shortcut to the last viewed look and a Surprise me button that jumps to a random look with one tap.
+
+### 20. Shareable look links
+
+- **Look:** A visitor could copy a code but could not send someone to the exact look they were looking at; sharing meant describing it in words.
+- **Ship:** Added #look= deep links, a Copy link button on the stage, a reusable clipboard helper, and navigation that leaves editor codes untouched.

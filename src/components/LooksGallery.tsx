@@ -7,6 +7,7 @@ import { copyCode } from "@/components/ImportGuide";
 import { K, readJson, writeJson } from "@/lib/storage";
 import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
+import { copyText } from "@/lib/clipboard";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -91,6 +92,14 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [game, setGame] = useState<Game | null | "favorites">(null);
   const [favs, setFavs] = useState<string[]>([]);
   useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
+  // A #look=Hajin link opens that look on the stage without touching #c= codes.
+  useEffect(() => {
+    const name = decodeURIComponent(location.hash.match(/look=([^&]+)/)?.[1] ?? "");
+    const i = LOOKS.findIndex((l) => l.name.toLowerCase() === name.toLowerCase());
+    if (i < 0) return;
+    setAuto(false);
+    setActive(i);
+  }, []);
   const toggleFav = (code: string) => {
     const next = favs.includes(code) ? favs.filter((c) => c !== code) : [...favs, code];
     setFavs(next);
@@ -286,6 +295,20 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
             >
               Customize
+            </button>
+            <button
+              onClick={async () => {
+                const url = `${location.origin}${location.pathname}#look=${encodeURIComponent(look.name)}`;
+                const ok = await copyText(url);
+                notify(ok
+                  ? { title: "Link copied", detail: `Opens ${look.name} on the stage.`, tone: "good" }
+                  : { title: "Could not copy", tone: "warn" });
+              }}
+              aria-label="Copy link to this look"
+              title="Copy link to this look"
+              className="min-w-12 border border-white/20 bg-black/70 px-3 py-3 font-display text-xl text-mute hover:text-codm"
+            >
+              ↗
             </button>
             <button
               onClick={() => toggleFav(look.code)}
