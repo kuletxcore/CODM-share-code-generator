@@ -14,7 +14,7 @@ import { act } from "@/lib/actions";
 type Recent = { name: string; code: string; at: number };
 
 /** Save from anywhere in the app (header button, keyboard S, command palette). */
-export function saveLookCode(code: string, thumb?: string): SavedLook | null {
+export function saveLookCode(code: string, thumb?: string, name?: string): SavedLook | null {
   const list = readJson<SavedLook[]>(K.looks, []);
   if (list.some((l) => l.code === code)) return null;
   const item: SavedLook = {

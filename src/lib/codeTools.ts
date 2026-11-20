@@ -162,3 +162,19 @@ export function blendSettings(base: Settings, target: Settings, t: number): Sett
     },
   };
 }
+
+/** Nearest built-in look by weighted difference in the 22 stored values. */
+export function closestLook(code: string): { name: string; code: string; distance: number } | null {
+  const a = code.split("_").map(Number);
+  if (a.length !== 22) return null;
+  const ranked = LOOKS.map((l) => {
+    const b = l.code.split("_").map(Number);
+    let d = 0;
+    for (let i = 0; i < 22; i++) {
+      const w = i < 6 ? 0.4 : 1;
+      d += Math.abs((a[i] ?? 0) - (b[i] ?? 0)) * w;
+    }
+    return { name: l.name, code: l.code, distance: Math.round(d) };
+  }).sort((x, y) => x.distance - y.distance);
+  return ranked[0] ?? null;
+}

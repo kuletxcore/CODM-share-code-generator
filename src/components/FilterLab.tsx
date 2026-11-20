@@ -27,8 +27,8 @@ import CommandPalette from "@/components/CommandPalette";
 import { useHistory } from "@/lib/useHistory";
 import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
-import { normalizeCode, blendSettings, codeDiff } from "@/lib/codeTools";
-import { DEFAULT_CODE } from "@/lib/codm";
+import { normalizeCode, blendSettings, codeDiff, closestLook, randomCode } from "@/lib/codeTools";
+import { DEFAULT_CODE, LOOKS } from "@/lib/codm";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
@@ -565,6 +565,7 @@ export default function FilterLab() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<Settings | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [lookName, setLookName] = useState(() => getPrefs().name ?? "");
   useEffect(() => {
     const n = codeDiff(code, DEFAULT_CODE).length;
     const id = window.setTimeout(
@@ -612,6 +613,21 @@ export default function FilterLab() {
           case "open-compare":
             setCompareOpen(true);
             break;
+          case "randomize": {
+            const roll = randomCode();
+            const s = decode(roll.code);
+            if (s) {
+              hist.reset(s);
+              setAdvanced(true);
+              notify({
+                title: `Rolled grade #${roll.seed % 100000}`,
+                detail: "Seeded and reproducible — tweak it or roll again.",
+                tone: "good",
+                action: { label: "Roll again", run: () => act("randomize") },
+              });
+            }
+            break;
+          }
           case "save-look": {
             let thumb: string | undefined;
             try {
@@ -624,7 +640,7 @@ export default function FilterLab() {
                 thumb = t.toDataURL("image/jpeg", 0.45);
               }
             } catch {}
-            const saved = saveLookCode(code, thumb);
+            const saved = saveLookCode(code, thumb, lookName || undefined);
             notify(
               saved
                 ? { title: "Look saved", detail: saved.name, tone: "good", action: { label: "Open library", run: () => act("open-my-looks") } }
@@ -1185,7 +1201,16 @@ export default function FilterLab() {
       </AnimatePresence>
 
       <Notes />
-      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <CodeBar
+        code={code}
+        onLoad={loadCode}
+        onReset={() => setSettings(defaultSettings(), "reset")}
+        name={lookName}
+        onName={(v) => {
+          setLookName(v);
+          setPref("name", v);
+        }}
+      />
       <ImportGuide />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
       <ShortcutsHelp />
@@ -1383,10 +1408,14 @@ function CodeBar({
   code,
   onLoad,
   onReset,
+  name,
+  onName,
 }: {
   code: string;
   onLoad: (c: string) => boolean;
   onReset: () => void;
+  name: string;
+  onName: (v: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [input, setInput] = useState("");
@@ -1440,6 +1469,18 @@ function CodeBar({
           <button onClick={downloadText} className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line">
             ⤓ Save .txt
           </button>
+          <label className="flex min-w-48 flex-1 items-center gap-2 border border-line bg-panel-2 px-2">
+            <span className="font-display text-[10px] font-bold uppercase tracking-wider text-mute">Name</span>
+            <input
+              value={name}
+              onChange={(e) => {
+                onName(e.target.value);
+              }}
+              placeholder="Custom grade"
+              aria-label="Name for this grade"
+              className="min-h-11 min-w-0 flex-1 bg-transparent font-display text-sm outline-none placeholder:text-mute"
+            />
+          </label>
           <button onClick={() => act("save-look")} className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line">
             ☆ Save look
           </button>
@@ -1463,6 +1504,26 @@ function CodeBar({
           >
             {changed}/22 changed
           </span>
+          {(() => {
+            const near = closestLook(code);
+            return near ? (
+              <button
+                onClick={() => {
+                  const previous = code;
+                  if (onLoad(near.code))
+                    notify({
+                      title: `Loaded ${near.name}`,
+                      detail: "The closest built-in look to your grade.",
+                      action: { label: "Undo", run: () => onLoad(previous) },
+                    });
+                }}
+                title={`Closest built-in look: ${near.name} (${near.distance} weighted units apart)`}
+                className="hidden shrink-0 font-display text-[10px] font-bold uppercase tracking-wider text-mute hover:text-codm xl:block"
+              >
+                ≈ {near.name}
+              </button>
+            ) : null;
+          })()}
           <button
             onClick={copy}
             className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
@@ -1498,19 +1559,38 @@ function CodeBar({
             if (ok) setInput("");
           }}
         >
+          <div className="relative min-w-0 flex-1 lg:w-64 lg:flex-none">
           <input
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
               setBad(false);
             }}
-            placeholder="Paste a code to edit it"
+            placeholder="Paste a code or type a look name"
             aria-label="Paste a share code"
             aria-invalid={bad}
-            className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
+            className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm ${
               bad ? "border-red-500" : inputOk ? "border-lime/60" : "border-line"
             }`}
           />
+          {input.length > 1 && !inputOk && (
+            <div className="absolute bottom-full left-0 z-30 mb-1 max-h-48 w-full overflow-y-auto border border-line bg-panel shadow-xl">
+              {LOOKS.filter((l) => l.name.toLowerCase().includes(input.toLowerCase())).slice(0, 5).map((l) => (
+                <button
+                  key={l.name}
+                  type="button"
+                  onClick={() => {
+                    onLoad(l.code);
+                    setInput("");
+                  }}
+                  className="block w-full px-3 py-2 text-left font-display text-xs font-bold uppercase tracking-wide text-mute hover:bg-white/10 hover:text-text"
+                >
+                  {l.name} <span className="ml-1 font-mono text-[10px] text-line">{l.game ?? "Default"}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
           <button
             type="submit"
             className="min-h-11 bg-panel-2 px-3 font-display font-bold uppercase tracking-wider hover:bg-line"

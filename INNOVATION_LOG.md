@@ -396,3 +396,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Only hash links worked; codes and looks sent as ?code= or ?look= links were ignored.
 - **Ship:** Added query-string restore for both the editor code and the gallery look, alongside the existing hash format.
+
+### 75. Closest-look hint
+
+- **Look:** A hand-tuned grade had no anchor: players could not tell which built-in look it resembled or jump back to one.
+- **Ship:** Added a weighted nearest-look chip in the code bar that loads the look and offers a one-tap undo.

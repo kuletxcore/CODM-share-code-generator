@@ -65,6 +65,7 @@ export type Prefs = {
   mode?: "simple" | "advanced";
   scene?: "urban" | "portrait" | "range";
   intensity?: number;
+  name?: string;
 };
 
 export const getPrefs = () => readJson<Prefs>(K.prefs, {});
