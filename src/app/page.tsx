@@ -3,12 +3,18 @@ import SmokeBackground from "@/components/SmokeBackground";
 import { ToastHost } from "@/components/Toasts";
 import ServiceWorker from "@/components/ServiceWorker";
 import Connectivity from "@/components/Connectivity";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import MotionGate from "@/components/MotionGate";
 
 export default function Home() {
   return (
     <main className="relative">
       <SmokeBackground />
-      <FilterLab />
+      <ErrorBoundary>
+        <MotionGate>
+          <FilterLab />
+        </MotionGate>
+      </ErrorBoundary>
       <ToastHost />
       <ServiceWorker />
       <Connectivity />

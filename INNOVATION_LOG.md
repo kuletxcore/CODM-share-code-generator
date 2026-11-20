@@ -326,3 +326,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The tone map reallocated its sample canvas and sampled pixels on a fixed 800ms timer for the whole session.
 - **Ship:** Reused the sample canvas, resized only when needed, and moved periodic sampling to idle callbacks while the tab is visible.
+
+### 61. Error boundary
+
+- **Look:** A WebGL driver failure or a bad image could throw inside the editor and leave a blank page with no recovery.
+- **Ship:** Added a branded error boundary with the error text and a reload action around the app.

@@ -186,3 +186,39 @@ input[type="range"].slider:focus-visible::-moz-range-thumb {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Explicit reduced-motion override, independent of the OS setting. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-line: #757d72;
+    --color-mute: #c3c9bf;
+    --color-text: #ffffff;
+    --color-codm: #fff326;
+    --color-lime: #b9ff53;
+  }
+  .cut,
+  .cut-sm {
+    outline: 1px solid var(--color-line);
+  }
+}
+
+@media (forced-colors: active) {
+  .cut,
+  .cut-sm {
+    clip-path: none;
+    border: 1px solid CanvasText;
+  }
+  .row-active {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
