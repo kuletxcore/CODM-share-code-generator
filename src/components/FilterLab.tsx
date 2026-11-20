@@ -1169,14 +1169,39 @@ function Converter({
   const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
   const [base, setBase] = useState<HTMLCanvasElement | null>(null);
   const [strength, setStrength] = useState(100);
+  const [workerZones, setWorkerZones] = useState<Record<string, Zone> | null>(null);
+  const worker = useRef<Worker | null>(null);
 
-  const result = useMemo(
-    () =>
-      target
-        ? blendSettings(defaultSettings(), analyse(pixels(target), base ? pixels(base) : null), strength / 100)
-        : null,
-    [target, base, strength],
-  );
+  useEffect(() => {
+    try {
+      worker.current = new Worker("/analyze.worker.js");
+      worker.current.onmessage = (e) => {
+        if (e.data.ok) setWorkerZones(e.data.zones);
+        else setWorkerZones(null);
+      };
+    } catch {
+      worker.current = null;
+    }
+    return () => worker.current?.terminate();
+  }, []);
+
+  useEffect(() => {
+    if (!target || !worker.current) return;
+    const t = pixels(target);
+    const b = base ? pixels(base) : null;
+    worker.current.postMessage(
+      { target: t.buffer, base: b?.buffer, strength: strength / 100 },
+      [t.buffer, ...(b ? [b.buffer] : [])],
+    );
+  }, [target, base, strength]);
+
+  const result = useMemo(() => {
+    if (!target) return null;
+    const s = workerZones
+      ? { ...analyse(pixels(target), null), zones: { ...defaultSettings().zones, ...workerZones } }
+      : analyse(pixels(target), base ? pixels(base) : null);
+    return blendSettings(defaultSettings(), s, workerZones ? 1 : strength / 100);
+  }, [target, base, strength, workerZones]);
 
   const load = (set: (c: HTMLCanvasElement) => void) => async (f: File) => {
     try {

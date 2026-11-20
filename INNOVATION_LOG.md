@@ -376,3 +376,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** There was no signal of whether the tool helped a player get a code into the game, and no unobtrusive way for them to say so.
 - **Ship:** Added a three-tap rating dialog that stores the answer locally and thanks the visitor without analytics or network calls.
+
+### 71. Off-thread screenshot analysis
+
+- **Look:** Analysing a large screenshot read and scanned every pixel on the main thread, stalling the preview while the visitor dragged images in.
+- **Ship:** Added a dedicated web worker that measures the reference and baseline images and returns the panel values, with the CPU path as fallback.
