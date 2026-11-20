@@ -291,3 +291,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Offline mode would otherwise fail silently and look like a broken page.
 - **Ship:** Added a one-time offline notice explaining that saved grades and the generator keep working, plus registration wiring.
+
+### 54. Rich metadata and structured data
+
+- **Look:** Links to the tool in chats showed a bare URL and search engines had no description of what the app does.
+- **Ship:** Added Open Graph/Twitter metadata, canonical URL, an app JSON-LD block with the fan-made disclaimer, and accessible viewport settings.
