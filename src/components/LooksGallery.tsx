@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
 import { K, readJson, writeJson } from "@/lib/storage";
+import { codeMood } from "@/lib/codeTools";
+import { decode, type Settings } from "@/lib/codm";
 import { rememberLook } from "@/components/MyLooks";
 import { notify } from "@/components/Toasts";
 import { copyText } from "@/lib/clipboard";
@@ -90,6 +92,7 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null | "favorites">(null);
+  const [mood, setMood] = useState<string | null>(null);
   const [favs, setFavs] = useState<string[]>([]);
   useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
   // A #look=Hajin link opens that look on the stage without touching #c= codes.
@@ -109,12 +112,15 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       ms: 1800,
     });
   };
+  const moodOf = (look: Look) => {
+    const s = decode(look.code) as Settings;
+    return s ? codeMood(s) : [];
+  };
+  const MOODS = [...new Set(LOOKS.flatMap(moodOf))].sort();
   const shown =
-    game === "favorites"
-      ? LOOKS.filter((l) => favs.includes(l.code))
-      : game
-        ? LOOKS.filter((l) => l.game === game)
-        : LOOKS;
+    (mood ? LOOKS.filter((l) => moodOf(l).includes(mood)) : LOOKS).filter((l) =>
+      game === "favorites" ? favs.includes(l.code) : game ? l.game === game : true,
+    );
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
@@ -167,7 +173,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           <h2 id="looks-title" className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">
             Pick a look
           </h2>
-          <p className="mt-1 text-sm text-mute">Copy a code and the steps to import it in CODM follow.</p>
+          <p className="mt-1 text-sm text-mute">Copy a code and the steps to import it in CODM follow. <span className="font-mono text-[11px]">{shown.length}/{LOOKS.length} looks</span></p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {recent[0] && (
@@ -217,6 +223,33 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 font-display text-[10px] font-bold uppercase tracking-[0.2em] text-mute">
+          Character
+        </span>
+        <button
+          onClick={() => setMood(null)}
+          aria-pressed={mood === null}
+          className={`min-h-9 border px-2.5 font-display text-[11px] font-bold uppercase tracking-wide ${
+            mood === null ? "border-codm bg-codm/20 text-codm-light" : "border-line bg-panel/60 text-mute hover:text-text"
+          }`}
+        >
+          Any
+        </button>
+        {MOODS.map((m) => (
+          <button
+            key={m}
+            onClick={() => setMood(mood === m ? null : m)}
+            aria-pressed={mood === m}
+            className={`min-h-9 border px-2.5 font-display text-[11px] font-bold uppercase tracking-wide ${
+              mood === m ? "border-codm bg-codm/20 text-codm-light" : "border-line bg-panel/60 text-mute hover:text-text"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
       </div>
 
       {/* stage: the selected look, full width */}

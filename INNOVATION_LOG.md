@@ -126,3 +126,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The decoder had no entry point from the main code surface.
 - **Ship:** Added a decode button beside Copy and connected inspector state to the action bus.
+
+### 24. Computed character filters
+
+- **Look:** Game filters answer where a look came from, not what it looks like; with twelve looks the useful question is warm, cool, vivid or muted.
+- **Ship:** Added computed character chips derived from each code's own values, combined with game/favourite filters and a live result count.
