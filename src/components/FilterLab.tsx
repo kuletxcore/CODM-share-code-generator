@@ -20,6 +20,8 @@ import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { act, useActions } from "@/lib/actions";
+import CommandPalette from "@/components/CommandPalette";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -387,6 +389,12 @@ export default function FilterLab() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useActions(
+    useCallback((a) => {
+      if (a === "open-palette") setPaletteOpen(true);
+    }, []),
+  );
 
   const code = useMemo(() => encode(settings), [settings]);
 
@@ -464,6 +472,16 @@ export default function FilterLab() {
             your own.
           </p>
         </div>
+        <button
+          onClick={() => act("open-palette")}
+          aria-label="Open quick find"
+          className="cut-sm flex min-h-11 items-center gap-2 border border-line bg-panel/80 px-3 font-display text-sm font-bold uppercase tracking-wider text-mute transition-colors hover:border-codm hover:text-text"
+        >
+          <span aria-hidden>⌕</span> Quick find
+          <kbd className="hidden border border-line px-1.5 py-0.5 font-mono text-[10px] sm:inline">
+            ⌘K
+          </kbd>
+        </button>
       </header>
 
       <LooksGallery
@@ -779,6 +797,7 @@ export default function FilterLab() {
       <Notes />
       <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
       <ImportGuide />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
     </div>
   );
 }

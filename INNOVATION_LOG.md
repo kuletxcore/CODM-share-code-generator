@@ -36,3 +36,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** With 12 looks, two editor modes and a 22-number code, the fastest actions were buried below the fold and required scrolling.
 - **Ship:** Added a Cmd/Ctrl+K palette with fuzzy search over looks and actions, paste-a-code detection, arrow-key navigation and direct action dispatch.
+
+### 6. Palette wired into the shell
+
+- **Look:** The palette existed but no route to it, and the toast host was mounted nowhere, so neither could reach a visitor.
+- **Ship:** Mounted the toast host at the root, added a header Quick find trigger, and connected the palette to the code loader through the action bus.
