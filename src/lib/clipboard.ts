@@ -2,6 +2,7 @@
 export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
+    navigator.vibrate?.(12);
     return true;
   } catch {
     try {
@@ -14,6 +15,7 @@ export async function copyText(text: string): Promise<boolean> {
       t.select();
       const ok = document.execCommand("copy");
       t.remove();
+      if (ok) navigator.vibrate?.(12);
       return ok;
     } catch {
       return false;

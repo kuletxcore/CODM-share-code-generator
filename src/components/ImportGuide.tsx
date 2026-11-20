@@ -16,6 +16,7 @@ export function announceCopy(code: string, name?: string, extra: Omit<Copied, "c
 export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
   try {
     await navigator.clipboard.writeText(code);
+    navigator.vibrate?.(12);
   } catch {
     const t = document.createElement("textarea");
     t.value = code;

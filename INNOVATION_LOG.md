@@ -236,3 +236,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The paste field gave no sign that a pasted code was well-formed until submit, and there was no indication of how far the current code had moved from default.
 - **Ship:** Added a live valid/invalid border, a changed-values counter on the code output and a tooltip with detail.
+
+### 46. Tactile confirmation
+
+- **Look:** Copying a code gave a visual label but no physical confirmation while the visitor's eyes were moving towards the game.
+- **Ship:** Added a short vibration on successful copy across the clipboard helper and code guide (where supported).
