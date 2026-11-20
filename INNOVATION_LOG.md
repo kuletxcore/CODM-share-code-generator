@@ -521,3 +521,23 @@ performance and accessibility of the dense editor.
 
 - **Look:** After a hundred changes, the risks are a broken build, lint regressions, a dead preview or an unrecorded change.
 - **Ship:** Cleaned up lint findings, verified build and lint, started the live dev server, and committed the final state before the PR.
+
+#### Loop 94 (follow-up): QR on every screen
+
+- **Look:** The guide's QR was desktop-only, yet the desktop-to-phone hop is the point of the QR.
+- **Ship:** Show the QR and its caption at every width.
+
+#### Loop 95 (follow-up): pin default from the palette
+
+- **Look:** Comparing against the in-game reset was only possible from one small button in the preview controls.
+- **Ship:** Added a pin-default action to the command palette and a matching shell handler.
+
+#### Loop 96 (follow-up): named grade links
+
+- **Look:** Links copied from the code bar restored the code but dropped the grade's name.
+- **Ship:** Added the name to link and share-sheet URLs, matching the QR/shared-card format.
+
+### 94. QR hand-off at every width
+
+- **Look:** The guide's QR was desktop-only, yet the desktop-to-phone hop is the point of the QR.
+- **Ship:** Showed the QR and its caption on every screen size.

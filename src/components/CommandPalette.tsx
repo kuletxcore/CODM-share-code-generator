@@ -28,6 +28,7 @@ const ACTIONS: { title: string; hint: string; action: AppAction; keys?: string }
   { title: "Surprise me", hint: "Jump to a random gallery look", action: "surprise" },
   { title: "Toggle Simple / Advanced", hint: "Switch editor depth", action: "toggle-mode", keys: "M" },
   { title: "Fullscreen preview", hint: "See the grade large", action: "fullscreen-preview", keys: "F" },
+  { title: "Pin the default grade", hint: "Compare against the in-game reset", action: "pin-default" },
   { title: "Keyboard shortcuts", hint: "Every shortcut in one place", action: "open-help", keys: "?" },
   { title: "Undo last change", hint: "Step back one edit", action: "undo", keys: "⌘Z" },
   { title: "Redo change", hint: "Step forward one edit", action: "redo", keys: "⌘⇧Z" },

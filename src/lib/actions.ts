@@ -22,6 +22,7 @@ export type AppAction =
   | "compare-preview"
   | "fullscreen-preview"
   | "revisit-onboarding"
+  | "pin-default"
   | "share-tool"
   | "close-overlays"
   | "gallery-next"

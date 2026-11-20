@@ -621,6 +621,11 @@ export default function FilterLab() {
           case "toggle-mode":
             setAdvanced((v) => !v);
             break;
+          case "pin-default": {
+            setSnapshot(defaultSettings());
+            notify({ title: "Default pinned", detail: "Wipe to compare against the reset state.", tone: "good" });
+            break;
+          }
           case "fullscreen-preview": {
             const stage = view.current?.parentElement;
             const fail = () => notify({ title: "Fullscreen unavailable", tone: "warn" });
@@ -1486,7 +1491,8 @@ function CodeBar({
         <div className="mx-auto flex max-w-[1400px] flex-wrap gap-2 border-b border-line px-4 py-2 sm:px-8">
           <button
             onClick={async () => {
-              const ok = await copyText(`${location.origin}${location.pathname}#c=${code}`);
+              const label = name.trim() ? `&n=${encodeURIComponent(name.trim())}` : "";
+              const ok = await copyText(`${location.origin}${location.pathname}#c=${code}${label}`);
               notify(ok ? { title: "Link copied", detail: "Opens with this grade loaded.", tone: "good" } : { title: "Copy failed", tone: "warn" });
             }}
             className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line"
@@ -1495,7 +1501,8 @@ function CodeBar({
           </button>
           <button
             onClick={async () => {
-              const data = { title: "CODM Filter Lab", text: `CODM filter code: ${code}`, url: `${location.origin}${location.pathname}#c=${code}` };
+              const label = name.trim() ? `&n=${encodeURIComponent(name.trim())}` : "";
+              const data = { title: "CODM Filter Lab", text: `CODM filter code: ${code}`, url: `${location.origin}${location.pathname}#c=${code}${label}` };
               if (navigator.share) {
                 try { await navigator.share(data); return; } catch {}
               }

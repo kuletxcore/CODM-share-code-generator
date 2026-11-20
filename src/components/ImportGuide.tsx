@@ -309,12 +309,12 @@ export default function ImportGuide() {
             </div>
 
             <div className="mt-3 flex items-center gap-3 border-t border-line pt-3">
-              <div className="hidden sm:block">
+              <div className="shrink-0">
                 <PhoneQr code={open.code} />
               </div>
               <div className="flex min-w-0 flex-col gap-2">
-                <p className="hidden text-xs text-mute sm:block">
-                  On a computer? Scan to open this code on your phone, ready to copy.
+                <p className="text-xs text-mute">
+                  Scan to open this code on another device, ready to copy.
                 </p>
                 <button
                   onClick={async () => {
