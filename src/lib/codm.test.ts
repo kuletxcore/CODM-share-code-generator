@@ -128,3 +128,17 @@ test("extractCode finds a code inside pasted text", () => {
   assert.equal(extractCode(`5 ${c.replaceAll("_", " ")}`), null, "a number before would shift every slot");
   assert.equal(extractCode(`Look 2: ${c}`), c, "a number separated by other text is fine");
 });
+
+test("MW2022 decodes to the settings shown in MorganPixy's video", () => {
+  const look = LOOKS.find((l) => l.name === "MW2022");
+  assert.ok(look);
+  const s = decode(look.code);
+  assert.ok(s);
+  const sh = s.zones.shadows;
+  assert.deepEqual(hueParts(sh.hue), { swatch: 1, pos: 0 }); // Orange, slider 0
+  assert.equal(Math.round(sh.tint), 40);
+  assert.equal(Math.round(sh.sat), 35);
+  assert.equal(Math.round(sh.bri), 100);
+  assert.equal(s.shadowPos, 189);
+  assert.equal(s.shadowEdge, s.shadowPos + 100);
+});

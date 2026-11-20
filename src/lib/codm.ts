@@ -508,8 +508,10 @@ export type Look = {
   note: string;
   mode: "Simple" | "Advanced";
   code: string;
-  /** Reference image the look is based on (not a CODM capture). */
+  /** Reference image the look is based on (not a CODM capture), unless `inGame`. */
   image?: string;
+  /** The image is a CODM capture with this exact code applied, so it is labelled "In game". */
+  inGame?: boolean;
   /** Game the look comes from, for the gallery filter. */
   game?: Game;
 };
@@ -594,6 +596,34 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
     image: "/looks/vondead.webp",
+  },
+  {
+    // Shared by MorganPixy in the pinned comment of their video "Call of Duty
+    // Mobile with Modern Warfare 2022 Color Filter" (youtu.be/DtpgvsKhR5w),
+    // which also shows the in-game settings: Shadows only, Orange swatch,
+    // slider 0, Tint 40, Saturation 35, Brightness 100, shadows handle moved.
+    // The code decodes to exactly those values. The card is a frame from it.
+    name: "MW2022",
+    game: "MWII",
+    note: "MorganPixy's MWII filter: warm orange, washed-out lifted shadows",
+    mode: "Advanced",
+    code: "0_1_189_289_1000_1100_0_0_0_1000_125_396_1000_697_0_0_0_1000_0_0_0_1000",
+    image: "/looks/mw2022.webp",
+    inGame: true,
+  },
+  {
+    // Shared by MorganPixy in the pinned comment of their video "Call Of Duty
+    // Mobile Season 3 2026 - Modern Warfare 2019 Color Filter"
+    // (youtu.be/TImj7OGnM60). They say it suits recent MW 2019 maps on
+    // High/Very High graphics with anti-aliasing and bloom on. The card is a
+    // frame from that video, cropped clear of its picture-in-picture inset.
+    name: "MW2019",
+    game: "MW 2019",
+    note: "MorganPixy's MW 2019 multiplayer filter: darker warm shadows, brighter highlights. Made for MW 2019 maps with bloom on",
+    mode: "Advanced",
+    code: "0_1_259_359_1000_1100_0_0_0_1000_197_129_-204_1000_0_0_-3_990_0_0_195_1007",
+    image: "/looks/mw2019.webp",
+    inGame: true,
   },
   {
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)

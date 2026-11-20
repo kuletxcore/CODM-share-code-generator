@@ -225,7 +225,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
               <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
               <span className="bg-black/70 px-2 py-0.5 text-mute">
-                {shot ? "Your screen · approx." : look.image ? "Inspiration" : "Preview"}
+                {shot ? "Your screen · approx." : look.inGame ? "In game" : look.image ? "Inspiration" : "Preview"}
               </span>
               {shot && compare && (
                 <span className="bg-black/70 px-2 py-0.5 text-codm">Original · left</span>

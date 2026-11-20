@@ -4,7 +4,8 @@ A fan-made colour filter share-code generator for Call of Duty: Mobile.
 
 Live: https://codm.kuletxcore.workers.dev
 
-- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
+- **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, MW2022, MW2019, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
+  - MW2022 and MW2019 are MorganPixy's own codes, from the pinned comments of their filter videos. The MW2022 video shows the in-game settings, which match the code exactly.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Screen test**: drop one CODM screenshot (or paste it with Ctrl+V) and every look in the gallery, plus the generator's preview, is graded on your own frame (an approximation of the in-game filter). Hold Compare to see the ungraded original. Look cards you save then show your screenshot. Nothing is uploaded; the shot stays in the tab.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on one of five real CODM scenes or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
