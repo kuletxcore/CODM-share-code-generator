@@ -241,3 +241,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Copying a code gave a visual label but no physical confirmation while the visitor's eyes were moving towards the game.
 - **Ship:** Added a short vibration on successful copy across the clipboard helper and code guide (where supported).
+
+### 47. Mode-aware import steps
+
+- **Look:** The guide always said 'pick a mode tab', but DMZ: Recon has no Customize Color and the steps a player sees differ by mode.
+- **Ship:** Added MP/BR/DMZ selection in the guide with mode-specific step text and hints, persisted across visits.

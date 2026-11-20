@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { K, readJson, writeJson } from "@/lib/storage";
 
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
@@ -63,14 +64,19 @@ async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
   return "saved";
 }
 
-const STEPS: { title: string; hint?: string }[] = [
+type GuideMode = "MP" | "BR" | "DMZ";
+
+const stepsFor = (mode: GuideMode): { title: string; hint?: string }[] => [
   { title: "Settings", hint: "From the CODM lobby" },
   { title: "Audio and Graphics" },
-  { title: "Pick your mode tab", hint: "MP, BR, DMZ…" },
+  {
+    title: `Pick the ${mode} mode tab`,
+    hint: mode === "DMZ" ? "DMZ: Recon · style only, no Customize Color" : `${mode} Mode`,
+  },
   { title: "Graphic Style → Import → Go" },
-  { title: "Choose a Custom slot" },
+  { title: "Choose a Custom slot", hint: "Custom #1–#5" },
   { title: "Paste the code", hint: "Into “Enter the Share code”" },
-  { title: "Apply" },
+  { title: "Apply", hint: mode === "DMZ" ? "Then check the result in a match" : "Customize Color can fine-tune it" },
 ];
 
 const readOff = () => {
@@ -93,6 +99,9 @@ export default function ImportGuide() {
   const [done, setDone] = useState<number[]>([]);
   const [off, setOff] = useState(false);
   const [again, setAgain] = useState(false);
+  const [mode, setMode] = useState<GuideMode>(() => readJson<GuideMode>(K.guideMode, "MP"));
+  const [progress, setProgress] = useState<Record<string, number[]>>(() => readJson(K.guideProgress, {}));
+  const STEPS = stepsFor(mode);
   const heading = useRef<HTMLHeadingElement>(null);
   const reduce = useReducedMotion();
 
@@ -105,7 +114,8 @@ export default function ImportGuide() {
       if (skip) {
         setToast(d);
       } else {
-        setDone([]);
+        const saved = readJson<Record<string, number[]>>(K.guideProgress, {})[d.code] ?? [];
+        setDone(saved);
         setOpen(d);
       }
     };
@@ -136,6 +146,16 @@ export default function ImportGuide() {
   }, []);
 
   const next = STEPS.findIndex((_, i) => !done.includes(i));
+  const tick = (i: number) =>
+    setDone((old) => {
+      const value = old.includes(i) ? old.filter((x) => x !== i) : [...old, i];
+      if (open) {
+        const all = { ...readJson<Record<string, number[]>>(K.guideProgress, {}), [open.code]: value };
+        setProgress(all);
+        writeJson(K.guideProgress, all);
+      }
+      return value;
+    });
 
   return (
     <>
@@ -169,6 +189,29 @@ export default function ImportGuide() {
               </span>
             </div>
 
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="font-display text-[10px] font-bold uppercase tracking-[0.2em] text-mute">Mode</span>
+              {(["MP", "BR", "DMZ"] as GuideMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setMode(m);
+                    writeJson(K.guideMode, m);
+                    setDone([]);
+                  }}
+                  aria-pressed={mode === m}
+                  className={`min-h-10 px-3 font-display text-xs font-bold uppercase tracking-wider ${
+                    mode === m ? "bg-codm text-black" : "bg-panel-2 text-mute hover:text-text"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+              {Object.keys(progress).length > 0 && (
+                <span className="font-mono text-[10px] text-mute">progress remembered per code</span>
+              )}
+            </div>
+
             <ol className="mt-3 flex flex-col gap-1">
               {STEPS.map((s, i) => {
                 const isDone = done.includes(i);
@@ -176,7 +219,7 @@ export default function ImportGuide() {
                 return (
                   <li key={s.title}>
                     <button
-                      onClick={() => setDone((d) => (d.includes(i) ? d.filter((x) => x !== i) : [...d, i]))}
+                      onClick={() => tick(i)}
                       aria-pressed={isDone}
                       className={`flex min-h-11 w-full items-center gap-3 border-l-4 px-3 py-2 text-left transition-colors ${
                         isNext

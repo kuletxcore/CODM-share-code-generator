@@ -10,6 +10,8 @@ export const K = {
   onboarded: "codm:onboarded:v1",
   guideOff: "codm-guide-off",
   feedback: "codm:feedback:v1",
+  guideMode: "codm:guide-mode:v1",
+  guideProgress: "codm:guide-progress:v1",
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {
