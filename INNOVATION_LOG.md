@@ -436,3 +436,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Filmstrip labels only named a look; there was no quick visual cue of its colour character while scanning.
 - **Ship:** Added a small hue swatch derived from each look's midtone value beside its name.
+
+### 83. Live look ticker
+
+- **Look:** The header never reflected what was on the stage, so after scrolling to the editor there was no reminder of the chosen look.
+- **Ship:** Added a Now viewing chip in the header driven by gallery state.
