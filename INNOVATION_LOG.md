@@ -216,3 +216,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The converter returned one fixed answer; a strong measurement often looked wrong in game and the visitor had no way to dial it back.
 - **Ship:** Added an intensity control that blends the measured grade from neutral from 25% to 150%.
+
+### 42. Copy the converted code directly
+
+- **Look:** A converted grade had to be opened in the generator before it could be copied and tried in game.
+- **Ship:** Added a direct Copy this code action to the converter result.
