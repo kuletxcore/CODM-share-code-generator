@@ -526,3 +526,97 @@ export const LOOKS: Look[] = [
     code: DEFAULT_CODE,
   },
 ];
+
+// Additional preview stages. The urban scene is the original sample; these two
+// give tonal comparisons somewhere other than the same blue-sky street.
+export type SceneKind = "urban" | "range" | "portrait";
+
+const chipStrip = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+  const chips = ["#e23b2e", "#f2a71b", "#8fd13f", "#27b36a", "#29b8d6", "#2f5fd0", "#7a3fd0", "#d93fa6", "#f2f2f2", "#8a8a8a", "#1e1e1e"];
+  chips.forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(w * 0.04 + i * w * 0.042, h * 0.93, w * 0.036, h * 0.05);
+  });
+};
+
+export function drawScene(ctx: CanvasRenderingContext2D, w: number, h: number, kind: SceneKind = "urban") {
+  if (kind === "urban") return drawSample(ctx, w, h);
+  if (kind === "range") {
+    const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+    sky.addColorStop(0, "#2d5c8a");
+    sky.addColorStop(0.55, "#e9a35c");
+    sky.addColorStop(1, "#f7d9a0");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(255,240,190,0.95)";
+    ctx.beginPath();
+    ctx.arc(w * 0.7, h * 0.52, h * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    const ridge = (base: number, amp: number, col: string, seed: number) => {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 8) {
+        const y = base * h - (Math.sin(x * 0.004 + seed) * 0.6 + Math.sin(x * 0.011 + seed * 3) * 0.4) * amp * h;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.fill();
+    };
+    ridge(0.66, 0.07, "#8d6d58", 1);
+    ridge(0.73, 0.05, "#5a4437", 4);
+    const road = ctx.createLinearGradient(0, h * 0.7, 0, h);
+    road.addColorStop(0, "#b89a74");
+    road.addColorStop(1, "#6d5741");
+    ctx.fillStyle = road;
+    ctx.fillRect(0, h * 0.78, w, h * 0.22);
+    ctx.fillStyle = "#2f3a2c";
+    for (const x of [0.06, 0.14, 0.86, 0.94]) {
+      ctx.beginPath();
+      ctx.moveTo(x * w, h * 0.79);
+      ctx.lineTo((x + 0.012) * w, h * 0.63);
+      ctx.lineTo((x + 0.024) * w, h * 0.79);
+      ctx.fill();
+    }
+    chipStrip(ctx, w, h);
+    return;
+  }
+  // portrait: a lit operator bust against a dark studio backdrop
+  const bg = ctx.createRadialGradient(w * 0.62, h * 0.32, h * 0.05, w * 0.62, h * 0.45, w * 0.7);
+  bg.addColorStop(0, "#46606a");
+  bg.addColorStop(0.55, "#22323a");
+  bg.addColorStop(1, "#0b0f12");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "rgba(255,234,59,0.12)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.arc(w * 0.62, h * 0.46, h * (0.28 + i * 0.11), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#1a2228";
+  ctx.beginPath();
+  ctx.moveTo(w * 0.24, h);
+  ctx.quadraticCurveTo(w * 0.32, h * 0.66, w * 0.62, h * 0.64);
+  ctx.quadraticCurveTo(w * 0.92, h * 0.66, w, h);
+  ctx.fill();
+  ctx.fillStyle = "#39454b";
+  ctx.beginPath();
+  ctx.ellipse(w * 0.62, h * 0.42, h * 0.19, h * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#20292e";
+  ctx.beginPath();
+  ctx.ellipse(w * 0.62, h * 0.40, h * 0.205, h * 0.16, -0.1, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(140,205,255,0.55)";
+  ctx.fillRect(w * 0.51, h * 0.41, h * 0.08, h * 0.022);
+  ctx.fillRect(w * 0.65, h * 0.41, h * 0.08, h * 0.022);
+  ctx.strokeStyle = "rgba(255,234,59,0.5)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.24, h);
+  ctx.quadraticCurveTo(w * 0.32, h * 0.66, w * 0.62, h * 0.64);
+  ctx.stroke();
+  chipStrip(ctx, w, h);
+}

@@ -12,6 +12,8 @@ import {
   type Settings,
   type Zone,
   type ZoneKey,
+  type SceneKind,
+  drawScene,
   SWATCH_NAMES,
   hueFrom,
   hueParts,
@@ -32,6 +34,7 @@ import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
 import { copyText } from "@/lib/clipboard";
 import QuickTweaks from "@/components/QuickTweaks";
+import { getPrefs, setPref } from "@/lib/storage";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -99,11 +102,11 @@ function pixels(c: HTMLCanvasElement, maxW = 320) {
   return ctx.getImageData(0, 0, t.width, t.height).data;
 }
 
-function sampleCanvas() {
+function sampleCanvas(kind: SceneKind = "urban") {
   const c = document.createElement("canvas");
   c.width = 960;
   c.height = 540;
-  drawSample(c.getContext("2d")!, c.width, c.height);
+  drawScene(c.getContext("2d")!, c.width, c.height, kind);
   return c;
 }
 
@@ -240,20 +243,24 @@ function Preview({
   onPin?: () => void;
   onFullscreen?: () => void;
 }) {
-  const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
+  const [scene, setScene] = useState<SceneKind>(() => getPrefs().scene ?? "urban");
+  const [sample, setSample] = useState(() =>
+    typeof document === "undefined" ? null : sampleCanvas(getPrefs().scene ?? "urban"),
+  );
+  useEffect(() => setSample(sampleCanvas(scene)), [scene]);
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
   useEffect(() => {
     let live = true;
     import("@/lib/scene")
       .then((m) => m.renderScene(960, 540))
       .then((c) => {
-        if (live && c) setSample(c);
+        if (live && c && scene === "urban") setSample(c);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, []);
+  }, [scene]);
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
@@ -452,6 +459,22 @@ function Preview({
             Sample scene
           </button>
         )}
+        <div className="flex items-center gap-1">
+          <span className="font-display text-[11px] font-bold uppercase tracking-wider text-mute">Scene</span>
+          {(["urban", "range", "portrait"] as SceneKind[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => { setScene(k); setPref("scene", k); }}
+              aria-pressed={scene === k}
+              disabled={!!source}
+              className={`min-h-11 px-2 font-display text-xs font-bold uppercase tracking-wide disabled:opacity-40 ${
+                scene === k ? "bg-codm text-black" : "border border-line bg-panel-2 text-mute hover:text-text"
+              }`}
+            >
+              {k}
+            </button>
+          ))}
+        </div>
         <button
           onClick={onPin}
           className={`cut-sm min-h-11 border px-3 font-display text-sm font-bold uppercase tracking-wider ${

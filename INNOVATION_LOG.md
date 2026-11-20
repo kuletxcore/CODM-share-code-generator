@@ -201,3 +201,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Subtle footage-based grades are hard to read at a thumbnail size, and there was no way to inspect a single region without uploading and zooming the image elsewhere.
 - **Ship:** Added a toggleable 4× loupe that follows the pointer over the live graded preview.
+
+### 39. Two more preview scenes
+
+- **Look:** Every look was judged on one street scene; subtle warm and cool grades read differently against sky, skin and sand.
+- **Ship:** Added procedural desert-range and operator-portrait preview scenes alongside the original urban sample.
