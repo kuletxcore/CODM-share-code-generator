@@ -4,6 +4,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { LOOKS, type Look } from "@/lib/codm";
 import { Art } from "@/components/LooksGallery";
 import { act } from "@/lib/actions";
@@ -42,6 +43,8 @@ export default function CompareMode({
   onLoad: (code: string) => void;
 }) {
   const [a, setA] = useState<Look>(LOOKS[0]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, !!open);
   const [b, setB] = useState<Look>(LOOKS[3] ?? LOOKS[1]);
   const [split, setSplit] = useState(50);
 
@@ -63,6 +66,7 @@ export default function CompareMode({
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
+            ref={dialog}
             role="dialog"
             aria-modal="true"
             aria-labelledby="compare-title"

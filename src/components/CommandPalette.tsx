@@ -5,6 +5,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { LOOKS } from "@/lib/codm";
 import { act, type AppAction } from "@/lib/actions";
 import { normalizeCode } from "@/lib/codeTools";
@@ -57,6 +58,8 @@ export default function CommandPalette({
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, !!open);
   const list = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,6 +133,7 @@ export default function CommandPalette({
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
+            ref={dialog}
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"

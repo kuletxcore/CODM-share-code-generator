@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { K, readJson, writeJson } from "@/lib/storage";
 
 const EVENT = "codm:copied";
@@ -103,6 +104,8 @@ export default function ImportGuide() {
   const [progress, setProgress] = useState<Record<string, number[]>>(() => readJson(K.guideProgress, {}));
   const STEPS = stepsFor(mode);
   const heading = useRef<HTMLHeadingElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, !!open);
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -162,6 +165,7 @@ export default function ImportGuide() {
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={dialog}
             role="dialog"
             aria-labelledby="guide-title"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}

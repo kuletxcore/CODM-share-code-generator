@@ -4,6 +4,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { DEFAULT_CODE } from "@/lib/codm";
 import { codeDiff, describeCode, lookForCode, suggestName } from "@/lib/codeTools";
 import { copyText } from "@/lib/clipboard";
@@ -29,6 +30,8 @@ export default function LookInspector({
   onLoad: (code: string) => void;
 }) {
   const [diffOnly, setDiffOnly] = useState(false);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, !!open);
   const fields = useMemo(() => describeCode(code), [code]);
   const diff = useMemo(() => codeDiff(code, DEFAULT_CODE), [code, fields]);
   const look = lookForCode(code);
@@ -44,6 +47,7 @@ export default function LookInspector({
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
+            ref={dialog}
             role="dialog"
             aria-modal="true"
             aria-labelledby="inspect-title"

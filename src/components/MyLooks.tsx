@@ -5,6 +5,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { K, pushUnique, readJson, removeKey, writeJson, type SavedLook } from "@/lib/storage";
 import { suggestName } from "@/lib/codeTools";
 import { notify } from "@/components/Toasts";
@@ -53,6 +54,8 @@ export default function MyLooks({
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const file = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, !!open);
 
   const refresh = () => {
     setLooks(readJson<SavedLook[]>(K.looks, []));
@@ -128,6 +131,7 @@ export default function MyLooks({
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.aside
+            ref={dialog as React.RefObject<HTMLElement & HTMLDivElement>}
             role="dialog"
             aria-modal="true"
             aria-labelledby="mylooks-title"

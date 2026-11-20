@@ -346,3 +346,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Motion was controlled only by the OS setting; there was no in-app way to turn animation off.
 - **Ship:** Added a motion gate that applies system and in-app preference to both CSS and Motion components.
+
+### 65. Dialogs trap focus, motion is switchable
+
+- **Look:** The new focus-trap helper and motion gate had no UI or consumers, so keyboard focus could still escape overlays and animation had no in-app switch.
+- **Ship:** Applied focus traps to every dialog and added a Reduce animation toggle to the shortcut sheet.

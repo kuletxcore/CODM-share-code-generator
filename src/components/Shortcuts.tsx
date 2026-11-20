@@ -110,7 +110,21 @@ export function ShortcutsHelp() {
                 </div>
               ))}
             </dl>
-            <p className="mt-4 text-xs text-mute">
+            <label className="mt-4 flex min-h-11 cursor-pointer items-center justify-between gap-3 border-t border-line pt-3 text-sm">
+              <span>
+                Reduce animation
+                <span className="block text-xs text-mute">Also respects your system setting.</span>
+              </span>
+              <input
+                type="checkbox"
+                defaultChecked={document.documentElement.dataset.motion === "reduced"}
+                onChange={(e) =>
+                  window.dispatchEvent(new CustomEvent("codm:set-motion", { detail: e.target.checked }))
+                }
+                className="h-5 w-5 accent-[var(--color-codm)]"
+              />
+            </label>
+            <p className="mt-3 text-xs text-mute">
               Shortcuts pause while you are typing in a field. Everything here also has a button.
             </p>
           </motion.div>
