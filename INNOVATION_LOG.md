@@ -406,3 +406,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Typing a look name in the paste field gave no suggestions and looked like an invalid code.
 - **Ship:** Added a live suggestion list of matching looks that loads a code directly on click.
+
+### 77. Seeded random grades
+
+- **Look:** The palette advertised 'Roll a random grade' but no handler existed.
+- **Ship:** Wired the randomize action to a seeded generator with a re-roll toast and history reset.
