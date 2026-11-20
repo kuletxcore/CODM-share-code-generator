@@ -30,6 +30,7 @@ import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
+import { copyText } from "@/lib/clipboard";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -1159,7 +1160,44 @@ function CodeBar({
 
 function Notes() {
   return (
-    <footer className="mt-16 grid gap-8 border-t border-line pt-8 text-sm text-mute md:grid-cols-3">
+    <footer className="mt-16 border-t border-line pt-8 text-sm text-mute">
+      <div className="mb-8 flex flex-wrap items-center gap-3">
+        <span className="font-display text-xs font-bold uppercase tracking-[0.2em] text-mute">
+          Pass it on
+        </span>
+        <button
+          onClick={async () => {
+            const url = location.origin + location.pathname;
+            const data = { title: "CODM Filter Lab", text: "Colour filter share codes for Call of Duty: Mobile", url };
+            if (navigator.share) {
+              try {
+                await navigator.share(data);
+                return;
+              } catch {}
+            }
+            const ok = await copyText(url);
+            notify(ok
+              ? { title: "Link copied", detail: "Send it to your squad.", tone: "good" }
+              : { title: "Could not copy", tone: "warn" });
+          }}
+          className="cut-sm min-h-11 bg-codm px-4 font-display text-sm font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+        >
+          Share this tool
+        </button>
+        <button
+          onClick={() => act("revisit-onboarding")}
+          className="min-h-11 border border-line px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:border-mute hover:text-text"
+        >
+          Replay quick tour
+        </button>
+        <button
+          onClick={() => act("open-help")}
+          className="min-h-11 border border-line px-3 font-display text-sm font-bold uppercase tracking-wider text-mute hover:border-mute hover:text-text"
+        >
+          Shortcuts
+        </button>
+      </div>
+      <div className="grid gap-8 md:grid-cols-3">
       <div>
         <h2 className="mb-2 font-display text-base font-bold uppercase tracking-wider text-text">
           How to use a code
@@ -1189,6 +1227,7 @@ function Notes() {
           Studio Group or Tencent. Call of Duty and Call of Duty: Mobile are trademarks of their
           respective owners.
         </p>
+      </div>
       </div>
     </footer>
   );

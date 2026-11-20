@@ -156,3 +156,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Trying several looks meant copying codes one at a time from the stage.
 - **Ship:** Added Copy all, which puts every visible look's code on the clipboard as named, newline-separated entries.
+
+### 30. Share the tool, revisit the tour
+
+- **Look:** The footer ended with disclaimers; there was no way to send the tool to a friend or replay the first-visit guidance.
+- **Ship:** Added a footer action strip with native share (clipboard fallback), a replayable tour and a shortcuts link.
