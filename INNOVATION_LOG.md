@@ -541,3 +541,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The guide's QR was desktop-only, yet the desktop-to-phone hop is the point of the QR.
 - **Ship:** Showed the QR and its caption on every screen size.
+
+### 95. Pin default from the palette
+
+- **Look:** Comparing against the in-game reset required finding a small button under the preview.
+- **Ship:** Added a pin-default action to the command palette and the shell.
