@@ -634,8 +634,8 @@ export const LOOKS: Look[] = [
     // Range handles at the right end. The code decodes to exactly those values.
     // Warzone ran on Black Ops 7 then (Season 05; Activision's Season 06
     // announcement, Sep 2026). The card is a frame from the video, cropped
-    // clear of the HUD; the owner identifies the map as Black Ops 6's Nuketown
-    // (its minimap reads "Special Forces Base"; not confirmed by a published source).
+    // clear of the HUD. The map is Black Ops 6's Nuketown, identified by its
+    // house; the minimap's "Special Forces Base" is CODM's callout for a team spawn.
     name: "Warzone",
     game: "Black Ops 7",
     note: "DisasterNinja's Warzone look: bright, warm and saturated, with lime-lifted shadows",
