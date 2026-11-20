@@ -35,7 +35,7 @@ export default function LookInspector({
   const dialog = useRef<HTMLDivElement>(null);
   useFocusTrap(dialog, !!open);
   const fields = useMemo(() => describeCode(code), [code]);
-  const diff = useMemo(() => codeDiff(code, DEFAULT_CODE), [code, fields]);
+  const diff = useMemo(() => codeDiff(code, DEFAULT_CODE), [code]);
   const look = lookForCode(code);
 
   return (

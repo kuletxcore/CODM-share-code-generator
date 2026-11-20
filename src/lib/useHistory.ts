@@ -10,7 +10,7 @@ type Entry<T> = { value: T; label?: string; at: number };
 export function useHistory<T>(initial: T, limit = 60) {
   const [state, setState] = useState<{ past: Entry<T>[]; present: Entry<T>; future: Entry<T>[] }>({
     past: [],
-    present: { value: initial, at: Date.now() },
+    present: { value: initial, at: 0 },
     future: [],
   });
   const lastLabel = useRef<{ label?: string; at: number }>({ at: 0 });

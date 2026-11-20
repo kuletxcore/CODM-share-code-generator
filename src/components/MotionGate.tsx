@@ -2,7 +2,7 @@
 
 import { MotionConfig } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { getPrefs, K, readJson, setPref } from "@/lib/storage";
+import { getPrefs, setPref } from "@/lib/storage";
 
 /** System preference plus an in-app override, applied to CSS and Motion. */
 export default function MotionGate({ children }: { children: ReactNode }) {
@@ -11,6 +11,7 @@ export default function MotionGate({ children }: { children: ReactNode }) {
     const pref = getPrefs().motion ?? "auto";
     const system = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const value = pref === "reduced" || system;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReduced(value);
     document.documentElement.dataset.motion = value ? "reduced" : "auto";
     document.documentElement.dataset.density = getPrefs().density ?? "comfortable";

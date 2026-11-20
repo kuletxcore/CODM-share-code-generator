@@ -7,7 +7,6 @@ import {
   applyGrade,
   decode,
   defaultSettings,
-  drawSample,
   encode,
   type Settings,
   type Zone,
@@ -29,7 +28,7 @@ import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
 import { normalizeCode, blendSettings, codeDiff, closestLook, randomCode, suggestName } from "@/lib/codeTools";
 import { DEFAULT_CODE, LOOKS } from "@/lib/codm";
-import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
+import MyLooks, { saveLookCode } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
@@ -253,6 +252,7 @@ function Preview({
   const [sample, setSample] = useState(() =>
     typeof document === "undefined" ? null : sampleCanvas(getPrefs().scene ?? "urban"),
   );
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setSample(sampleCanvas(scene)), [scene]);
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
   useEffect(() => {
@@ -732,7 +732,6 @@ export default function FilterLab() {
     }
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
   }, []);
@@ -1462,12 +1461,7 @@ function CodeBar({
   const [bad, setBad] = useState(false);
   const [more, setMore] = useState(false);
   const [withName, setWithName] = useState(false);
-  const previousCode = useRef(code);
-  const diffIndices = useMemo(() => codeDiff(code, previousCode.current), [code]);
   const changed = useMemo(() => codeDiff(code, DEFAULT_CODE).length, [code]);
-  useEffect(() => {
-    previousCode.current = code;
-  }, [code]);
   const inputOk = normalizeCode(input) !== null;
 
   const copy = async () => {
@@ -1559,7 +1553,7 @@ function CodeBar({
             title={code}
           >
             {code.split("_").map((n, i) => (
-              <span key={i} className={diffIndices.includes(i) ? "code-flash" : undefined}>
+              <span key={`${code}-${i}`} className={changed ? "code-flash" : undefined}>
                 {i ? "_" : ""}{n}
               </span>
             ))}

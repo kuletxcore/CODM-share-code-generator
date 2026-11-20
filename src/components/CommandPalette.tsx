@@ -64,6 +64,7 @@ export default function CommandPalette({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQ("");
       setCursor(0);
       const id = requestAnimationFrame(() => input.current?.focus());
@@ -110,6 +111,7 @@ export default function CommandPalette({
       .map((x) => x.it);
   }, [q, onLoadCode, pasted]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setCursor(0), [q]);
 
   useEffect(() => {

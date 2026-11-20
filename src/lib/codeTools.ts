@@ -43,7 +43,7 @@ export function describeCode(code: string): Field[] | null {
   const raw = code.split("_").map(Number);
   const groups: Field["group"][] = ["range", "range", "range", "range", "range", "range", "global", "global", "global", "global", "shadows", "shadows", "shadows", "shadows", "midtones", "midtones", "midtones", "midtones", "highlights", "highlights", "highlights", "highlights"];
   return raw.map((value, i) => {
-    let label: string = FIELD_LABELS[i];
+    const label: string = FIELD_LABELS[i];
     let shown = String(value);
     if (i === 0) shown = `Preset #${Math.min(5, Math.max(1, value + 1))}`;
     if (i === 1) shown = value ? "On" : "Off";

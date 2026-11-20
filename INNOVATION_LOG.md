@@ -506,3 +506,18 @@ performance and accessibility of the dense editor.
 
 - **Look:** The README and design guide described only the original app; a visitor or maintainer could not discover half the new flows.
 - **Ship:** Documented the new surfaces and the rationale of all 100 loops in README.md, DESIGN.md and INNOVATION_LOG.md.
+
+### 99. Documentation of the new product
+
+- **Look:** The original README and design guide described a tool that no longer matched the shipped app.
+- **Ship:** Documented all new surfaces, the reasoning behind them and the complete loop record.
+
+### 100. Final verification and hand-off
+
+- **Look:** After a hundred changes, the risks are a broken build, lint regressions, a dead preview or an unrecorded change.
+- **Ship:** Cleaned up lint findings, verified build and lint, started the live dev server, and committed the final state before the PR.
+
+### 100. Final verification and hand-off
+
+- **Look:** After a hundred changes, the risks are a broken build, lint regressions, a dead preview or an unrecorded change.
+- **Ship:** Cleaned up lint findings, verified build and lint, started the live dev server, and committed the final state before the PR.

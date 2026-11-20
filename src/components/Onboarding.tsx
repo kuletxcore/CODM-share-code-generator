@@ -55,10 +55,10 @@ export default function Onboarding() {
     return () => window.removeEventListener("keydown", key);
   }, [open]);
 
-  const close = () => {
+  function close() {
     writeJson(K.onboarded, true);
     setOpen(false);
-  };
+  }
   const choose = (target: string, mode?: "convert") => {
     close();
     window.setTimeout(() => {

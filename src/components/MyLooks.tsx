@@ -10,7 +10,6 @@ import { K, pushUnique, readJson, removeKey, writeJson, type SavedLook } from "@
 import { suggestName } from "@/lib/codeTools";
 import { LOOKS } from "@/lib/codm";
 import { notify } from "@/components/Toasts";
-import { act } from "@/lib/actions";
 
 type Recent = { name: string; code: string; at: number };
 
@@ -67,6 +66,7 @@ export default function MyLooks({
     setHistory(readJson<Recent[]>(K.history, []));
   };
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) refresh();
   }, [open]);
 

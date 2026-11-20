@@ -95,16 +95,6 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [game, setGame] = useState<Game | null | "favorites">(null);
   const [mood, setMood] = useState<string | null>(null);
   const [favs, setFavs] = useState<string[]>([]);
-  useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
-  // A #look=Hajin link opens that look on the stage without touching #c= codes.
-  useEffect(() => {
-    const queryName = new URLSearchParams(location.search).get("look") ?? "";
-    const name = decodeURIComponent(location.hash.match(/look=([^&]+)/)?.[1] ?? queryName);
-    const i = LOOKS.findIndex((l) => l.name.toLowerCase() === name.toLowerCase());
-    if (i < 0) return;
-    setAuto(false);
-    setActive(i);
-  }, []);
   const toggleFav = (code: string) => {
     const next = favs.includes(code) ? favs.filter((c) => c !== code) : [...favs, code];
     setFavs(next);
@@ -130,16 +120,6 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const playing = auto && !hover && !reduce;
   const look = shown[Math.min(active, shown.length - 1)] ?? LOOKS[0];
   const [recent, setRecent] = useState<{ name: string; code: string }[]>([]);
-  useEffect(() => setRecent(readJson<{ name: string; code: string }[]>(K.recent, [])), [active]);
-
-  useActions((a) => {
-    if (a === "gallery-next") pick(active + 1);
-    if (a === "gallery-prev") pick(active - 1);
-  });
-
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent("codm:look-active", { detail: look?.name ?? "" }));
-  }, [look?.name]);
 
   useEffect(() => {
     if (!copied) return;
@@ -172,6 +152,31 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     setActive(next);
     rememberLook(shown[next].name, shown[next].code);
   };
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
+  // A #look=Hajin link opens that look on the stage without touching #c= codes.
+  useEffect(() => {
+    const queryName = new URLSearchParams(location.search).get("look") ?? "";
+    const name = decodeURIComponent(location.hash.match(/look=([^&]+)/)?.[1] ?? queryName);
+    const i = LOOKS.findIndex((l) => l.name.toLowerCase() === name.toLowerCase());
+    if (i < 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAuto(false);
+    setActive(i);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setRecent(readJson<{ name: string; code: string }[]>(K.recent, [])), [active]);
+
+  useActions((a) => {
+    if (a === "gallery-next") pick(active + 1);
+    if (a === "gallery-prev") pick(active - 1);
+  });
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("codm:look-active", { detail: look?.name ?? "" }));
+  }, [look?.name]);
 
   return (
     <section
