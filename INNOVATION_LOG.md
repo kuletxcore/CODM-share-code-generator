@@ -46,3 +46,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The app had no keyboard entry points beyond sliders and tab focus, so power users had to scroll the long editor to reach every tool.
 - **Ship:** Added app-wide shortcuts that ignore text inputs, plus a ? shortcut sheet listing them all.
+
+### 8. Undo/redo history for settings
+
+- **Look:** Every slider change overwrote the only copy of a grade; a mistaken drag was unrecoverable, and the URL hash did not help.
+- **Ship:** Added a bounded edit history with gesture coalescing, undo/redo actions and exposed canUndo/canRedo state.
