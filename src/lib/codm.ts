@@ -739,8 +739,9 @@ export const LOOKS: Look[] = [
     // Kith, "The BEST Settings To See Enemies Better in CODM"
     // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). The code is the site owner's own
     // in-game replication of the settings the video shows: Shadows Cyan 90 /
-    // Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 / 65 / 80 (the video
-    // cuts while the tint is dragged back down from 100), Highlights Orange 0 /
+    // Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 / 65 / 80 (he raises
+    // the tint only to show the reddish cast it gives, and says to keep it at
+    // 1), Highlights Orange 0 /
     // Tint 1 / 30 / 50. A code a viewer (@WisdomSlaps) posted under the video
     // shows the same numbers in game, apart from a Red highlights swatch.
     // The card is a "Setting: ON" frame from the video.
