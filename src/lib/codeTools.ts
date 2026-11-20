@@ -139,3 +139,26 @@ export function suggestName(code: string): string {
   const tags = codeMood(s);
   return `Custom · ${tags.slice(0, 2).join(" ")}`;
 }
+
+/** Scale an analysed grade towards or away from neutral. */
+export function blendSettings(base: Settings, target: Settings, t: number): Settings {
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+  const zone = (k: ZoneKey) => {
+    const x = base.zones[k];
+    const y = target.zones[k];
+    return { hue: mix(x.hue, y.hue), tint: mix(x.tint, y.tint), sat: mix(x.sat, y.sat), bri: mix(x.bri, y.bri) };
+  };
+  return {
+    ...target,
+    shadowPos: mix(base.shadowPos, target.shadowPos),
+    shadowEdge: mix(base.shadowEdge, target.shadowEdge),
+    highlightPos: mix(base.highlightPos, target.highlightPos),
+    highlightEdge: mix(base.highlightEdge, target.highlightEdge),
+    zones: {
+      global: zone("global"),
+      shadows: zone("shadows"),
+      midtones: zone("midtones"),
+      highlights: zone("highlights"),
+    },
+  };
+}

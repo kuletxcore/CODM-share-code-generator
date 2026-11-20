@@ -211,3 +211,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The extra scenes had no route into the preview.
 - **Ship:** Added a scene switcher in the preview controls, kept the 3D scene only for urban, and persisted the choice across visits.
+
+### 41. Match strength control
+
+- **Look:** The converter returned one fixed answer; a strong measurement often looked wrong in game and the visitor had no way to dial it back.
+- **Ship:** Added an intensity control that blends the measured grade from neutral from 25% to 150%.

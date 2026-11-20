@@ -27,7 +27,7 @@ import CommandPalette from "@/components/CommandPalette";
 import { useHistory } from "@/lib/useHistory";
 import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
-import { normalizeCode } from "@/lib/codeTools";
+import { normalizeCode, blendSettings } from "@/lib/codeTools";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
@@ -1132,10 +1132,14 @@ function Converter({
 }) {
   const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
   const [base, setBase] = useState<HTMLCanvasElement | null>(null);
+  const [strength, setStrength] = useState(100);
 
   const result = useMemo(
-    () => (target ? analyse(pixels(target), base ? pixels(base) : null) : null),
-    [target, base],
+    () =>
+      target
+        ? blendSettings(defaultSettings(), analyse(pixels(target), base ? pixels(base) : null), strength / 100)
+        : null,
+    [target, base, strength],
   );
 
   const load = (set: (c: HTMLCanvasElement) => void) => async (f: File) => {
@@ -1154,8 +1158,17 @@ function Converter({
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2 }}
       className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f?.type.startsWith("image/")) load(setTarget)(f);
+      }}
     >
       <div className="flex flex-col gap-4">
+        <p className="border border-dashed border-line px-3 py-2 text-xs text-mute">
+          Drop a reference anywhere in this section, or use the two panels below.
+        </p>
         <div className="grid gap-4 md:grid-cols-2">
           <DropZone
             title="Reference look"
@@ -1189,6 +1202,25 @@ function Converter({
                 No baseline screenshot, so the values are toned down. Add one for a closer match.
               </p>
             )}
+            <label className="grid gap-1 border border-line bg-panel-2/60 p-3">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="font-display text-sm font-bold uppercase tracking-wider">Match strength</span>
+                <span className="font-mono text-xs text-codm-light">{strength}%</span>
+              </span>
+              <input
+                type="range"
+                className="slider"
+                min={25}
+                max={150}
+                step={5}
+                value={strength}
+                style={{ ["--track" as string]: "linear-gradient(90deg,#666,#ffea3b)" }}
+                onChange={(e) => setStrength(Number(e.target.value))}
+              />
+              <span className="text-[11px] text-mute">
+                At 100% the code matches the measurement; 50% keeps half the effect.
+              </span>
+            </label>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left font-display uppercase tracking-wider text-mute">
@@ -1230,6 +1262,12 @@ function Converter({
               className="cut bg-codm px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider text-black transition-colors hover:bg-codm-light"
             >
               Open in generator
+            </button>
+            <button
+              onClick={() => copyCode(encode(result), "Screenshot match")}
+              className="cut-sm min-h-12 border border-line bg-panel-2 px-4 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
+            >
+              Copy this code
             </button>
           </>
         )}
