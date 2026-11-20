@@ -161,3 +161,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The footer ended with disclaimers; there was no way to send the tool to a friend or replay the first-visit guidance.
 - **Ship:** Added a footer action strip with native share (clipboard fallback), a replayable tour and a shortcuts link.
+
+### 31. One-tap grade moves
+
+- **Look:** The editor exposed eleven precise sliders but no way to say a direction like warmer or softer; every adjustment started from scratch.
+- **Ship:** Added six computed grade moves plus a neutralizer that work in the same in-game value space as the sliders.

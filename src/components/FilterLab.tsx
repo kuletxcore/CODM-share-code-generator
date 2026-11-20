@@ -31,6 +31,7 @@ import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
 import { copyText } from "@/lib/clipboard";
+import QuickTweaks from "@/components/QuickTweaks";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -783,6 +784,7 @@ export default function FilterLab() {
               </div>
 
               <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
+                <QuickTweaks settings={settings} onChange={(next, label) => setSettings(next, label)} />
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={panel}
