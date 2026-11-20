@@ -22,6 +22,10 @@ import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { act, useActions } from "@/lib/actions";
 import CommandPalette from "@/components/CommandPalette";
+import { useHistory } from "@/lib/useHistory";
+import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
+import { notify } from "@/components/Toasts";
+import { normalizeCode } from "@/lib/codeTools";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -386,15 +390,79 @@ export default function FilterLab() {
   const [tab, setPanel] = useState<Panel>("highlights");
   // Simple mode has one screen; Advanced never shows it.
   const panel: Panel = !advanced ? "global" : tab === "global" ? "shadows" : tab;
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const hist = useHistory<Settings>(defaultSettings());
+  const settings = hist.value;
+  const setSettings = hist.set;
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  useGlobalHotkeys();
   useActions(
-    useCallback((a) => {
-      if (a === "open-palette") setPaletteOpen(true);
-    }, []),
+    useCallback(
+      (a, detail) => {
+        switch (a) {
+          case "open-palette":
+            setPaletteOpen(true);
+            break;
+          case "undo":
+            if (hist.canUndo) {
+              hist.undo();
+              notify({ title: "Undone", ms: 1600 });
+            }
+            break;
+          case "redo":
+            if (hist.canRedo) {
+              hist.redo();
+              notify({ title: "Redone", ms: 1600 });
+            }
+            break;
+          case "toggle-mode":
+            setAdvanced((v) => !v);
+            break;
+          case "focus-editor": {
+            const tab = (detail as { tab?: string } | undefined)?.tab;
+            if (tab && ZONE_TABS.includes(tab as ZoneKey)) {
+              setAdvanced(true);
+              setPanel(tab as ZoneKey);
+            }
+            document.getElementById("editor")?.scrollIntoView({ behavior: "smooth" });
+            break;
+          }
+        }
+      },
+      [hist.undo, hist.redo, hist.canUndo, hist.canRedo],
+    ),
   );
+
+  // A code copied in another tab or chat should be one tap away from loading.
+  useEffect(() => {
+    const on = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.tagName === "INPUT" || t?.tagName === "TEXTAREA" || t?.isContentEditable) return;
+      const text = e.clipboardData?.getData("text");
+      if (!text) return;
+      const code = normalizeCode(text);
+      if (!code) return;
+      e.preventDefault();
+      notify({
+        title: "Share code detected",
+        detail: "A 22-number CODM code is on your clipboard.",
+        action: {
+          label: "Load",
+          run: () => {
+            const s = decode(code);
+            if (s) {
+              hist.reset(s);
+              setMode("build");
+              notify({ title: "Code loaded", tone: "good" });
+            }
+          },
+        },
+      });
+    };
+    window.addEventListener("paste", on);
+    return () => window.removeEventListener("paste", on);
+  }, [hist.reset]);
 
   const code = useMemo(() => encode(settings), [settings]);
 
@@ -472,6 +540,33 @@ export default function FilterLab() {
             your own.
           </p>
         </div>
+        <div className="flex items-center gap-1 self-end">
+        <button
+          onClick={() => act("undo")}
+          disabled={!hist.canUndo}
+          aria-label="Undo last edit"
+          title="Undo (⌘Z)"
+          className="grid h-11 w-11 place-items-center border border-line bg-panel/80 font-display text-lg text-mute enabled:hover:border-codm enabled:hover:text-text disabled:opacity-40"
+        >
+          ↶
+        </button>
+        <button
+          onClick={() => act("redo")}
+          disabled={!hist.canRedo}
+          aria-label="Redo edit"
+          title="Redo (⌘⇧Z)"
+          className="grid h-11 w-11 place-items-center border border-line bg-panel/80 font-display text-lg text-mute enabled:hover:border-codm enabled:hover:text-text disabled:opacity-40"
+        >
+          ↷
+        </button>
+        <button
+          onClick={() => act("open-help")}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+          className="grid h-11 w-11 place-items-center border border-line bg-panel/80 font-display text-lg text-mute hover:border-codm hover:text-text"
+        >
+          ?
+        </button>
         <button
           onClick={() => act("open-palette")}
           aria-label="Open quick find"
@@ -482,6 +577,7 @@ export default function FilterLab() {
             ⌘K
           </kbd>
         </button>
+        </div>
       </header>
 
       <LooksGallery
@@ -798,6 +894,7 @@ export default function FilterLab() {
       <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
       <ImportGuide />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
+      <ShortcutsHelp />
     </div>
   );
 }

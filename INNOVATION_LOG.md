@@ -51,3 +51,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Every slider change overwrote the only copy of a grade; a mistaken drag was unrecoverable, and the URL hash did not help.
 - **Ship:** Added a bounded edit history with gesture coalescing, undo/redo actions and exposed canUndo/canRedo state.
+
+### 9. History and hotkeys wired into the editor
+
+- **Look:** The new hooks were dormant; the visitor still had no visible undo and no way to trigger shortcuts from the shell.
+- **Ship:** Connected the history hook to settings, added visible undo/redo/help controls, wired action dispatch and mounted the shortcut sheet.

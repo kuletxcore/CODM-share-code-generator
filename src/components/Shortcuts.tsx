@@ -4,7 +4,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { act } from "@/lib/actions";
+import { act, useActions } from "@/lib/actions";
 
 const SHORTCUTS: [string, string][] = [
   ["⌘K  /  Ctrl+K  /  /", "Open quick find"],
@@ -61,11 +61,10 @@ export function useGlobalHotkeys() {
 /** Self-contained overlay: subscribes to the open-help action itself. */
 export function ShortcutsHelp() {
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const on = () => setOpen((v) => !v);
-    window.addEventListener("codm:action-help", on);
-    return () => window.removeEventListener("codm:action-help", on);
-  }, []);
+  useActions((a) => {
+    if (a === "open-help") setOpen((v) => !v);
+    if (a === "close-overlays") setOpen(false);
+  });
 
   return (
     <AnimatePresence>
