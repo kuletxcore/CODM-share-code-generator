@@ -34,6 +34,7 @@ import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
 import CompareMode from "@/components/CompareMode";
 import { copyText } from "@/lib/clipboard";
+import Changelog from "@/components/Changelog";
 import QuickTweaks from "@/components/QuickTweaks";
 import { getPrefs, setPref } from "@/lib/storage";
 
@@ -534,6 +535,15 @@ export default function FilterLab() {
   const [inspectOpen, setInspectOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<Settings | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  useEffect(() => {
+    const n = codeDiff(code, DEFAULT_CODE).length;
+    const id = window.setTimeout(
+      () => setAnnouncement(`Share code updated. ${n} of 22 values differ from the in-game default.`),
+      300,
+    );
+    return () => window.clearTimeout(id);
+  }, [code]);
   useGlobalHotkeys();
   useActions(
     useCallback(
@@ -685,6 +695,7 @@ export default function FilterLab() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
+      <p aria-live="polite" className="sr-only">{announcement}</p>
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-5 sm:pt-10">
         <div>
@@ -1498,6 +1509,7 @@ function Notes() {
         >
           Shortcuts
         </button>
+        <Changelog />
       </div>
       <div className="grid gap-8 md:grid-cols-3">
       <div>

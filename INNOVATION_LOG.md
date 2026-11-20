@@ -361,3 +361,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The same how-to questions were repeated in the footer prose and the import guide, with no scannable answer format.
 - **Ship:** Added a compact four-question accordion covering legitimacy, in-game steps, preview accuracy and privacy.
+
+### 68. What's new drawer
+
+- **Look:** A long list of features accumulated with no way for a returning visitor to see what changed.
+- **Ship:** Added a changelog drawer summarising the new capabilities, with focus trapping and keyboard dismissal.
