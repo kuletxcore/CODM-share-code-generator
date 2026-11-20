@@ -79,11 +79,29 @@ export function encode(s: Settings): string {
   return out.map((n) => Math.round(n)).join("_");
 }
 
+/** Raw range of each value in a zone group, in code order (hue, tint, bri, sat). */
+const ZONE_RANGES: [number, number][] = [
+  [0, 1000],
+  [0, 1000],
+  [-1000, 1000],
+  [0, 2000],
+];
+
+/**
+ * Parses a share code. Returns null unless it is exactly 22 integers with every
+ * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
+ * load as a washed-out grade. The Range falloffs only have to be non-negative:
+ * their upper limit isn't known.
+ */
 export function decode(code: string): Settings | null {
   const parts = code.trim().split("_");
-  if (parts.length !== 22) return null;
-  const n = parts.map((p) => Number(p));
-  if (n.some((v) => !Number.isFinite(v))) return null;
+  if (parts.length !== 22 || parts.some((p) => !/^-?\d{1,5}$/.test(p))) return null;
+  const n = parts.map(Number);
+  const inRange = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
+  if (!inRange(n[0], [0, 4]) || !inRange(n[1], [0, 1])) return null;
+  if (!inRange(n[2], [0, 1000]) || !inRange(n[4], [0, 1000])) return null;
+  if (n[3] < 0 || n[5] < 0) return null;
+  for (let i = 6; i < 22; i++) if (!inRange(n[i], ZONE_RANGES[(i - 6) % 4])) return null;
   const s = defaultSettings();
   [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
   ZONES.forEach((k, i) => {
