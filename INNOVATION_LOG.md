@@ -481,3 +481,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The help sheet listed shortcuts but gave no sense of how much work the tool had already done on this device.
 - **Ship:** Added factual local counters for codes edited and looks saved to the help panel.
+
+### 92. Full data reset
+
+- **Look:** There was no way to clear preferences, history, favourites and saved looks at once; privacy-minded visitors had to dig through each storage key.
+- **Ship:** Added a two-tap Confirm reset action in My Looks that clears every app key and reloads.
