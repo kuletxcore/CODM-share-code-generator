@@ -91,3 +91,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A look that worked was impossible to find again: there was no star, no history, and the only record was a code string.
 - **Ship:** Added per-look favourites on the stage and filmstrip, plus a recently-viewed list that feeds My Looks whenever a look is picked or copied.
+
+### 17. Favourites filter chip
+
+- **Look:** With twelve looks and six game chips, a small set of favourite grades was still buried in the same long strip.
+- **Ship:** Added a Favourites filter chip with a live count so the chosen looks become their own gallery.
