@@ -191,3 +191,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The compare wipe only showed the untouched scene, so it could not answer 'is this edit better than where I started?'.
 - **Ship:** Added a pinned-before snapshot composited into the wipe's original side, with a labelled badge and clear action.
+
+### 37. Fullscreen preview
+
+- **Look:** On a phone the pinned viewfinder is only 27% of the viewport; fine grading details were hard to judge.
+- **Ship:** Added a fullscreen preview action reachable from the preview controls, the palette and the F key.
