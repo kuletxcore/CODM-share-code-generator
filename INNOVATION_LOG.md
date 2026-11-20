@@ -166,3 +166,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The editor exposed eleven precise sliders but no way to say a direction like warmer or softer; every adjustment started from scratch.
 - **Ship:** Added six computed grade moves plus a neutralizer that work in the same in-game value space as the sliders.
+
+### 32. Quick moves wired into the editor
+
+- **Look:** The tweak library was not connected to the generator.
+- **Ship:** Mounted QuickTweaks above the zone sliders, with labelled history entries so a whole move undoes in one step.
