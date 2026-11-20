@@ -61,3 +61,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Codes travel through chat and notes; visitors had to focus a small paste field at the bottom of the page to use one.
 - **Ship:** Added a global paste listener that spots a 22-number code anywhere and offers a one-tap Load toast.
+
+### 11. Fix overlay action typing
+
+- **Look:** The build caught a union mismatch between the shortcut sheet and the action bus.
+- **Ship:** Added the missing close-overlays action to the typed union so overlays can be dismissed programmatically.

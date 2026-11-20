@@ -22,7 +22,8 @@ export type AppAction =
   | "compare-preview"
   | "fullscreen-preview"
   | "revisit-onboarding"
-  | "share-tool";
+  | "share-tool"
+  | "close-overlays";
 
 export function act(action: AppAction, detail?: unknown) {
   if (typeof window !== "undefined")
