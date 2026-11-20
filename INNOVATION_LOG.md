@@ -496,3 +496,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A code copied with a name had to be typed out separately; the clipboard format was always bare numbers.
 - **Ship:** Added a toggle in the code actions to copy 'Name — code' while keeping the default bare-code behaviour.
+
+### 98. Inspector default comparison
+
+- **Look:** The inspector highlighted changed values but did not show what they changed from.
+- **Ship:** Added a Show default column so each value can be read as current versus in-game reset.
