@@ -256,3 +256,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The guide ended at 'Apply' with no confirmation that the code worked, so the highest-intent moment of the visit went nowhere.
 - **Ship:** Added a completion state that asks whether the imported grade looks right and records the answer locally.
+
+### 50. Needs tweaking → pinned editor
+
+- **Look:** A grade that looked wrong in game meant starting over: the visitor had to find the editor and rebuild from memory.
+- **Ship:** Wired 'Needs tweaking' back into the generator with the imported grade pinned as the before state for immediate comparison.
