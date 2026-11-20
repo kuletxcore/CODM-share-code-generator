@@ -311,3 +311,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Scrolling the filmstrip showed blank cards for a moment while each new thumbnail was fetched.
 - **Ship:** Added idle preloading of neighbouring look thumbnails so selecting the next look feels instant.
+
+### 58. Idle scene rendering
+
+- **Look:** The three.js scene imported and rendered during first paint, competing with the fonts and gallery the visitor sees immediately.
+- **Ship:** Deferred scene rendering to browser idle time with a timeout fallback, and kept the flat sample as the first frame.
