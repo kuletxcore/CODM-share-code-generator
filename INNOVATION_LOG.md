@@ -276,3 +276,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Offline mode would otherwise fail silently and look like a broken page.
 - **Ship:** Added a one-time offline notice explaining that saved grades and the generator keep working, plus registration wiring.
+
+### 51. Installable app manifest
+
+- **Look:** A tool used beside a game was still just a browser tab with no home-screen presence or shareable app identity.
+- **Ship:** Added a web app manifest with brand colours, shortcuts to looks and the converter, and the yellow mark as an icon.
