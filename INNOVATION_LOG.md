@@ -381,3 +381,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Analysing a large screenshot read and scanned every pixel on the main thread, stalling the preview while the visitor dragged images in.
 - **Ship:** Added a dedicated web worker that measures the reference and baseline images and returns the panel values, with the CPU path as fallback.
+
+### 72. Worker-based preview fallback
+
+- **Look:** Browsers without WebGL graded half a million pixels on the main thread on every slider move, making the editor stutter.
+- **Ship:** Added a CPU grading worker with request IDs to discard stale frames, keeping the synchronous path as a fallback.

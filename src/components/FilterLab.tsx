@@ -277,6 +277,9 @@ function Preview({
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   const src = source ?? sample;
   const snapRef = useRef<HTMLCanvasElement>(null);
+  const gradeWorker = useRef<Worker | null>(null);
+  const gradeReq = useRef(0);
+  const [workerGrade, setWorkerGrade] = useState<{ id: number; data: Uint8ClampedArray } | null>(null);
   const loupeRef = useRef<HTMLCanvasElement>(null);
   const [loupe, setLoupe] = useState(false);
   const [loupeAt, setLoupeAt] = useState({ x: 0.5, y: 0.5 });
@@ -329,6 +332,21 @@ function Preview({
     return () => cancelAnimationFrame(id);
   }, [gpuOk, src, settings, split]);
 
+  // When WebGL is unavailable, grade on a worker instead of the UI thread.
+  useEffect(() => {
+    if (gpuOk !== false) return;
+    try {
+      gradeWorker.current = new Worker("/grade.worker.js");
+      gradeWorker.current.onmessage = (e) => {
+        if (e.data.error || e.data.id !== gradeReq.current) return;
+        setWorkerGrade({ id: e.data.id, data: new Uint8ClampedArray(e.data.buffer) });
+      };
+    } catch {
+      gradeWorker.current = null;
+    }
+    return () => gradeWorker.current?.terminate();
+  }, [gpuOk]);
+
   // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
     () =>
@@ -343,6 +361,13 @@ function Preview({
     return data;
   }, [orig, settings]);
 
+  useEffect(() => {
+    if (gpuOk !== false || !orig || !gradeWorker.current) return;
+    const id = ++gradeReq.current;
+    const data = new Uint8ClampedArray(orig.data);
+    gradeWorker.current.postMessage({ id, buffer: data.buffer, settings }, [data.buffer]);
+  }, [gpuOk, orig, settings]);
+
   // Build each frame from the two buffers so moving the compare slider never
   // leaves anything from the previous frame behind.
   useEffect(() => {
@@ -352,7 +377,10 @@ function Preview({
       const { width: w, height: h } = orig;
       if (c.width !== w) c.width = w;
       if (c.height !== h) c.height = h;
-      const out = new ImageData(new Uint8ClampedArray(graded), w, h);
+      const useWorker = workerGrade?.id === gradeReq.current;
+    const source = useWorker ? workerGrade!.data : graded;
+    if (!source) return;
+    const out = new ImageData(new Uint8ClampedArray(source), w, h);
       const x = Math.min(w, r(w * split));
       if (x > 0) {
         for (let y = 0; y < h; y++) {
@@ -371,7 +399,7 @@ function Preview({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [orig, graded, split]);
+  }, [orig, graded, split, workerGrade]);
 
   return (
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
