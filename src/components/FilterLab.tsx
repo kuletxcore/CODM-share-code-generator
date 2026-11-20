@@ -477,8 +477,10 @@ function Editor() {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-      // text fields keep their own undo
-      if ((e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+      // text fields keep their own undo; sliders have none, so they get ours
+      const t = e.target as HTMLElement;
+      if (t.closest("textarea, [contenteditable]")) return;
+      if (t instanceof HTMLInputElement && t.type !== "range") return;
       const k = e.key.toLowerCase();
       if (k === "z") step(e.shiftKey ? "redo" : "undo");
       else if (k === "y") step("redo");

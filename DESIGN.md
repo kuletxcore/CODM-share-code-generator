@@ -111,7 +111,7 @@ States are set where the content breaks, not by device:
 - Grading runs in a WebGL fragment shader that matches the CPU version within 1/255. On first use it grades a grey pixel and reads it back; a driver that draws nothing falls back to the CPU path.
 - three.js, the QR encoder and the card renderer load with `import()`, off the critical path.
 - The CPU grade (fallback preview, thumbnails, screen test, cards) builds its per-zone constants once per grade and skips zones that change nothing; `src/lib/grade.test.ts` keeps the original loop as an oracle and asserts identical pixels.
-- Screen-test grades run one per task, are cached per size (14 entries), and a replaced screenshot's cached pixels are freed.
+- Screen-test grades run one per task, are cached per size (28 entries: a thumb and a stage frame for every look), and a replaced screenshot's cached pixels are freed.
 - Uploads are scaled so the long side is at most 1280px, which keeps a portrait phone screenshot under a 2048px GPU texture limit.
 - A link preview image (`public/og.jpg`, 85 KB, brand fonts, marked fan-made) is fetched only by chat and social unfurlers.
 - The filmstrip uses 352px thumbnails, lazy-loaded.

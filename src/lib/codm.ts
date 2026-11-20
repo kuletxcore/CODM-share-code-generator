@@ -122,7 +122,9 @@ export function decode(code: string): Settings | null {
  * null. It only finds the code; `decode` still decides whether it is valid.
  */
 export function extractCode(text: string): string | null {
-  const m = text.match(/(?<![\d_-])-?\d+(?:[\s,_]+-?\d+){21}(?![\d_])/);
+  // The run must be exactly 22 numbers: no number may touch it on either side,
+  // or "5 " before a code would shift every value into the wrong slot.
+  const m = text.match(/(?<![\d-][\s,_]*)-?\d+(?:[\s,_]+-?\d+){21}(?![\s,_]*-?\d)/);
   return m ? m[0].split(/[\s,_]+/).join("_") : null;
 }
 
@@ -369,6 +371,8 @@ export function analyse(
   const s = defaultSettings();
   const bands = thresholds(s);
   const t = zoneStats(target, bands);
+  // zoneStats samples a subset of pixels, so compare against what it counted
+  const counted = t.reduce((sum, z) => sum + z.n, 0);
   const b = base ? zoneStats(base, bands) : null;
   const neutral = [
     { l: 0.11, sat: 0.3 },
@@ -378,7 +382,7 @@ export function analyse(
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
     // (Almost) no pixels in this tonal range: nothing was measured, so leave it
     // neutral rather than invent a grade from a near-empty bucket.
-    if (t[i].n < (target.length / 4) * 0.005) return;
+    if (t[i].n < counted * 0.005) return;
     const ct = castOf(t[i]);
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,

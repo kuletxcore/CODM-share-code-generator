@@ -113,7 +113,7 @@ export default function ImportGuide() {
   const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "cancelled" | "failed">("idle");
   const [done, setDone] = useState<number[]>([]);
   const [off, setOff] = useState(false);
-  const [again, setAgain] = useState(false);
+  const [again, setAgain] = useState<"" | "ok" | "failed">("");
   const heading = useRef<HTMLHeadingElement>(null);
   const reduce = useReducedMotion();
 
@@ -246,15 +246,12 @@ export default function ImportGuide() {
               </code>
               <button
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(open.code);
-                  } catch {}
-                  setAgain(true);
-                  setTimeout(() => setAgain(false), 1400);
+                  setAgain((await copyText(open.code)) ? "ok" : "failed");
+                  setTimeout(() => setAgain(""), 1400);
                 }}
                 className="cut-sm min-h-11 shrink-0 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
               >
-                {again ? "Copied ✓" : "Copy again"}
+                {again === "ok" ? "Copied ✓" : again === "failed" ? "Blocked" : "Copy again"}
               </button>
             </div>
 
@@ -318,7 +315,8 @@ export default function ImportGuide() {
             className="cut fixed inset-x-4 bottom-36 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 lg:bottom-24"
           >
             <span className="font-display text-base font-extrabold uppercase tracking-wide text-codm">
-              Code copied{toast.name ? ` · ${toast.name}` : ""}
+              {toast.blocked ? "Copy blocked" : "Code copied"}
+              {toast.name ? ` · ${toast.name}` : ""}
             </span>
             <button
               onClick={() => {

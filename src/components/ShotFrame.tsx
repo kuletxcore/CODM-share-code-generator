@@ -56,6 +56,8 @@ export default function ShotFrame({
         }
         c.getContext("2d")?.putImageData(out, 0, 0);
       },
+      // no 2D canvas or a failed read: keep whatever is painted
+      () => {},
     );
     return () => {
       live = false;

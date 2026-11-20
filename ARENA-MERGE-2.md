@@ -100,6 +100,22 @@ Profiling showed no long tasks after an upload once page start-up is excluded.
 | Workers and "match strength" | 5a181f54 | The workers offload nothing (the work still runs on the main thread). The strength slider can produce codes the game's ranges don't allow. |
 | Typecheck workaround and docs | 6c718d40 | Main already fixed this with `next typegen`. |
 
+## Final review of the merged branch
+
+A fresh-context goldfish reviewed the combined diff of `claude-merge` against `main`. All seven findings were real and are fixed, with tests where the logic is pure. Both new tests fail on the code before the fix.
+
+| Finding | Fix |
+|---|---|
+| [P1] "Copy again" in the import guide used only the clipboard API, ignored the error and showed "Copied ✓" | It uses the same `copyText` as every other copy and shows "Blocked" on failure |
+| [P2] The toast shown to visitors who turned the guide off always said "Code copied" | It says "Copy blocked" when the copy failed |
+| [P2] `extractCode` accepted a code with a stray number before or after it separated by a space or comma, shifting every value one slot | The match must not touch another number on either side; four new test cases |
+| [P2] Ctrl/Cmd+Z did nothing while a slider had focus, which is right after every edit | Only text fields and editable regions keep their own undo; checked in Chromium with focus on the slider |
+| [P2] A slow screenshot load could replace a newer one, or come back after Remove | Each load gets a ticket; a newer load or Remove makes older ones stale, and caches are dropped only when a shot is accepted. Checked in Chromium |
+| [P3] The screen-test cache (14) was smaller than one autoplay cycle (12 looks at two sizes), so stage frames were regraded every 7 s | 28 entries |
+| [P3] The empty-band threshold in `analyse` was 4× too strict, because it compared against all pixels while `zoneStats` samples every fourth | Compared against the sampled total; new test with a 1% dark strip |
+
+Unhandled rejections in the screen-test frame are now caught.
+
 ## Deferred
 
 These are worth doing; this round stayed focused on the clear picks.

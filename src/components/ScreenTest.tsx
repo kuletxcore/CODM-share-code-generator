@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { prepareShot, type Shot } from "@/lib/screenPreview";
+import { dropCaches, prepareShot, type Shot } from "@/lib/screenPreview";
 
 /*
  * Screen test: one screenshot of the visitor's own game, graded for every look.
@@ -60,25 +60,33 @@ export function ScreenTestProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Each load gets a ticket; a newer load or Remove makes older tickets stale,
+  // so a slow screenshot can't land over a newer one or come back after Remove.
+  const ticket = useRef(0);
   const setFile = useCallback((f: File) => {
+    const mine = ++ticket.current;
     setBusy(true);
     setError(null);
     prepareShot(f)
       .then((s) => {
-        if (!live.current) return;
+        if (!live.current || mine !== ticket.current) return;
+        dropCaches();
         setShot(s);
         setVersion((v) => v + 1);
         setError(null);
       })
       .catch((e: Error) => {
-        if (live.current) setError(e.message || "Could not read that image.");
+        if (live.current && mine === ticket.current) setError(e.message || "Could not read that image.");
       })
       .finally(() => {
-        if (live.current) setBusy(false);
+        if (live.current && mine === ticket.current) setBusy(false);
       });
   }, []);
 
   const clear = useCallback(() => {
+    ticket.current++;
+    dropCaches();
+    setBusy(false);
     setShot(null);
     setVersion((v) => v + 1);
     setError(null);

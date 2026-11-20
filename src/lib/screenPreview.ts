@@ -26,10 +26,11 @@ const MAX_W = 1280;
 const PREVIEW_W = 960;
 /**
  * Grades kept in memory, least recently used evicted first. A stage grade is at
- * most 960×439×4 ≈ 1.7 MB, so the cap keeps a phone near 24 MB. A hit moves the
+ * most 960×439×4 ≈ 1.7 MB and a thumb about 0.2 MB, so the cap stays near 25 MB. A hit moves the
  * entry to the recent end; nothing is pinned, so a grade can be recomputed.
  */
-const CACHE_LIMIT = 14;
+// two sizes per look (filmstrip thumb and stage) for all twelve, plus slack
+const CACHE_LIMIT = 28;
 
 let seq = 0;
 const bases = new Map<string, Promise<ImageData>>();
@@ -102,10 +103,6 @@ export async function prepareShot(file: File): Promise<Shot> {
     throw new Error("That file is not an image. Drop a screenshot.");
   }
   const canvas = await toCanvas(file);
-  // One screenshot at a time: drop everything cut from the previous one, which
-  // would otherwise hold several MB of pixels per size it was shown at.
-  bases.clear();
-  grades.clear();
   const id = `shot-${++seq}`;
 
   const p = document.createElement("canvas");
@@ -115,6 +112,16 @@ export async function prepareShot(file: File): Promise<Shot> {
   p.getContext("2d")?.drawImage(canvas, 0, 0, p.width, p.height);
 
   return { id, canvas, preview: p.toDataURL("image/jpeg", 0.82) };
+}
+
+/**
+ * Free every cached pixel. One screenshot is active at a time, so the provider
+ * calls this when it swaps or removes the shot; otherwise each old shot would
+ * hold several MB per size it was shown at.
+ */
+export function dropCaches() {
+  bases.clear();
+  grades.clear();
 }
 
 /** The shot as-is (no look) at `w`×`h`. Backs the hold-to-compare wipe. */

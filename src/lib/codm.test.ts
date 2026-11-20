@@ -95,6 +95,18 @@ test("hue 1000 reads as Magenta at slider 100, not Red at 0", () => {
   assert.equal(encode(s), "0_1_30_300_1000_1500_1000_100_0_1000_0_0_0_1000_0_0_0_1000_0_0_0_1000");
 });
 
+test("analyse grades a tonal range that holds a small share of the image", () => {
+  // 99% bright neutral, a 1% strip of dark red: the shadows still get measured
+  const n = 100 * 100;
+  const px = new Uint8ClampedArray(n * 4);
+  for (let i = 0; i < n; i++) {
+    const dark = i < n / 100;
+    px.set(dark ? [60, 8, 8, 255] : [230, 230, 230, 255], i * 4);
+  }
+  const s = analyse(px, null);
+  assert.notDeepEqual(s.zones.shadows, defaultSettings().zones.shadows);
+});
+
 test("analyse leaves tonal ranges the image doesn't contain neutral", () => {
   const white = new Uint8ClampedArray(64 * 64 * 4).fill(255);
   const s = analyse(white, null);
@@ -111,4 +123,8 @@ test("extractCode finds a code inside pasted text", () => {
   assert.equal(extractCode(c.replaceAll("_", " ")), c);
   assert.equal(extractCode("0_1_2"), null);
   assert.equal(extractCode(`${c}_5`), null, "23 numbers is not a code");
+  assert.equal(extractCode(`${c} 5`), null, "a number after a space still touches the code");
+  assert.equal(extractCode(`${c}, 7`), null);
+  assert.equal(extractCode(`5 ${c.replaceAll("_", " ")}`), null, "a number before would shift every slot");
+  assert.equal(extractCode(`Look 2: ${c}`), c, "a number separated by other text is fine");
 });
