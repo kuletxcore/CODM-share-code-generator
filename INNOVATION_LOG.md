@@ -296,3 +296,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Links to the tool in chats showed a bare URL and search engines had no description of what the app does.
 - **Ship:** Added Open Graph/Twitter metadata, canonical URL, an app JSON-LD block with the fan-made disclaimer, and accessible viewport settings.
+
+### 55. Crawler files
+
+- **Look:** There was no sitemap or robots policy for a tool indexed by players searching for a code.
+- **Ship:** Added static robots.txt and sitemap.xml for the Cloudflare Worker export.
