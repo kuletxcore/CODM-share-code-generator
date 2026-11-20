@@ -251,3 +251,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Closing the guide lost every ticked step, so switching away to CODM and back meant starting the checklist again.
 - **Ship:** Added per-code progress persistence with restore on open and an indicator that progress is remembered.
+
+### 49. Post-import feedback loop
+
+- **Look:** The guide ended at 'Apply' with no confirmation that the code worked, so the highest-intent moment of the visit went nowhere.
+- **Ship:** Added a completion state that asks whether the imported grade looks right and records the answer locally.

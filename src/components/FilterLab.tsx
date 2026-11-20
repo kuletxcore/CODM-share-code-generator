@@ -588,11 +588,6 @@ export default function FilterLab() {
     ),
   );
 
-  useEffect(() => {
-    const on = (e: Event) => setMode((e as CustomEvent<"convert">).detail);
-    window.addEventListener("codm:set-mode", on);
-    return () => window.removeEventListener("codm:set-mode", on);
-  }, []);
 
   // A code copied in another tab or chat should be one tap away from loading.
   useEffect(() => {
@@ -650,6 +645,25 @@ export default function FilterLab() {
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
     return true;
   }, []);
+  useEffect(() => {
+    const on = (e: Event) => setMode((e as CustomEvent<"convert">).detail);
+    const tune = (e: Event) => {
+      const code = (e as CustomEvent<string>).detail;
+      const s = decode(code);
+      if (!s) return;
+      setSnapshot(s);
+      loadCode(code);
+      setMode("build");
+      document.getElementById("editor")?.scrollIntoView({ behavior: "smooth" });
+      notify({ title: "Before pinned", detail: "Adjust the sliders and wipe to compare with what you imported.", tone: "good" });
+    };
+    window.addEventListener("codm:set-mode", on);
+    window.addEventListener("codm:tune-again", tune);
+    return () => {
+      window.removeEventListener("codm:set-mode", on);
+      window.removeEventListener("codm:tune-again", tune);
+    };
+  }, [loadCode]);
 
   const upload = async (f: File) => {
     try {
