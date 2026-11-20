@@ -737,18 +737,18 @@ export const LOOKS: Look[] = [
   },
   {
     // Kith, "The BEST Settings To See Enemies Better in CODM"
-    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). The code is the one a viewer,
-    // @WisdomSlaps, posted under the video; its raw values are not round, as
-    // an in-game export would be, and it matches every page the video shows:
-    // Shadows Cyan 90 / Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 /
-    // 65 / 80 (the video cuts while the tint is being dragged back down from
-    // 100; a second viewer's list also gives 1), Highlights Tint 1 / Sat 30 /
-    // Bri 50. The card is a "Setting: ON" frame from the video.
+    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). The code is the site owner's own
+    // in-game replication of the settings the video shows: Shadows Cyan 90 /
+    // Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 / 65 / 80 (the video
+    // cuts while the tint is dragged back down from 100), Highlights Orange 0 /
+    // Tint 1 / 30 / 50. A code a viewer (@WisdomSlaps) posted under the video
+    // shows the same numbers in game, apart from a Red highlights swatch.
+    // The card is a "Setting: ON" frame from the video.
     name: "Kith",
     game: "CODM",
     note: "Kith's visibility settings: lifted cyan shadows, more saturated mids, softer highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_612_54_1000_1290_12_9_601_1294_0_9_0_596",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_612_50_1000_1300_12_9_592_1298_125_9_0_598",
     image: "/looks/kith.webp",
     inGame: true,
   },

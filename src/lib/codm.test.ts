@@ -182,7 +182,7 @@ test("creator looks read back as the on-screen settings", () => {
   assert.deepEqual(shown(look("MW2019 (HunterRafi)"), "highlights"), [0, 0, 0, 36, 70]);
   assert.deepEqual(shown(look("Kith"), "shadows"), [4, 90, 5, 65, 100]);
   assert.deepEqual(shown(look("Kith"), "midtones"), [0, 10, 1, 65, 80]);
-  assert.deepEqual(shown(look("Kith"), "highlights"), [0, 0, 1, 30, 50]);
+  assert.deepEqual(shown(look("Kith"), "highlights"), [1, 0, 1, 30, 50]); // Orange, as in the video
   assert.deepEqual(shown(look("Serotonin"), "global"), [5, 98, 25, 25, 70]);
   assert.deepEqual(shown(look("Serotonin"), "shadows"), [3, 96, 25, 90, 95]);
   // the video shows hue 98; his own code reads 96.8, one display step off
