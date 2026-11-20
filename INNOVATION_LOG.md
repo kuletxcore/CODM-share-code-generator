@@ -301,3 +301,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** There was no sitemap or robots policy for a tool indexed by players searching for a code.
 - **Ship:** Added static robots.txt and sitemap.xml for the Cloudflare Worker export.
+
+### 56. Critical font preload
+
+- **Look:** The custom display and mono fonts were discovered only after CSS loaded, causing a visible type swap on the title and every code.
+- **Ship:** Preloaded the three typefaces used above the fold.
