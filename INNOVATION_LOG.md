@@ -336,3 +336,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Several overlays were dialogs visually but keyboard focus could leave them and land on the page behind.
 - **Ship:** Added a reusable focus-trap hook that restores focus on close.
+
+### 63. High-contrast support
+
+- **Look:** Muted text and thin borders were hard to see for visitors with high-contrast or forced-colour settings.
+- **Ship:** Added high-contrast token overrides, forced-colour fallbacks and a global reduced-motion override.
