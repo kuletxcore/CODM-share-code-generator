@@ -78,7 +78,11 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
   );
 }
 
-export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
+export default function LooksGallery({
+  onEdit,
+}: {
+  onEdit: (code: string, name: string) => void;
+}) {
   const [copied, setCopied] = useState<string | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
@@ -184,11 +188,16 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
+            <div className="flex flex-wrap items-center gap-2 font-display text-[11px] font-bold uppercase tracking-widest">
               <span className="bg-codm px-2 py-0.5 text-black">{look.mode}</span>
               <span className="bg-black/70 px-2 py-0.5 text-mute">
-                {look.image ? "Inspiration" : "Preview"}
+                {look.name === "Default"
+                  ? "Reset state"
+                  : look.image
+                    ? "Reference still"
+                    : "Preview scene"}
               </span>
+              {look.game && <span className="bg-black/70 px-2 py-0.5 text-mute">{look.game}</span>}
             </div>
             <h3
               className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
@@ -205,16 +214,19 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
                 copyCode(look.code, look.name, { note: look.note, image: look.image });
                 setCopied(look.code);
                 setAuto(false);
+                try {
+                  navigator.vibrate?.([10, 40, 10]);
+                } catch {}
               }}
-              className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors ${
+              className={`cut-sm flex-1 px-4 py-3 font-display text-lg font-extrabold uppercase tracking-wider transition-colors active:scale-[0.98] ${
                 copied === look.code ? "bg-lime text-black" : "bg-codm text-black hover:bg-codm-light"
               }`}
             >
               {copied === look.code ? "Copied ✓" : "Copy code"}
             </button>
             <button
-              onClick={() => onEdit(look.code)}
-              className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              onClick={() => onEdit(look.code, look.name)}
+              className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text transition-colors hover:bg-line active:scale-[0.98]"
             >
               Customize
             </button>

@@ -526,3 +526,108 @@ export const LOOKS: Look[] = [
     code: DEFAULT_CODE,
   },
 ];
+
+// Vibe Finder: six starting points for players who don't want to touch sliders.
+// Each is a hand-tuned Advanced grade, labelled as a starting point to test in game.
+// Codes are encoded from the Settings below so the numbers stay in sync.
+
+export type Vibe = {
+  name: string;
+  tagline: string;
+  bestFor: string;
+  code: string;
+};
+
+const vibeSettings = (
+  shadows: Zone,
+  midtones: Zone,
+  highlights: Zone,
+): Settings => ({
+  ...defaultSettings(),
+  zones: { shadows, midtones, highlights, global: neutralZone() },
+});
+
+export const VIBES: Vibe[] = [
+  {
+    name: "Visibility",
+    tagline: "Cool shadows, muted sun",
+    bestFor: "Spotting enemies at range",
+    code: encode(
+      vibeSettings(
+        { hue: 210, tint: 18, sat: 40, bri: 46 },
+        { hue: 35, tint: 6, sat: 48, bri: 50 },
+        { hue: 40, tint: 12, sat: 44, bri: 52 },
+      ),
+    ),
+  },
+  {
+    name: "Cinematic",
+    tagline: "Teal shadows, golden highlights",
+    bestFor: "Filmic replays and clips",
+    code: encode(
+      vibeSettings(
+        { hue: 190, tint: 16, sat: 50, bri: 46 },
+        { hue: 30, tint: 10, sat: 52, bri: 50 },
+        { hue: 42, tint: 20, sat: 54, bri: 54 },
+      ),
+    ),
+  },
+  {
+    name: "Night Ops",
+    tagline: "Deep blue, dark and moody",
+    bestFor: "Night maps and low light",
+    code: encode(
+      vibeSettings(
+        { hue: 220, tint: 28, sat: 55, bri: 38 },
+        { hue: 210, tint: 14, sat: 48, bri: 40 },
+        { hue: 200, tint: 10, sat: 45, bri: 48 },
+      ),
+    ),
+  },
+  {
+    name: "Warm Daylight",
+    tagline: "Golden sun, rich midtones",
+    bestFor: "Daytime BR and MP",
+    code: encode(
+      vibeSettings(
+        { hue: 35, tint: 12, sat: 52, bri: 50 },
+        { hue: 38, tint: 14, sat: 56, bri: 52 },
+        { hue: 45, tint: 16, sat: 54, bri: 56 },
+      ),
+    ),
+  },
+  {
+    name: "Cool Overcast",
+    tagline: "Lifted shadows, dusty and flat",
+    bestFor: "Hazy maps, low glare",
+    code: encode(
+      vibeSettings(
+        { hue: 210, tint: 10, sat: 38, bri: 56 },
+        { hue: 200, tint: 6, sat: 36, bri: 52 },
+        { hue: 210, tint: 8, sat: 40, bri: 52 },
+      ),
+    ),
+  },
+  {
+    name: "Vivid Pop",
+    tagline: "Punchy colour, high energy",
+    bestFor: "Screenshots and streams",
+    code: encode(
+      vibeSettings(
+        { hue: 260, tint: 20, sat: 70, bri: 48 },
+        { hue: 320, tint: 18, sat: 75, bri: 52 },
+        { hue: 20, tint: 22, sat: 72, bri: 56 },
+      ),
+    ),
+  },
+];
+
+/** Human name for a code when it matches a known look or vibe. */
+export function nameForCode(code: string): string | null {
+  const look = LOOKS.find((l) => l.code === code);
+  if (look) return look.name;
+  const vibe = VIBES.find((v) => v.code === code);
+  if (vibe) return vibe.name;
+  if (code === DEFAULT_CODE) return "Default";
+  return null;
+}

@@ -66,7 +66,7 @@ States are set where the content breaks, not by device:
 | 768 to 1279 | Stacked | 21:9 stage | Stacked, pinned preview grows to 38% of the viewport |
 | 1280 and up | Stacked | 21:9 stage | Zone list, preview and controls in three columns; preview not pinned |
 
-- The share-code bar is fixed to the bottom on every width; the page reserves its height with bottom padding so nothing hides behind it.
+- The Mission Console (share-code bar) is fixed to the bottom on every width; the page reserves its height with bottom padding so nothing hides behind it. Its progress line (1 Copy, 2 Import, 3 Play) keeps the next action visible at every scroll position.
 - The preview frame shrinks to the picture's width below `xl`, so it is never pillarboxed.
 - No horizontal overflow at 390, 768, 1024 or 1440 (checked).
 - Every touch target is at least 44 by 44px: range inputs are 44px tall with a 6px visible track, number fields grow to 44px on coarse pointers, and the Simple/Advanced switch has a 72 by 44px hit area around its smaller visual.
@@ -78,7 +78,9 @@ States are set where the content breaks, not by device:
 - **Generator.** Simple/Advanced switch, a zone list (Shadows, Midtones, Highlights), and controls that mirror the in-game Customize Color screen: 8 hue swatches plus a 0 to 100 slider, Tint, Saturation, Brightness. Parity with the game matters more than a novel control, because players reproduce or tweak these values in CODM.
 - **Tone map (the in-game Range bar).** Directly under the preview in Advanced mode: a luminance histogram of what the preview shows, with the two Range handles on top. It replaces the old Range panel and its two sliders, so the split between zones is always in view while any zone is edited. Draggable and keyboard operable (arrows, Shift for bigger steps, Home, End); each handle writes edge = handle + 100, as the game does. Hidden in Simple mode, where the range does not apply. On phones it scrolls with the controls, so the pinned viewfinder stays the same height.
 - **Preview.** The look applied to a lit three.js scene or to the visitor's own screenshot, graded on the GPU. Drag sideways across it (or use the Compare slider) to see the original; the drag only starts after a deliberate sideways pull so vertical scrolling still works on phones. Double-click resets the split.
-- **Import guide.** Opens after any copy and stays until Done or Esc: the seven in-game steps as a checklist, the code with Copy again, a QR that opens this page with the code on a phone (shown from `sm` up, since a phone visitor is already on their phone), and Save look card. "Skip the steps next time" switches to a short toast.
+- **Vibe Finder.** Six hand-tuned Advanced grades in a 1/2/3-column grid under the gallery, each with name, tagline, best-for line and three colour dots showing its shadow/midtone/highlight hue. Picking one loads the code, names it in the console and scrolls to the generator, so the whole path from landing to copied code is two taps. "Surprise me" picks one at random. It is the answer for visitors who do not know what a hue slider should do; the generator remains for those who do. Names describe the grade (Visibility, Cinematic, Night Ops, Warm Daylight, Cool Overcast, Vivid Pop) — no invented performance claims.
+- **Mission Console.** The fixed bottom bar is the only place a code needs to be copied from once the visitor is happy: label with the current look name, the 22 numbers in Obel Mono, favourite star, one-tap Copy with haptics, a progress line that turns lime after a copy, `C` to copy and `1`/`2`/`3` to switch zones from the keyboard. "How to import" expands the seven steps, a QR, Save look card and Recent/Favorites chips inside the bar instead of a modal, so nothing covers the page while the player switches to CODM. First console copy opens that panel once per device (`codm-console-onboarded`); after that it stays closed until asked.
+- **Import guide.** Opens after a copy from the gallery and stays until Done or Esc: the seven in-game steps as a checklist, the code with Copy again, a QR that opens this page with the code on a phone (shown from `sm` up, since a phone visitor is already on their phone), and Save look card. "Skip the steps next time" switches to a short toast.
 - **Look card.** A 1200 by 630 PNG with the look's image, name, code and a QR back to the site, marked "Fan-made filter lab". Shared through the system share sheet when the browser has one, downloaded otherwise.
 
 ## Motion
@@ -107,7 +109,8 @@ States are set where the content breaks, not by device:
 - Grading runs in a WebGL fragment shader that matches the CPU version within 1/255. On first use it grades a grey pixel and reads it back; a driver that draws nothing falls back to the CPU path.
 - three.js, the QR encoder and the card renderer load with `import()`, off the critical path.
 - The filmstrip uses 352px thumbnails, lazy-loaded.
-- Backdrop blur only on the two elements that sit over scrolling content: the fixed code bar and the pinned phone viewfinder.
+- Backdrop blur only on the two elements that sit over scrolling content: the Mission Console and the pinned phone viewfinder.
+- Recent codes and favourites are read through `useSyncExternalStore` over `localStorage`, so they never cause a hydration mismatch or an effect-driven re-render, and they survive a reload.
 
 ## What was merged from the arena remakes, and what was not
 

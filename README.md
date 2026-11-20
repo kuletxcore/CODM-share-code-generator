@@ -6,7 +6,10 @@ Live: https://codm.kuletxcore.workers.dev
 
 - **Pick a look**: ready-made filters (Hajin, Apex, 2035, Avalon, Haven's Hollow, Haven's Hollow (Night), Al Mazrah, Vondead, Caldera, Verdansk, Cold War, Default) with one-tap copy and a Customize button that opens the look in the generator. Looks without a reference image show the preview scene with the look applied.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
+- **Find your vibe**: six hand-tuned Advanced starting points (Visibility, Cinematic, Night Ops, Warm Daylight, Cool Overcast, Vivid Pop) plus "Surprise me". One tap loads the code and jumps to the generator — no sliders for players who just want a usable code. Each vibe's numbers are built with the same encoder as the generator, so they can never drift from the documented format.
 - **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on a sample scene or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
+- **Mission Console** (the bar pinned to the bottom of the screen): the code, a one-tap Copy with a "1 Copy → 2 Import → 3 Play" progress line, `C` to copy from the keyboard, `1`/`2`/`3` to switch zones, an expandable "How to import" panel with the in-game steps, a QR for handing the code to a phone, a share-card button, and paste-a-code loading. Copying from the console does not open the full-screen import dialog — the steps are already on screen.
+  - **Recent + favorites** live in `localStorage` on this device only (`codm-history`, `codm-favorites`), so an OS-cleared clipboard never loses a grade. Nothing is uploaded; the panel labels them "on this device".
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
 ## Share code format
@@ -38,6 +41,10 @@ The preview is an approximation of the in-game filter.
 ## Using a code in game
 
 Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
+
+## Metadata
+
+`src/app/sitemap.ts`, `robots.ts` and `manifest.ts` are static-export friendly (`export const dynamic = "force-static"`). The social card is `public/looks/og.png` (referenced from `layout.tsx`). Update the `BASE` constant in those three files if the deployment URL changes.
 
 ## Development
 

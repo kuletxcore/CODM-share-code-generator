@@ -13,7 +13,7 @@ export function announceCopy(code: string, name?: string, extra: Omit<Copied, "c
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+async function writeClipboard(code: string) {
   try {
     await navigator.clipboard.writeText(code);
   } catch {
@@ -24,7 +24,19 @@ export async function copyCode(code: string, name?: string, extra: Omit<Copied, 
     document.execCommand("copy");
     t.remove();
   }
+}
+
+export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  await writeClipboard(code);
   announceCopy(code, name, extra);
+}
+
+/**
+ * Copies without opening the import guide. The Mission Console keeps the steps
+ * on screen itself, so a modal on every copy would only add friction.
+ */
+export async function copyText(code: string) {
+  await writeClipboard(code);
 }
 
 /** QR that opens this page on a phone with the code loaded (#c= restores it). */
@@ -62,7 +74,7 @@ async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
   return "saved";
 }
 
-const STEPS: { title: string; hint?: string }[] = [
+export const STEPS: { title: string; hint?: string }[] = [
   { title: "Settings", hint: "From the CODM lobby" },
   { title: "Audio and Graphics" },
   { title: "Pick your mode tab", hint: "MP, BR, DMZ…" },

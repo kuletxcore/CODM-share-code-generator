@@ -9,6 +9,7 @@ import {
   defaultSettings,
   drawSample,
   encode,
+  nameForCode,
   type Settings,
   type Zone,
   type ZoneKey,
@@ -17,7 +18,9 @@ import {
   hueParts,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
-import ImportGuide, { copyCode } from "@/components/ImportGuide";
+import VibeFinder from "@/components/VibeFinder";
+import MissionConsole from "@/components/MissionConsole";
+import ImportGuide from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 
@@ -387,6 +390,7 @@ export default function FilterLab() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentName, setCurrentName] = useState("Custom grade");
 
   const code = useMemo(() => encode(settings), [settings]);
 
@@ -399,6 +403,7 @@ export default function FilterLab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+    setCurrentName(nameForCode(m[1]) ?? "Loaded code");
   }, []);
   useEffect(() => {
     history.replaceState(null, "", `#c=${code}`);
@@ -407,6 +412,7 @@ export default function FilterLab() {
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
     setSettings((s) => ({ ...s, zones: { ...s.zones, [k]: { ...s.zones[k], ...patch } } }));
+    setCurrentName("Custom grade");
   }, []);
 
   const loadCode = useCallback((c: string) => {
@@ -414,8 +420,33 @@ export default function FilterLab() {
     if (!s) return false;
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+    setCurrentName(nameForCode(c) ?? "Loaded code");
     return true;
   }, []);
+
+  const pickCode = useCallback(
+    (c: string, name: string) => {
+      loadCode(c);
+      setCurrentName(name);
+      setMode("build");
+      document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [loadCode],
+  );
+
+  // Keyboard: 1/2/3 switch zones in Advanced mode (C copies, handled in MissionConsole).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (!advanced) return;
+      if (e.key === "1") setPanel("shadows");
+      else if (e.key === "2") setPanel("midtones");
+      else if (e.key === "3") setPanel("highlights");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [advanced]);
 
   const upload = async (f: File) => {
     try {
@@ -466,10 +497,12 @@ export default function FilterLab() {
         </div>
       </header>
 
-      <LooksGallery
-        onEdit={(c) => {
-          loadCode(c);
-          setMode("build");
+      <LooksGallery onEdit={pickCode} />
+
+      <VibeFinder
+        onPick={pickCode}
+        onScreenshot={() => {
+          setMode("convert");
           document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       />
@@ -769,6 +802,7 @@ export default function FilterLab() {
             key="convert"
             onApply={(s) => {
               setSettings(s);
+              setCurrentName("From screenshot");
               setMode("build");
             }}
             onError={setError}
@@ -777,7 +811,19 @@ export default function FilterLab() {
       </AnimatePresence>
 
       <Notes />
-      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
+      <MissionConsole
+        code={code}
+        name={currentName}
+        onLoad={loadCode}
+        onReset={() => {
+          setSettings(defaultSettings());
+          setCurrentName("Custom grade");
+        }}
+        onRestore={(c, n) => {
+          loadCode(c);
+          setCurrentName(n);
+        }}
+      />
       <ImportGuide />
     </div>
   );
@@ -897,94 +943,6 @@ function Converter({
         )}
       </div>
     </motion.section>
-  );
-}
-
-// Code bar
-
-function CodeBar({
-  code,
-  onLoad,
-  onReset,
-}: {
-  code: string;
-  onLoad: (c: string) => boolean;
-  onReset: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [input, setInput] = useState("");
-  const [bad, setBad] = useState(false);
-
-  const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
-            Share code
-          </span>
-          <output
-            aria-live="polite"
-            className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
-            title={code}
-          >
-            {code}
-          </output>
-          <button
-            onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ok = onLoad(input);
-            setBad(!ok);
-            if (ok) setInput("");
-          }}
-        >
-          <input
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setBad(false);
-            }}
-            placeholder="Paste a code to edit it"
-            aria-label="Paste a share code"
-            aria-invalid={bad}
-            className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
-              bad ? "border-red-500" : "border-line"
-            }`}
-          />
-          <button
-            type="submit"
-            className="min-h-11 bg-panel-2 px-3 font-display font-bold uppercase tracking-wider hover:bg-line"
-          >
-            Load
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="min-h-11 px-2 font-display font-bold uppercase tracking-wider text-mute hover:text-text"
-          >
-            Reset
-          </button>
-        </form>
-      </div>
-      {bad && (
-        <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
-          That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
-        </p>
-      )}
-    </div>
   );
 }
 
