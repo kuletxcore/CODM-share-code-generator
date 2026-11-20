@@ -356,3 +356,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The page runs from a cinematic stage into a dense editor; there was no indicator of position and no quick way back from the footer.
 - **Ship:** Added a thin progress bar and a back-to-top button that appears after the first screen.
+
+### 67. Inline FAQ
+
+- **Look:** The same how-to questions were repeated in the footer prose and the import guide, with no scannable answer format.
+- **Ship:** Added a compact four-question accordion covering legitimacy, in-game steps, preview accuracy and privacy.
