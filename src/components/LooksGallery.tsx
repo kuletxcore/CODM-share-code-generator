@@ -4,6 +4,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
 import { copyCode } from "@/components/ImportGuide";
+import { K, readJson, writeJson } from "@/lib/storage";
+import { rememberLook } from "@/components/MyLooks";
+import { notify } from "@/components/Toasts";
 
 // One render of the 3D scene shared by every card without an image; each
 // look's graded pixels are cached so it is graded once.
@@ -59,6 +62,11 @@ function RenderedThumb({ code }: { code: string }) {
 }
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
+const CHIPS: (Game | null | "favorites")[] = [
+  null,
+  ...GAMES.filter((g) => LOOKS.some((l) => l.game === g)),
+  "favorites",
+];
 
 function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
   return look.image ? (
@@ -80,8 +88,24 @@ function Art({ look, thumb = false }: { look: Look; thumb?: boolean }) {
 
 export default function LooksGallery({ onEdit }: { onEdit: (code: string) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
-  const [game, setGame] = useState<Game | null>(null);
-  const shown = game ? LOOKS.filter((l) => l.game === game) : LOOKS;
+  const [game, setGame] = useState<Game | null | "favorites">(null);
+  const [favs, setFavs] = useState<string[]>([]);
+  useEffect(() => setFavs(readJson<string[]>(K.favs, [])), []);
+  const toggleFav = (code: string) => {
+    const next = favs.includes(code) ? favs.filter((c) => c !== code) : [...favs, code];
+    setFavs(next);
+    writeJson(K.favs, next);
+    notify({
+      title: next.includes(code) ? "Added to favourites" : "Removed from favourites",
+      ms: 1800,
+    });
+  };
+  const shown =
+    game === "favorites"
+      ? LOOKS.filter((l) => favs.includes(l.code))
+      : game
+        ? LOOKS.filter((l) => l.game === game)
+        : LOOKS;
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true); // stops for good once the visitor picks a look
   const [hover, setHover] = useState(false);
@@ -96,7 +120,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   }, [copied]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || shown.length < 2) return;
     const t = setTimeout(() => setActive((a) => (a + 1) % shown.length), DWELL * 1000);
     return () => clearTimeout(t);
   }, [playing, active, shown.length]);
@@ -113,8 +137,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   }, [active, reduce, game]);
 
   const pick = (i: number) => {
+    if (!shown.length) return;
     setAuto(false);
-    setActive((i + shown.length) % shown.length);
+    const next = (i + shown.length) % shown.length;
+    setActive(next);
+    rememberLook(shown[next].name, shown[next].code);
   };
 
   return (
@@ -136,7 +163,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           aria-label="Filter looks by game"
           className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:flex-wrap sm:px-0"
         >
-          {[null, ...GAMES.filter((g) => LOOKS.some((l) => l.game === g))].map((g) => (
+          {CHIPS.map((g) => (
             <button
               key={g ?? "all"}
               aria-pressed={game === g}
@@ -150,7 +177,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
                   : "border-line bg-panel/80 text-mute hover:border-mute hover:text-text"
               }`}
             >
-              {g ?? "All"}
+              {g === "favorites" ? `★ Favourites${favs.length ? ` (${favs.length})` : ""}` : g ?? "All"}
             </button>
           ))}
         </div>
@@ -218,6 +245,17 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             >
               Customize
             </button>
+            <button
+              onClick={() => toggleFav(look.code)}
+              aria-pressed={favs.includes(look.code)}
+              aria-label={favs.includes(look.code) ? "Remove from favourites" : "Add to favourites"}
+              title="Favourite this look"
+              className={`min-w-12 border border-white/20 px-3 py-3 font-display text-xl ${
+                favs.includes(look.code) ? "bg-codm text-black" : "bg-black/70 text-mute hover:text-codm"
+              }`}
+            >
+              ★
+            </button>
           </div>
         </div>
       </div>
@@ -258,6 +296,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-4 font-display text-[10px] font-bold uppercase leading-none tracking-wider sm:text-xs">
               {l.name}
             </div>
+            {favs.includes(l.code) && (
+              <span className="absolute right-1 top-1 bg-codm px-1 font-display text-[10px] text-black" aria-label="Favourite">
+                ★
+              </span>
+            )}
             {i === active && playing && (
               <motion.span
                 key={`${active}-bar`}

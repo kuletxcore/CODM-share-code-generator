@@ -86,3 +86,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The onboarding overlay was disconnected from the converter mode and not mounted.
 - **Ship:** Mounted the chooser in the shell and connected its converter route to the existing mode switch.
+
+### 16. Favourites and recently viewed
+
+- **Look:** A look that worked was impossible to find again: there was no star, no history, and the only record was a code string.
+- **Ship:** Added per-look favourites on the stage and filmstrip, plus a recently-viewed list that feeds My Looks whenever a look is picked or copied.
