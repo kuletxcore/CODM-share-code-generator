@@ -1,0 +1,7 @@
+# Arena round 2: work in progress
+
+Unfinished notes from the goldfish reviews; the final write-up replaces this file. Reviews still to run: 5a181f54, 4d4b3931, 6c718d40, fae6c3f0.
+
+## 28efe1cc Blend Atlas — builds. DROP all. 100 mechanical blends never previewed; caption wrong (2nd look contributes ranges + Simple group); lime eyebrow misuse; toggle white not yellow; kills autoplay. Best idea: dial browsing. 
+## 35a5bc8c Vibe Finder + Mission Console — builds. Console panel DROP (62vh self-opening covers phone layout; duplicate import UI; fake progress). History/favourites PICK-WITH-FIXES (stale currentName bug; 28px chips; yellow misuse; gallery copies not recorded). Vibe Finder PICK-WITH-FIXES (invented "tuned by hand"/"spotting enemies" claims; lime select; drop emoji). Shortcuts C/1/2/3 PICK-WITH-FIXES (guard dialogs/selects). SEO/meta PICK-WITH-FIXES (og.png 2.2MB unbranded; BASE x3). Gallery relabel DROP.
+## 12264238 Wall of looks + agent sync — Wall DROP (owner already rejected one-frame board; "your screenshot" lie; blank tile bug; 20px buttons; yellow x12). gradePlan/paintGrade CPU speedup PICK (codm.ts grading section). grade.test.mts oracle PICK-WITH-FIXES (rename .test.ts). Agent sync script + mirrors DROP (did own import-based AGENTS.md). CI DROP (main has better). HANDOFF stale DROP; recheck: share-sheet cancel downloads card, stage autoplay aria-live, missing OG metadata.
