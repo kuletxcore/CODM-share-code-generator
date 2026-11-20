@@ -26,3 +26,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** UI pieces were being threaded through props: the palette, shortcuts and future overlays would each need a new prop on FilterLab.
 - **Ship:** Added a typed app-action event bus and useActions hook so any control can request a shell action without prop drilling.
+
+### 4. Code understanding utilities
+
+- **Look:** The 22 numbers are the product, yet the app showed them as an opaque string; no normalization, explanation, diff or classification existed.
+- **Ship:** Added code normalization, a 22-field human-readable breakdown, diffs, exact look lookup, computed mood tags and a seeded random-grade generator.
