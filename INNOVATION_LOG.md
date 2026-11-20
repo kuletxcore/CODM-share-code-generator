@@ -446,3 +446,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** When a grade changed, the 22-number string changed all at once with no indication of which values moved.
 - **Ship:** Split the code into per-number spans that flash on change and highlight only the edited positions.
+
+### 85. Thumbnail hover zoom
+
+- **Look:** The filmstrip felt static and its small images gave no feedback on hover.
+- **Ship:** Added a slow scale-on-hover to look thumbnails, disabled naturally by reduced-motion CSS.
