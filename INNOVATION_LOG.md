@@ -41,3 +41,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The palette existed but no route to it, and the toast host was mounted nowhere, so neither could reach a visitor.
 - **Ship:** Mounted the toast host at the root, added a header Quick find trigger, and connected the palette to the code loader through the action bus.
+
+### 7. Global hotkeys and a discoverable shortcut sheet
+
+- **Look:** The app had no keyboard entry points beyond sliders and tab focus, so power users had to scroll the long editor to reach every tool.
+- **Ship:** Added app-wide shortcuts that ignore text inputs, plus a ? shortcut sheet listing them all.
