@@ -27,7 +27,8 @@ import CommandPalette from "@/components/CommandPalette";
 import { useHistory } from "@/lib/useHistory";
 import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
-import { normalizeCode, blendSettings } from "@/lib/codeTools";
+import { normalizeCode, blendSettings, codeDiff } from "@/lib/codeTools";
+import { DEFAULT_CODE } from "@/lib/codm";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
 import LookInspector from "@/components/LookInspector";
@@ -1290,6 +1291,9 @@ function CodeBar({
   const [copied, setCopied] = useState(false);
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
+  const [more, setMore] = useState(false);
+  const changed = useMemo(() => codeDiff(code, DEFAULT_CODE).length, [code]);
+  const inputOk = normalizeCode(input) !== null;
 
   const copy = async () => {
     await copyCode(code);
@@ -1297,8 +1301,50 @@ function CodeBar({
     setTimeout(() => setCopied(false), 1400);
   };
 
+  const downloadText = () => {
+    const blob = new Blob([`CODM Filter Lab share code\n${code}\n\nUnofficial fan-made tool.`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `codm-${code.slice(0, 12)}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
+      {more && (
+        <div className="mx-auto flex max-w-[1400px] flex-wrap gap-2 border-b border-line px-4 py-2 sm:px-8">
+          <button
+            onClick={async () => {
+              const ok = await copyText(`${location.origin}${location.pathname}#c=${code}`);
+              notify(ok ? { title: "Link copied", detail: "Opens with this grade loaded.", tone: "good" } : { title: "Copy failed", tone: "warn" });
+            }}
+            className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line"
+          >
+            ⧉ Copy link to grade
+          </button>
+          <button
+            onClick={async () => {
+              const data = { title: "CODM Filter Lab", text: `CODM filter code: ${code}`, url: `${location.origin}${location.pathname}#c=${code}` };
+              if (navigator.share) {
+                try { await navigator.share(data); return; } catch {}
+              }
+              const ok = await copyText(code);
+              notify(ok ? { title: "Code copied", tone: "good" } : { title: "Copy failed", tone: "warn" });
+            }}
+            className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line"
+          >
+            ↗ Share code
+          </button>
+          <button onClick={downloadText} className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line">
+            ⤓ Save .txt
+          </button>
+          <button onClick={() => act("save-look")} className="min-h-11 border border-line bg-panel-2 px-3 font-display text-xs font-bold uppercase tracking-wide hover:bg-line">
+            ☆ Save look
+          </button>
+        </div>
+      )}
       <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
@@ -1311,11 +1357,27 @@ function CodeBar({
           >
             {code}
           </output>
+          <span
+            title={`${changed} of 22 values differ from the in-game default`}
+            className="hidden shrink-0 font-mono text-[10px] text-mute lg:block"
+          >
+            {changed}/22 changed
+          </span>
           <button
             onClick={copy}
             className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
           >
             {copied ? "Copied" : "Copy"}
+          </button>
+          <button
+            onClick={() => setMore((v) => !v)}
+            aria-expanded={more}
+            title="More code actions"
+            className={`grid h-11 w-10 shrink-0 border border-line font-display text-base ${
+              more ? "bg-codm text-black" : "bg-panel-2 text-mute hover:text-text"
+            }`}
+          >
+            ⋯
           </button>
           <button
             onClick={() => act("open-inspector")}
@@ -1346,7 +1408,7 @@ function CodeBar({
             aria-label="Paste a share code"
             aria-invalid={bad}
             className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
-              bad ? "border-red-500" : "border-line"
+              bad ? "border-red-500" : inputOk ? "border-lime/60" : "border-line"
             }`}
           />
           <button

@@ -226,3 +226,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The converter's two small panels were the only drop targets; dropping a screenshot on the rest of the section did nothing.
 - **Ship:** Added section-wide drag and drop for reference images with an explicit hint.
+
+### 44. More code actions
+
+- **Look:** Copy was the only thing to do with a code; sending the grade as a link, a text file or through the share sheet required leaving the tool.
+- **Ship:** Added an expandable code action panel with link copy, native share, .txt download and Save look.
