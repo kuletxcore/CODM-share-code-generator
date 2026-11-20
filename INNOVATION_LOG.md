@@ -31,3 +31,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The 22 numbers are the product, yet the app showed them as an opaque string; no normalization, explanation, diff or classification existed.
 - **Ship:** Added code normalization, a 22-field human-readable breakdown, diffs, exact look lookup, computed mood tags and a seeded random-grade generator.
+
+### 5. Command palette
+
+- **Look:** With 12 looks, two editor modes and a 22-number code, the fastest actions were buried below the fold and required scrolling.
+- **Ship:** Added a Cmd/Ctrl+K palette with fuzzy search over looks and actions, paste-a-code detection, arrow-key navigation and direct action dispatch.
