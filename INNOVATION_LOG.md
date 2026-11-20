@@ -331,3 +331,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A WebGL driver failure or a bad image could throw inside the editor and leave a blank page with no recovery.
 - **Ship:** Added a branded error boundary with the error text and a reload action around the app.
+
+### 62. Focus trapping helper
+
+- **Look:** Several overlays were dialogs visually but keyboard focus could leave them and land on the page behind.
+- **Ship:** Added a reusable focus-trap hook that restores focus on close.
