@@ -16,3 +16,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Notices were scattered: inline errors, a copied-label, and the guide's toast each had their own UI. Nothing could offer an undo or a one-tap follow-up.
 - **Ship:** Added a single event-bus toast system with actions, tones, auto-dismiss, a11y role and reduced-motion support.
+
+### 2. Failure-tolerant persistence layer
+
+- **Look:** Saved state was about to be added, but direct localStorage calls would crash in private mode and on quota errors.
+- **Ship:** Added a guarded storage module with JSON helpers, typed preferences and a saved-look schema.
