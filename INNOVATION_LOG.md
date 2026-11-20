@@ -116,3 +116,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A code copied with spaces or newlines was rejected by the paste field even though it was valid; the error gave no clue.
 - **Ship:** Added normalization that accepts spaces, dashes and line breaks before validating a 22-number code.
+
+### 22. Share-code inspector
+
+- **Look:** The 22 numbers were the product but never explained; the only documentation lived in the README.
+- **Ship:** Added a decoded inspector that groups all 22 values by in-game screen, highlights changes from default, and offers copy or open-in-generator.
