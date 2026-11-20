@@ -366,3 +366,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A long list of features accumulated with no way for a returning visitor to see what changed.
 - **Ship:** Added a changelog drawer summarising the new capabilities, with focus trapping and keyboard dismissal.
+
+### 69. Screen-reader code announcements
+
+- **Look:** A code changes on every slider move, but nothing announced the result to assistive technology.
+- **Ship:** Added a polite live region announcing how far the current code has moved from the in-game default.
