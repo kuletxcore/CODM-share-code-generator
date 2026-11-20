@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyse,
   applyGrade,
+  DEFAULT_CODE,
   decode,
   extractCode,
   defaultSettings,
@@ -396,12 +397,17 @@ export default function FilterLab() {
 
   const code = useMemo(() => encode(settings), [settings]);
 
+  // undo/redo history, see the effect below the hash sync
+  const steps = useRef({ past: [] as string[], future: [] as string[], last: DEFAULT_CODE, skip: false });
+
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
     const m = location.hash.match(/^#c=([-\d_]+)$/);
     const s = m && decode(m[1]);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
+    // the shared code is the starting point, not an undoable step
+    steps.current.last = encode(s);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
@@ -409,6 +415,66 @@ export default function FilterLab() {
   useEffect(() => {
     history.replaceState(null, "", `#c=${code}`);
   }, [code]);
+
+  // Undo/redo over share codes. A drag settles into one step after a short
+  // pause; loading a look or a pasted code is a step too, so it can be undone.
+  // `skip` marks changes made by undo/redo or the URL restore, which aren't steps.
+  const [canStep, setCanStep] = useState({ undo: false, redo: false });
+  const syncSteps = () =>
+    setCanStep({ undo: steps.current.past.length > 0, redo: steps.current.future.length > 0 });
+  useEffect(() => {
+    const h = steps.current;
+    if (h.skip) {
+      h.skip = false;
+      h.last = code;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (code === h.last) return;
+      h.past.push(h.last);
+      if (h.past.length > 50) h.past.shift();
+      h.future = [];
+      h.last = code;
+      syncSteps();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [code]);
+  const step = useCallback(
+    (dir: "undo" | "redo") => {
+      const h = steps.current;
+      // commit an edit still inside its settle pause, so undo returns to before it
+      if (code !== h.last) {
+        h.past.push(h.last);
+        h.future = [];
+        h.last = code;
+      }
+      const from = dir === "undo" ? h.past : h.future;
+      const to = dir === "undo" ? h.future : h.past;
+      const next = from.pop();
+      const s = next && decode(next);
+      if (!s) return syncSteps();
+      to.push(h.last);
+      h.last = next;
+      h.skip = true;
+      setSettings(s);
+      syncSteps();
+    },
+    [code],
+  );
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      // text fields keep their own undo
+      if ((e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") step(e.shiftKey ? "redo" : "undo");
+      else if (k === "y") step("redo");
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [step]);
 
   const [hueHint, setHueHint] = useState<Partial<Record<ZoneKey, number>>>({});
   const setZone = useCallback((k: ZoneKey, patch: Partial<Zone>) => {
@@ -561,6 +627,19 @@ export default function FilterLab() {
                 >
                   Advanced
                 </span>
+              </div>
+              <div className="-mt-4 grid grid-cols-2 gap-1">
+                {(["undo", "redo"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => step(d)}
+                    disabled={!canStep[d]}
+                    aria-keyshortcuts={d === "undo" ? "Control+Z Meta+Z" : "Control+Shift+Z Meta+Shift+Z Control+Y"}
+                    className="min-h-11 bg-panel-2 font-display text-sm font-bold uppercase tracking-wider hover:bg-line disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {d === "undo" ? "↶ Undo" : "Redo ↷"}
+                  </button>
+                ))}
               </div>
               <ul className="flex flex-col gap-1" aria-label="Adjustment groups" hidden={!advanced}>
                 {ADVANCED_PANELS.map((p) => {
