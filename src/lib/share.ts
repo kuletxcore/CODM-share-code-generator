@@ -250,6 +250,9 @@ function scanlines(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.restore();
 }
 
+/** True when the payload is a graded screen-test shot, not a look still. */
+export const isOwnFrame = (p: DeployPayload) => p.source === "screen-test";
+
 /** 1200×630 card: the look, its share code and a QR back to this page. */
 export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   await ensureFonts();
@@ -298,6 +301,7 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   ctx.restore();
   ctx.fillStyle = "#ffea3b";
   ctx.font = '500 15px "Obel Mono", monospace';
+  // always the fan-made marker: DESIGN.md requires it on every card
   spaced(ctx, "FAN-MADE FILTER LAB", 848, 68, 3.4);
 
   const name = (p.name ?? "Custom grade").toUpperCase();
@@ -367,7 +371,14 @@ export async function renderShareCard(p: DeployPayload): Promise<Blob | null> {
   spaced(ctx, "SCAN TO LOAD", qrX + 170, qrY + 22, 2.2);
   ctx.fillStyle = "#9aa094";
   ctx.font = '400 15px "Hitmarker Text", system-ui, sans-serif';
-  wrapText(ctx, "Point your camera here to open this grade on your phone.", 200, 3).forEach(
+  wrapText(
+    ctx,
+    isOwnFrame(p)
+      ? "Scan to open this grade, then try it on your own screen."
+      : "Point your camera here to open this grade on your phone.",
+    200,
+    3,
+  ).forEach(
     (line, i) => ctx.fillText(line, qrX + 170, qrY + 52 + i * 20),
   );
 

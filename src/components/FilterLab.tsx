@@ -17,11 +17,13 @@ import {
   SWATCH_NAMES,
   hueFrom,
   hueParts,
+  LOOKS,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
 import ImportGuide, { copyCode } from "@/components/ImportGuide";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
+import { ScreenTestBar, ScreenTestProvider, useScreenTest } from "@/components/ScreenTest";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -225,6 +227,7 @@ function Preview({
   onClear: () => void;
   view: React.RefObject<HTMLCanvasElement | null>;
 }) {
+  const { shot, clear: clearShot } = useScreenTest();
   const [sample, setSample] = useState(() => (typeof document === "undefined" ? null : sampleCanvas()));
   // Swap the flat fallback for a lit 3D scene as soon as three.js has loaded.
   useEffect(() => {
@@ -241,7 +244,8 @@ function Preview({
   }, []);
   const [split, setSplit] = useState(0);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
-  const src = source ?? sample;
+  // The screen test outranks the built-in scene: your own frame, graded live.
+  const src = source ?? shot?.canvas ?? sample;
 
   // Grade on the GPU when WebGL is available; null = not tried yet.
   const gpu = useRef<GradeGpu | null>(null);
@@ -340,7 +344,9 @@ function Preview({
         <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
           {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
-          <span className="bg-codm px-2 py-0.5 text-black">Filtered · approx.</span>
+          <span className="bg-codm px-2 py-0.5 text-black">
+            {!source && shot ? "Filtered · your screen · approx." : "Filtered · approx."}
+          </span>
           {split === 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Drag to compare</span>}
         </div>
       </div>
@@ -371,20 +377,27 @@ function Preview({
             }}
           />
         </label>
-        {source && (
+        {source ? (
           <button
             onClick={onClear}
             className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
           >
             Sample scene
           </button>
-        )}
+        ) : shot ? (
+          <button
+            onClick={clearShot}
+            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+          >
+            Remove screen test
+          </button>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export default function FilterLab() {
+function Editor() {
   const [mode, setMode] = useState<Mode>("build");
   const view = useRef<HTMLCanvasElement>(null);
   const [advanced, setAdvanced] = useState(true);
@@ -546,6 +559,8 @@ export default function FilterLab() {
           document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       />
+
+      <ScreenTestBar looks={LOOKS.length} />
 
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
@@ -869,7 +884,32 @@ export default function FilterLab() {
   );
 }
 
+export default function FilterLab() {
+  return (
+    <ScreenTestProvider>
+      <Editor />
+    </ScreenTestProvider>
+  );
+}
+
 // Converter
+
+/** The screen test clears the "your screen" step: use that shot as the baseline. */
+function ConverterShotHint() {
+  const { shot } = useScreenTest();
+  if (!shot) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-l-2 border-lime bg-lime/10 px-3 py-2 text-xs">
+      <span className="font-display font-bold uppercase tracking-wider text-lime">
+        Screen test on
+      </span>
+      <span>
+        Use that same frame as the baseline: drop it into &ldquo;Your screen&rdquo; and the match is
+        measured against your own picture.
+      </span>
+    </p>
+  );
+}
 
 function Converter({
   onApply,
@@ -904,6 +944,7 @@ function Converter({
       className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"
     >
       <div className="flex flex-col gap-4">
+        <ConverterShotHint />
         <div className="grid gap-4 md:grid-cols-2">
           <DropZone
             title="Reference look"

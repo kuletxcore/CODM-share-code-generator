@@ -5,6 +5,8 @@ export type DeployPayload = {
   note?: string;
   /** Reference image for the card (a look's still, or a snapshot of the preview). */
   image?: string;
+  /** "screen-test" marks a card made from the visitor's own graded frame. */
+  source?: "screen-test";
 };
 
 /** Absolute link that restores this grade; the page reads `#c=<code>` on load. */

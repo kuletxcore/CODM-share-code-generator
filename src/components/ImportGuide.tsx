@@ -6,30 +6,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
 
-type Copied = { code: string; name?: string; note?: string; image?: string };
+type Copied = { code: string; name?: string; note?: string; image?: string; source?: "screen-test" };
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
 export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
-/** Puts the code on the clipboard and opens the guide. Resolves false when both copy routes failed. */
-export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
-  let ok = true;
+/** Clipboard write only, started straight from a click so the gesture still counts. Resolves false when both copy routes failed. */
+export async function copyText(code: string) {
   try {
     await navigator.clipboard.writeText(code);
+    return true;
   } catch {
     const t = document.createElement("textarea");
     t.value = code;
     document.body.appendChild(t);
     t.select();
+    let ok: boolean;
     try {
       ok = document.execCommand("copy");
     } catch {
       ok = false;
     }
     t.remove();
+    return ok;
   }
+}
+
+/** Puts the code on the clipboard and opens the guide. Resolves false when both copy routes failed. */
+export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  const ok = await copyText(code);
   // Open the guide either way: it shows the code with Copy again, which is the
   // way out when the browser blocked the clipboard.
   announceCopy(code, name, extra);
