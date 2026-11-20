@@ -90,10 +90,10 @@ const ZONE_RANGES: [number, number][] = [
 /**
  * Parses a share code. Returns null unless it is exactly 22 integers with every
  * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
- * load as a washed-out grade. The Range handles and falloffs only have to be
- * non-negative: their upper limit isn't known, and the game itself writes
- * handles past the end of the bar (DisasterNinja's Warzone code, whose in-game
- * settings screen matches it, has the highlights handle at 1084).
+ * load as a washed-out grade. The Range handles run 0-1000, the ends of the bar;
+ * the game itself refuses a handle past 1000 and imports the default instead.
+ * The falloffs only have to be non-negative: the game writes handle + 100 after
+ * a drag, but the reset state has 1500, so no tighter limit is known.
  */
 export function decode(code: string): Settings | null {
   const parts = code.trim().split("_");
@@ -101,7 +101,8 @@ export function decode(code: string): Settings | null {
   const n = parts.map(Number);
   const inRange = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
   if (!inRange(n[0], [0, 4]) || !inRange(n[1], [0, 1])) return null;
-  if (n[2] < 0 || n[3] < 0 || n[4] < 0 || n[5] < 0) return null;
+  if (!inRange(n[2], [0, 1000]) || !inRange(n[4], [0, 1000])) return null;
+  if (n[3] < 0 || n[5] < 0) return null;
   for (let i = 6; i < 22; i++) if (!inRange(n[i], ZONE_RANGES[(i - 6) % 4])) return null;
   const s = defaultSettings();
   [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
@@ -663,16 +664,20 @@ export const LOOKS: Look[] = [
     // Settings: Make Your Graphics Look Like WARZONE!" (youtu.be/Kq2q9lV2VOY,
     // 4 Sep 2026), which shows the in-game screen: Simple Red 0 / Tint 23 /
     // Saturation 77 / Brightness 70, Shadows Lime 0 / 17 / 59 / 78, and both
-    // Range handles at the right end. The code decodes to exactly those values.
-    // Warzone ran on Black Ops 7 then (Season 05; Activision's Season 06
-    // announcement, Sep 2026). The card is a frame from the video, cropped
-    // clear of the HUD. The map is Black Ops 6's Nuketown, identified by its
-    // house; the minimap's "Special Forces Base" is CODM's callout for a team spawn.
+    // Range handles at the right end. As posted, the highlights handle reads
+    // 1084, which the game refuses (it imports the default instead); its
+    // falloff is 1094 and the game writes handle + 100, so the handle was 994
+    // and 1084 is a typo. The site owner's in-game remake of the zone values
+    // reads identically. Warzone ran on Black Ops 7 then (Season 05;
+    // Activision's Season 06 announcement, Sep 2026). The card is a frame from
+    // the video, cropped clear of the HUD. The map is Black Ops 6's Nuketown,
+    // identified by its house; the minimap's "Special Forces Base" is CODM's
+    // callout for a team spawn.
     name: "Warzone",
     game: "Black Ops 7",
     note: "DisasterNinja's Warzone look: bright, warm and saturated, with lime-lifted shadows",
     mode: "Advanced",
-    code: "0_1_974_1074_1084_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000",
+    code: "0_1_974_1074_994_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000",
     image: "/looks/warzone-bo7.webp",
     inGame: true,
   },

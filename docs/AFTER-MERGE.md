@@ -62,7 +62,7 @@ Two of the videos show the in-game Customize Color screen with the filter loaded
 | MW2022, Range | Shadows handle at about 18% of the bar | 189 | Yes |
 | Warzone, Simple | Red 0, Tint 23, Saturation 77, Brightness 70 | 0, 232, 1531, 403 → Red 0, 23.2, 76.55, 70.15 | Yes |
 | Warzone, shadows | Lime 0, Tint 17, Saturation 59, Brightness 78 | 250, 169, 1175, 552 → Lime 0, 16.9, 58.75, 77.6 | Yes |
-| Warzone, Range | Both handles at the right end of the bar | shadows 974, highlights **1084** | Changed a rule (below) |
+| Warzone, Range | Both handles at the right end of the bar | shadows 974, highlights **1084** as posted | A typo (section 4) |
 
 **What the evidence confirms:**
 - the order of the four value groups
@@ -76,21 +76,19 @@ Two of the videos show the in-game Customize Color screen with the filter loaded
 
 **The top of every range.** The owner exported a code with every slider and both Range handles pushed to the end: `0_1_0_100_1000_1100` then `125_1000_1000_2000` for each group. This confirms in game the upper limits `decode` enforces: tint 1000, brightness 1000, saturation 2000. It also confirms two more behaviours:
 - Red with the Hue slider at 100 writes 125, the same value as Orange at 0, which is why the editor keeps the chosen swatch.
-- Handles dragged to the ends of the Range bar write 0 and 1000, each falloff being the handle + 100. The bar itself stops at 1000, so DisasterNinja's 1084 (section 4) did not come from dragging a handle.
+- Handles dragged to the ends of the Range bar write 0 and 1000, each falloff being the handle + 100. The bar itself stops at 1000, so DisasterNinja's 1084 (section 4) could not have come from dragging a handle.
 
 A test pins this code.
 
-## 4. The rule that changed: Range handles past 1000
+## 4. A typo in a posted code, and a rule briefly loosened
 
-**The problem.** `decode()` rejected any Range handle above 1000, because the README listed 0–1000 as confirmed. DisasterNinja's code has the highlights handle at 1084, so the site could not load it.
+**What happened.** DisasterNinja's posted code has the highlights handle at 1084, past the end of the 0–1000 bar, so `decode()` refused it. Every zone value in that code matched his video, and the video drew both handles at the right end, so the limit was loosened to accept handles past 1000.
 
-**The evidence.** Every other value in that code matches the video's settings screen exactly, and the game draws both handles at the right end of the bar. So the game itself writes, and accepts, handles past the end. AGENTS.md rule 3 allows codec changes only with in-game evidence, and this is that evidence.
+**What the game says.** The owner tried importing the code in CODM, and the game refuses it, loading the default instead. The game is as strict as `decode()` was, so the limit is back: handles must be 0–1000. Hue, tint, brightness and saturation were never loosened.
 
-**The change.**
-- `decode()` now only requires the two handles to be non-negative, which is the rule the falloffs already followed. Their upper limit isn't known.
-- The tone map draws a handle past 1000 at the end of the bar, as the game does. Grading already clamped it.
-- A shared link keeps such a code unchanged.
-- Hue, tint, brightness and saturation stay strictly range-checked.
+**The correction.** The code's highlights falloff is 1094, and the game writes each falloff as handle + 100 (confirmed again by the all-100 export in section 3). So the handle was 994, and 1084 is a typo. The Warzone look uses `…974_1074_994_1094…`. The owner's in-game remake of the zone values (`0_226_403_1535` and `250_165_555_1182`) shows the same numbers in game as the posted code. A test pins the corrected code, and another checks that 1084 is rejected.
+
+**Lesson.** A code posted as text can carry typos that a code copied from the game cannot. When a shared code breaks a limit, try importing it in the game before changing the codec.
 
 ## 5. Six more looks, two new ways of sourcing them
 
