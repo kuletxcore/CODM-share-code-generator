@@ -136,3 +136,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The character-filter change broke the build because decode was imported twice in the gallery.
 - **Ship:** Removed the duplicate import and restored a green build before continuing the loop.
+
+### 26. Copy from the filmstrip
+
+- **Look:** Copying a look required waiting for the stage: the filmstrip could only select, so comparing twelve options meant twelve visits to the big card.
+- **Ship:** Added a quick-copy button directly on every thumbnail so any visible look can be copied without changing the stage.

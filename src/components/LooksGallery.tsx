@@ -375,16 +375,16 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         }}
       >
         {shown.map((l, i) => (
+          <div key={l.name} className="group relative w-28 shrink-0 snap-start sm:w-44">
           <button
-            key={l.name}
             role="tab"
             id={`look-tab-${i}`}
             aria-selected={i === active}
             aria-controls="look-stage"
             tabIndex={i === active ? 0 : -1}
             onClick={() => pick(i)}
-            className={`group relative w-28 shrink-0 snap-start overflow-hidden border bg-black text-left transition-opacity sm:w-44 ${
-              i === active ? "border-codm" : "border-line opacity-60 hover:opacity-100"
+            className={`block w-full overflow-hidden border bg-black text-left transition-opacity ${
+              i === active ? "border-codm" : "border-line opacity-60 group-hover:opacity-100"
             }`}
           >
             <div className="aspect-[16/7] overflow-hidden">
@@ -409,6 +409,19 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             )}
             {i === active && !playing && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-codm" />}
           </button>
+          <button
+            onClick={() => {
+              copyCode(l.code, l.name, { note: l.note, image: l.image });
+              setCopied(l.code);
+              setAuto(false);
+            }}
+            title={`Copy ${l.name} code without leaving the strip`}
+            aria-label={`Copy ${l.name} code`}
+            className="absolute left-1 top-1 z-10 grid h-8 w-8 place-items-center border border-white/20 bg-black/80 font-display text-xs text-mute opacity-100 hover:text-codm focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            ⧉
+          </button>
+          </div>
         ))}
       </div>
 
