@@ -286,3 +286,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A spotty mobile connection could leave the page blank between the lobby and the range; nothing was cached.
 - **Ship:** Added a versioned service worker that caches the shell, fonts and look art, serves the app offline and cleans old caches.
+
+### 53. Connectivity notice
+
+- **Look:** Offline mode would otherwise fail silently and look like a broken page.
+- **Ship:** Added a one-time offline notice explaining that saved grades and the generator keep working, plus registration wiring.
