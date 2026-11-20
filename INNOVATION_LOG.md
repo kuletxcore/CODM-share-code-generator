@@ -416,3 +416,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Saved grades all inherited a generic name, so a library of experiments was hard to scan.
 - **Ship:** Added a persisted name field in the code bar and used it for saved looks.
+
+### 79. Grade JSON exchange
+
+- **Look:** A grade could only travel as an opaque 22-number string; there was no way to send a named grade to someone with context.
+- **Ship:** Added copy/import of a small named JSON payload in the inspector.

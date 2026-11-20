@@ -5,7 +5,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
-import { DEFAULT_CODE } from "@/lib/codm";
+import { DEFAULT_CODE, LOOKS } from "@/lib/codm";
 import { codeDiff, describeCode, lookForCode, suggestName } from "@/lib/codeTools";
 import { copyText } from "@/lib/clipboard";
 import { notify } from "@/components/Toasts";
@@ -108,6 +108,32 @@ export default function LookInspector({
             </div>
 
             <div className="grid grid-cols-2 gap-2 border-t border-line p-3">
+              <button
+                onClick={async () => {
+                  const ok = await copyText(JSON.stringify({ app: "CODM Filter Lab", name: look?.name ?? suggestName(code), code }, null, 2));
+                  notify(ok ? { title: "Grade JSON copied", tone: "good" } : { title: "Copy failed", tone: "warn" });
+                }}
+                className="min-h-11 border border-line bg-panel-2 font-display text-xs font-bold uppercase tracking-wide hover:bg-line"
+              >
+                ⧉ Copy JSON
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const data = JSON.parse(await navigator.clipboard.readText()) as { code?: string; name?: string };
+                    const found = data.code ?? LOOKS.find((l) => l.name.toLowerCase() === data.name?.toLowerCase())?.code;
+                    if (!found) throw new Error();
+                    onLoad(found);
+                    onClose();
+                    notify({ title: "Grade imported", tone: "good" });
+                  } catch {
+                    notify({ title: "Nothing to import", detail: "Copy a Filter Lab grade JSON first.", tone: "warn" });
+                  }
+                }}
+                className="min-h-11 border border-line bg-panel-2 font-display text-xs font-bold uppercase tracking-wide hover:bg-line"
+              >
+                ⇥ Import JSON
+              </button>
               <button
                 onClick={async () => notify(await copyText(code)
                   ? { title: "Code copied", tone: "good" }

@@ -12,6 +12,7 @@ export const K = {
   feedback: "codm:feedback:v1",
   guideMode: "codm:guide-mode:v1",
   guideProgress: "codm:guide-progress:v1",
+  history: "codm:code-history:v1",
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

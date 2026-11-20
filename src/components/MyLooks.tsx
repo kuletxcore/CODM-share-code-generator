@@ -48,10 +48,11 @@ export default function MyLooks({
   onLoad: (code: string) => void;
   currentCode: string;
 }) {
-  const [tab, setTab] = useState<"saved" | "favorites" | "recent">("saved");
+  const [tab, setTab] = useState<"saved" | "favorites" | "recent" | "history">("saved");
   const [looks, setLooks] = useState<SavedLook[]>([]);
   const [favs, setFavs] = useState<string[]>([]);
   const [recent, setRecent] = useState<Recent[]>([]);
+  const [history, setHistory] = useState<Recent[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const file = useRef<HTMLInputElement>(null);
@@ -62,6 +63,7 @@ export default function MyLooks({
     setLooks(readJson<SavedLook[]>(K.looks, []));
     setFavs(readJson<string[]>(K.favs, []));
     setRecent(readJson<Recent[]>(K.recent, []));
+    setHistory(readJson<Recent[]>(K.history, []));
   };
   useEffect(() => {
     if (open) refresh();
@@ -119,7 +121,9 @@ export default function MyLooks({
             const look = looks.find((l) => l.code === code);
             return [{ key: code, name: look?.name ?? suggestName(code), code, meta: "Favourite" }];
           })
-        : recent.map((r) => ({ key: r.code, name: r.name, code: r.code, meta: "Recently viewed" }));
+        : tab === "recent"
+          ? recent.map((r) => ({ key: r.code, name: r.name, code: r.code, meta: "Recently viewed" }))
+          : history.map((r) => ({ key: `${r.code}-${r.at}`, name: r.name, code: r.code, meta: new Date(r.at).toLocaleString() }));
 
   return (
     <AnimatePresence>
@@ -155,7 +159,7 @@ export default function MyLooks({
             </div>
 
             <div className="flex gap-1 border-b border-line px-4 py-2">
-              {(["saved", "favorites", "recent"] as const).map((t) => (
+              {(["saved", "favorites", "recent", "history"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -166,7 +170,7 @@ export default function MyLooks({
                 >
                   {t}
                   <span className="ml-1 font-mono text-[10px]">
-                    {t === "saved" ? looks.length : t === "favorites" ? favs.length : recent.length}
+                    {t === "saved" ? looks.length : t === "favorites" ? favs.length : t === "recent" ? recent.length : history.length}
                   </span>
                 </button>
               ))}
@@ -178,6 +182,7 @@ export default function MyLooks({
                   {tab === "saved" && "Save a grade you want to come back to."}
                   {tab === "favorites" && "Tap the star on a gallery look to keep it here."}
                   {tab === "recent" && "Looks you open will show up here."}
+                  {tab === "history" && "Every code you have edited this session stays here."}
                 </div>
               )}
               {rows.map((row) => (

@@ -27,7 +27,7 @@ import CommandPalette from "@/components/CommandPalette";
 import { useHistory } from "@/lib/useHistory";
 import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
-import { normalizeCode, blendSettings, codeDiff, closestLook, randomCode } from "@/lib/codeTools";
+import { normalizeCode, blendSettings, codeDiff, closestLook, randomCode, suggestName } from "@/lib/codeTools";
 import { DEFAULT_CODE, LOOKS } from "@/lib/codm";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
@@ -37,7 +37,7 @@ import { copyText } from "@/lib/clipboard";
 import Changelog from "@/components/Changelog";
 import Feedback from "@/components/Feedback";
 import QuickTweaks from "@/components/QuickTweaks";
-import { getPrefs, setPref } from "@/lib/storage";
+import { getPrefs, setPref, pushUnique, K } from "@/lib/storage";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -566,6 +566,14 @@ export default function FilterLab() {
   const [snapshot, setSnapshot] = useState<Settings | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [lookName, setLookName] = useState(() => getPrefs().name ?? "");
+  useEffect(() => {
+    pushUnique<{ name: string; code: string; at: number }>(
+      K.history,
+      { name: lookName || suggestName(code), code, at: Date.now() },
+      14,
+    );
+  }, [code, lookName]);
+
   useEffect(() => {
     const n = codeDiff(code, DEFAULT_CODE).length;
     const id = window.setTimeout(
