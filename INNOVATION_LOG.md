@@ -111,3 +111,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A visitor could copy a code but could not send someone to the exact look they were looking at; sharing meant describing it in words.
 - **Ship:** Added #look= deep links, a Copy link button on the stage, a reusable clipboard helper, and navigation that leaves editor codes untouched.
+
+### 21. Forgiving code entry
+
+- **Look:** A code copied with spaces or newlines was rejected by the paste field even though it was valid; the error gave no clue.
+- **Ship:** Added normalization that accepts spaces, dashes and line breaks before validating a 22-number code.

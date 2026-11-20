@@ -28,6 +28,7 @@ import { notify } from "@/components/Toasts";
 import { normalizeCode } from "@/lib/codeTools";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
 import Onboarding from "@/components/Onboarding";
+import LookInspector from "@/components/LookInspector";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -400,6 +401,7 @@ export default function FilterLab() {
   const code = useMemo(() => encode(settings), [settings]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectOpen, setInspectOpen] = useState(false);
   useGlobalHotkeys();
   useActions(
     useCallback(
@@ -425,6 +427,9 @@ export default function FilterLab() {
             break;
           case "open-my-looks":
             setLibraryOpen(true);
+            break;
+          case "open-inspector":
+            setInspectOpen(true);
             break;
           case "save-look": {
             const saved = saveLookCode(code);
@@ -924,6 +929,7 @@ export default function FilterLab() {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
       <ShortcutsHelp />
       <Onboarding />
+      <LookInspector open={inspectOpen} code={code} onClose={() => setInspectOpen(false)} onLoad={loadCode} />
       <MyLooks open={libraryOpen} onClose={() => setLibraryOpen(false)} onLoad={loadCode} currentCode={code} />
     </div>
   );
@@ -1087,12 +1093,21 @@ function CodeBar({
           >
             {copied ? "Copied" : "Copy"}
           </button>
+          <button
+            onClick={() => act("open-inspector")}
+            title="Decode this code"
+            aria-label="Decode this share code"
+            className="grid h-11 w-10 shrink-0 border border-line bg-panel-2 font-display text-base text-mute hover:border-codm hover:text-text"
+          >
+            ?
+          </button>
         </div>
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            const ok = onLoad(input);
+            const normalized = normalizeCode(input);
+            const ok = normalized ? onLoad(normalized) : false;
             setBad(!ok);
             if (ok) setInput("");
           }}
