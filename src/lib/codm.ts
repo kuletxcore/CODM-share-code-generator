@@ -737,32 +737,33 @@ export const LOOKS: Look[] = [
   },
   {
     // Kith, "The BEST Settings To See Enemies Better in CODM"
-    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). No code is posted; rebuilt from the
-    // final state of each page in his walkthrough (1:19, 1:41, 1:53): Shadows
-    // Cyan 90 / Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / 90 / 65 / 80,
-    // Highlights Orange 0 / 1 (shown; 0 in code) / 30 / 50; Range left at the
-    // ends; Preset #5. The card is a "Setting: ON" frame from the video.
+    // (youtu.be/FpxFdjQg5bg, 7 Feb 2025). The code is the one a viewer,
+    // @WisdomSlaps, posted under the video; its raw values are not round, as
+    // an in-game export would be, and it matches every page the video shows:
+    // Shadows Cyan 90 / Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 /
+    // 65 / 80 (the video cuts while the tint is being dragged back down from
+    // 100; a second viewer's list also gives 1), Highlights Tint 1 / Sat 30 /
+    // Bri 50. The card is a "Setting: ON" frame from the video.
     name: "Kith",
     game: "CODM",
-    note: "Kith's visibility settings: lifted cyan shadows, strong red-tinted mids, softer highlights",
+    note: "Kith's visibility settings: lifted cyan shadows, more saturated mids, softer highlights",
     mode: "Advanced",
-    code: "4_1_30_300_1000_1500_0_0_0_1000_613_50_1000_1300_13_900_600_1300_125_0_0_600",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_612_54_1000_1290_12_9_601_1294_0_9_0_596",
     image: "/looks/kith.webp",
     inGame: true,
   },
   {
     // Serotonin, "Best Color Settings for CODM to Spot Enemies Faster!"
-    // (youtu.be/MvEatDU4eiE, 30 Jun 2026). A tutorial that tries several
-    // colours; this is the state he saves in the closing recap (6:24-6:32):
-    // Simple Blue 98 / Tint 25 / Sat 25 / Bri 70 (Preset #1), Highlights Red
-    // 0 / 25 / 70 / 100, Midtones Red 98 / 15 / 80 / 70, and the last Shadows
-    // page shown (3:13-3:18), Green 96 / 25 / 90 / 95. Range at the default.
-    // No card: the video is 360p, so the look is shown on the preview scene.
+    // (youtu.be/MvEatDU4eiE, 30 Jun 2026). His own code, posted in reply to a
+    // viewer under the video. It matches the settings he saves in the video
+    // (Simple Blue 98 / 25 / 25 / 70, Shadows Green 96 / 25 / 90 / 95,
+    // Midtones Red / 15 / 80 / 70, Highlights Red 0 / 25 / 70 / 100) and puts
+    // both Range handles at the ends. No card: the video is 360p.
     name: "Serotonin",
     game: "CODM",
     note: "Serotonin's spotting settings: bright green-tinted shadows, warm saturated mids, very bright highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_748_250_400_500_495_250_900_1800_123_150_400_1600_0_250_1000_1400",
+    code: "0_1_0_100_1000_1100_747_252_403_505_495_252_900_1802_121_149_406_1594_0_253_1000_1400",
   },
   {
     name: "Default",

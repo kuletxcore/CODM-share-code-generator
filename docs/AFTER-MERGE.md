@@ -101,10 +101,12 @@ None of these four videos posts a code in its description or pinned comment. Eac
 |---|---|---|---|
 | Verdansk Low-End | Mr.CODM_PRO_YT (youtu.be/kRGy1BqMwgo) | CODM | Simple: Blue, Hue 94, Tint 12, Saturation 51, Brightness 44. A companion long video (youtu.be/Daevpv9sPao) is gameplay only, with no settings shown, so it was not used. |
 | MW2019 (HunterRafi) | HunterRafi (youtu.be/vi1WYrsuXDs) | MW 2019 | All four pages, plus Preset #2. The Range bar has no numbers, so its handles were measured in pixels at about 17.5% and 89%, calibrated on the MW2022 video, whose handles are known. |
-| Kith | Kith (youtu.be/FpxFdjQg5bg) | CODM | His walkthrough changes values as he talks, so the final state of each page is used. Later footage showing other values is background footage. |
-| Serotonin | Serotonin (youtu.be/MvEatDU4eiE) | CODM | A tutorial that tries several colours. The look is the state he saves in the closing recap, plus the last Shadows page shown. No card: the video is 360p, so the look shows on the preview scene. |
+| Kith | Kith (youtu.be/FpxFdjQg5bg) | CODM | **Replaced by a shared code.** A viewer, @WisdomSlaps, posted a code under the video. Its raw values are not round numbers, as an in-game export would be, and it matches every page shown. The rebuild had read the midtones tint as 90. Re-checking the video showed that was mid-drag: he pushes it to 100 and drags back down as the shot cuts. The code gives 1, as a second viewer's list does. |
+| Serotonin | Serotonin (youtu.be/MvEatDU4eiE) | CODM | **Replaced by his own code**, posted in reply to a viewer. The rebuild was within one display step on every value. Two differences: his code puts both Range handles at the ends, and his midtones hue reads 96.8 where the video shows 98. No card: the video is 360p. |
 
 **Filing.** Verdansk Low-End went under the new **CODM** chip rather than MW 2019, because it was made for CODM's own Verdansk, not to imitate MW 2019.
+
+**What the shared codes taught.** Two of the four rebuilt looks later got real codes. Rebuilding from the screen held to display rounding. Its two weak points were values caught mid-drag and the Range handles, which have no numbers on screen. A shared code is preferred whenever one exists.
 
 **More evidence for the tint display.** HunterRafi's highlights also show Tint 1, which is the MW2022 display quirk again. Both read as raw 0.
 
