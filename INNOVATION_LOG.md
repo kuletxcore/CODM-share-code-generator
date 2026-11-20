@@ -246,3 +246,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The guide always said 'pick a mode tab', but DMZ: Recon has no Customize Color and the steps a player sees differ by mode.
 - **Ship:** Added MP/BR/DMZ selection in the guide with mode-specific step text and hints, persisted across visits.
+
+### 48. Checklist progress per code
+
+- **Look:** Closing the guide lost every ticked step, so switching away to CODM and back meant starting the checklist again.
+- **Ship:** Added per-code progress persistence with restore on open and an indicator that progress is remembered.
