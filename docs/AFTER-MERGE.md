@@ -1,10 +1,11 @@
 # After the merge
 
-What changed on `claude-merge` after the arena round 2 merge was written up in [ARENA-MERGE-2.md](ARENA-MERGE-2.md). Four things happened:
+What changed on `claude-merge` after the arena round 2 merge was written up in [ARENA-MERGE-2.md](ARENA-MERGE-2.md). Five things happened:
 - the three.js preview scene was replaced with real CODM frames
 - three looks shared by creators were added
 - their videos produced the first in-game evidence that tested the share-code rules
 - one of those rules had to change as a result
+- six more looks were added: four rebuilt from on-screen settings and two derived from footage
 
 ## 1. Real CODM scenes instead of the three.js render
 
@@ -83,10 +84,47 @@ Two of the videos show the in-game Customize Color screen with the filter loaded
 - A shared link keeps such a code unchanged.
 - Hue, tint, brightness and saturation stay strictly range-checked.
 
+## 5. Six more looks, two new ways of sourcing them
+
+The creators shared their codes for their communities to use, and each look credits its creator, so no separate permission step was taken.
+
+### Rebuilt from on-screen settings
+
+None of these four videos posts a code in its description or pinned comment. Each one shows the in-game Customize Color pages, though. Sections 3 and 4 confirmed how the code maps to those numbers, so each code is rebuilt from what the screen shows.
+
+- The game displays rounded numbers, so a rebuilt code can differ from the creator's own by about one raw step. It still shows the same numbers in game.
+- `src/lib/codm.test.ts` checks that every rebuilt code reads back as the on-screen values.
+
+| Look | Creator | Chip | What the video shows |
+|---|---|---|---|
+| Verdansk Low-End | Mr.CODM_PRO_YT (youtu.be/kRGy1BqMwgo) | CODM | Simple: Blue, Hue 94, Tint 12, Saturation 51, Brightness 44. A companion long video (youtu.be/Daevpv9sPao) is gameplay only, with no settings shown, so it was not used. |
+| MW2019 (HunterRafi) | HunterRafi (youtu.be/vi1WYrsuXDs) | MW 2019 | All four pages, plus Preset #2. The Range bar has no numbers, so its handles were measured in pixels at about 17.5% and 89%, calibrated on the MW2022 video, whose handles are known. |
+| Kith | Kith (youtu.be/FpxFdjQg5bg) | CODM | His walkthrough changes values as he talks, so the final state of each page is used. Later footage showing other values is background footage. |
+| Serotonin | Serotonin (youtu.be/MvEatDU4eiE) | CODM | A tutorial that tries several colours. The look is the state he saves in the closing recap, plus the last Shadows page shown. No card: the video is 360p, so the look shows on the preview scene. |
+
+**Filing.** Verdansk Low-End went under the new **CODM** chip rather than MW 2019, because it was made for CODM's own Verdansk, not to imitate MW 2019.
+
+**More evidence for the tint display.** HunterRafi's highlights also show Tint 1, which is the MW2022 display quirk again. Both read as raw 0.
+
+### Derived from footage
+
+These use the same method as 2035 and Avalon: per-video medians of the zone analysis, relative to the pooled daytime footage of 28 videos from the other games.
+
+| Look | Sources | Result | Confidence |
+|---|---|---|---|
+| MWIII | Five multiplayer videos. The cluAqepnjEY slices were cropped to the left 70% to remove the facecam. | Cooler shadows; less saturated across the range | Medium: 3 of 5 videos lean cool in the shadows, 2 lean warm; all are less saturated than the pool |
+| Black Ops 6 | Two weapon-inspect videos on one firing range, plus the first 15 s of a desert map (Tw7be_2GCHw, one map only) | Darker, green-leaning shadows; muted highlights | Low, and the note says so. The two range videos disagree on the shadow tint, likely because the weapon fills the frame. |
+
+**No cards for MWIII and Black Ops 6.** Every MWIII frame carries HUD, objective markers and player names, and the Black Ops 6 frames carry weapon HUD. Both show on the preview scene, labelled "Preview", until there are clean screenshots.
+
+**IMFDB not used.** The IMFDB galleries for MWIII and Black Ops 6 serve a Cloudflare bot check to scripts. It was not bypassed, so neither gallery was used.
+
+**New chips.** `GAMES` gained **CODM**, **MWIII** and **Black Ops 6**.
+
 ## Checks
 
 Every change above was checked with:
-- `npm run check`: lint, typecheck and 24 tests
+- `npm run check`: lint, typecheck and 25 tests
 - `npm run build`
 - Chromium at desktop and Pixel 7 sizes
 
@@ -95,6 +133,6 @@ GitHub CI and the Cloudflare preview build passed on each push. All downloaded v
 ## Still open
 
 - **Test on a phone.** Try the scene picker and the screen test on the [preview](https://claude-merge-codm.kuletxcore.workers.dev), then import one creator look in CODM and compare.
-- **Ask the creators.** MorganPixy's frames and credit, and DisasterNinja's code and frame, are used with on-page credit. Asking each creator for an explicit OK would settle it.
 - **Find the handle's real maximum.** Importing a code with the highlights handle at a very large value would show whether the game clamps it or refuses the code.
+- **Better Black Ops 6 source.** Multiplayer footage across several maps would replace the two-scene Black Ops 6 look. Clean screenshots would give MWIII, Black Ops 6 and Serotonin cards.
 - **The deferred list** in [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred): recent and favourite codes, per-look pages, a docking code bar, "Needs tweaking" and duel links.
