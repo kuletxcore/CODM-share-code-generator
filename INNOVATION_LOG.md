@@ -221,3 +221,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A converted grade had to be opened in the generator before it could be copied and tried in game.
 - **Ship:** Added a direct Copy this code action to the converter result.
+
+### 43. Drop a reference anywhere
+
+- **Look:** The converter's two small panels were the only drop targets; dropping a screenshot on the rest of the section did nothing.
+- **Ship:** Added section-wide drag and drop for reference images with an explicit hint.
