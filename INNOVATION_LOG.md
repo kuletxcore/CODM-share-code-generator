@@ -401,3 +401,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A hand-tuned grade had no anchor: players could not tell which built-in look it resembled or jump back to one.
 - **Ship:** Added a weighted nearest-look chip in the code bar that loads the look and offers a one-tap undo.
+
+### 76. Paste autocomplete
+
+- **Look:** Typing a look name in the paste field gave no suggestions and looked like an invalid code.
+- **Ship:** Added a live suggestion list of matching looks that loads a code directly on click.
