@@ -725,8 +725,10 @@ export const LOOKS: Look[] = [
     // Mr.CODM_PRO_YT, "Low End Device Best Colour graphics settings in CODM BR"
     // (youtu.be/kRGy1BqMwgo, 13 Nov 2026), made for CODM's Verdansk on low-end
     // phones. No code is posted; rebuilt from the Simple panel it shows: Blue,
-    // Hue 94, Tint 12, Saturation 51, Brightness 44. The card is the filtered
-    // half of that Short, cropped clear of the HUD and the creator's watermark.
+    // Hue 94, Tint 12, Saturation 51, Brightness 44, Preset #1. The creator's
+    // long video (youtu.be/Daevpv9sPao) shows the same panel at 4:58 and stays
+    // in Simple mode; the rest of it is gameplay with the setting on. The card
+    // is the filtered half of the Short, cropped clear of HUD and watermark.
     name: "Verdansk Low-End",
     game: "CODM",
     note: "Mr.CODM_PRO_YT's setting for CODM Verdansk on low-end phones: slight blue tint, a touch darker",
