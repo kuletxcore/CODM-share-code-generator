@@ -466,3 +466,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The dense editor had no way to fit more controls on screen on a short laptop display.
 - **Ship:** Added a persisted compact-spacing toggle that scales the Tailwind spacing unit, applied at startup.
+
+### 89. Swipe the look stage
+
+- **Look:** On a phone the filmstrip could be scrolled but the large stage itself had no gesture for moving between looks.
+- **Ship:** Added a deliberate horizontal swipe on the stage that selects the next or previous look without stealing vertical scrolling.

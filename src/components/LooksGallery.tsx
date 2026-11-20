@@ -148,6 +148,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
     return () => clearTimeout(t);
   }, [playing, active, shown.length]);
 
+  const swipe = useRef<{ x: number; y: number } | null>(null);
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = strip.current;
@@ -173,6 +174,20 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
       className="mt-8"
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
+      onPointerDown={(e) => {
+        if (e.pointerType === "mouse") return;
+        swipe.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e) => {
+        const start = swipe.current;
+        swipe.current = null;
+        if (!start) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        setGame(game === "favorites" ? null : game);
+        pick(active + (dx < 0 ? 1 : -1));
+      }}
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
@@ -364,6 +379,13 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               className="bg-black/70 px-4 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
             >
               Customize
+            </button>
+            <button
+              onClick={() => act("open-inspector")}
+              className="bg-black/70 px-3 py-3 font-display text-sm font-bold uppercase tracking-wider text-text hover:bg-line"
+              title="See what this code does"
+            >
+              Decode
             </button>
             <button
               onClick={() => act("open-compare")}
