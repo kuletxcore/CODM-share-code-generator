@@ -13,7 +13,9 @@ export function announceCopy(code: string, name?: string, extra: Omit<Copied, "c
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
+/** Puts the code on the clipboard and opens the guide. Resolves false when both copy routes failed. */
 export async function copyCode(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  let ok = true;
   try {
     await navigator.clipboard.writeText(code);
   } catch {
@@ -21,10 +23,17 @@ export async function copyCode(code: string, name?: string, extra: Omit<Copied, 
     t.value = code;
     document.body.appendChild(t);
     t.select();
-    document.execCommand("copy");
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
     t.remove();
   }
+  // Open the guide either way: it shows the code with Copy again, which is the
+  // way out when the browser blocked the clipboard.
   announceCopy(code, name, extra);
+  return ok;
 }
 
 /** QR that opens this page on a phone with the code loaded (#c= restores it). */
@@ -45,7 +54,7 @@ function PhoneQr({ code }: { code: string }) {
   return <canvas ref={ref} width={240} height={240} className="h-[120px] w-[120px] shrink-0" aria-hidden />;
 }
 
-async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
+async function saveCard(p: Copied): Promise<"shared" | "saved" | "cancelled" | "failed"> {
   const share = await import("@/lib/share");
   const blob = await share.renderShareCard(p);
   if (!blob) return "failed";
@@ -54,8 +63,11 @@ async function saveCard(p: Copied): Promise<"shared" | "saved" | "failed"> {
     try {
       await navigator.share({ files: [file], title: p.name ?? "CODM look" });
       return "shared";
-    } catch {
-      // cancelled share sheet: fall through to a download
+    } catch (e) {
+      // Backing out of the share sheet means "no", so don't download anyway.
+      // Anything else (iOS throws NotAllowedError once the tap is too old after
+      // the render) falls through to a download so the card isn't lost.
+      if ((e as Error).name === "AbortError") return "cancelled";
     }
   }
   share.downloadBlob(blob, file.name);
@@ -88,7 +100,7 @@ const readOff = () => {
 export default function ImportGuide() {
   const [open, setOpen] = useState<Copied | null>(null);
   const [toast, setToast] = useState<Copied | null>(null);
-  const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "failed">("idle");
+  const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "cancelled" | "failed">("idle");
   const [done, setDone] = useState<number[]>([]);
   const [off, setOff] = useState(false);
   const [again, setAgain] = useState(false);

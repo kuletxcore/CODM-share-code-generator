@@ -6,6 +6,7 @@ import {
   analyse,
   applyGrade,
   decode,
+  extractCode,
   defaultSettings,
   drawSample,
   encode,
@@ -56,12 +57,17 @@ const hsl = (h: number, s = 90, l = 55) => `hsl(${r(h)} ${s}% ${l}%)`;
 
 // Image helpers
 
-function fileToCanvas(file: File, maxW: number): Promise<HTMLCanvasElement> {
+/**
+ * Decode an image into a canvas whose longest side is at most `maxSide`. Capping
+ * the long side, not just the width, keeps a portrait phone screenshot
+ * (1080x2400) under the 2048px texture limit some phone GPUs have.
+ */
+function fileToCanvas(file: File, maxSide: number): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, maxW / img.naturalWidth);
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas");
       c.width = Math.max(1, r(img.naturalWidth * scale));
       c.height = Math.max(1, r(img.naturalHeight * scale));
@@ -392,7 +398,7 @@ export default function FilterLab() {
 
   // restore from #c=<code>, keep the hash in sync so the URL is shareable
   useEffect(() => {
-    const m = location.hash.match(/c=([-\d_]+)/);
+    const m = location.hash.match(/^#c=([-\d_]+)$/);
     const s = m && decode(m[1]);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
@@ -410,7 +416,8 @@ export default function FilterLab() {
   }, []);
 
   const loadCode = useCallback((c: string) => {
-    const s = decode(c);
+    const found = extractCode(c);
+    const s = found && decode(found);
     if (!s) return false;
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
@@ -911,14 +918,13 @@ function CodeBar({
   onLoad: (c: string) => boolean;
   onReset: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "ok" | "failed">("");
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
 
   const copy = async () => {
-    await copyCode(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
+    setCopied((await copyCode(code)) ? "ok" : "failed");
+    setTimeout(() => setCopied(""), 1400);
   };
 
   return (
@@ -928,8 +934,8 @@ function CodeBar({
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
+          {/* not a live region: it would read all 22 numbers on every slider step */}
           <output
-            aria-live="polite"
             className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-sm text-codm"
             title={code}
           >
@@ -939,8 +945,11 @@ function CodeBar({
             onClick={copy}
             className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
           >
-            {copied ? "Copied" : "Copy"}
+            {copied === "ok" ? "Copied" : copied === "failed" ? "Blocked" : "Copy"}
           </button>
+          <span role="status" className="sr-only">
+            {copied === "ok" ? "Code copied" : copied === "failed" ? "Your browser blocked copying. Select the code and copy it." : ""}
+          </span>
         </div>
         <form
           className="flex items-center gap-2"

@@ -3,6 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_CODE,
+  analyse,
+  extractCode,
   LOOKS,
   PRESETS,
   decode,
@@ -84,4 +86,29 @@ test("hue swatch and slider match the game (raw = swatch*125 + slider*1.25)", ()
 test("slider at 100 stays on the chosen swatch", () => {
   assert.deepEqual(hueParts(hueFrom(3, 100), 3), { swatch: 3, pos: 100 });
   assert.equal(hueParts(hueFrom(3, 100)).swatch, 4);
+});
+
+test("hue 1000 reads as Magenta at slider 100, not Red at 0", () => {
+  const s = decode("0_1_30_300_1000_1500_1000_100_0_1000_0_0_0_1000_0_0_0_1000_0_0_0_1000");
+  assert.ok(s);
+  assert.deepEqual(hueParts(s.zones.global.hue), { swatch: 7, pos: 100 });
+  assert.equal(encode(s), "0_1_30_300_1000_1500_1000_100_0_1000_0_0_0_1000_0_0_0_1000_0_0_0_1000");
+});
+
+test("analyse leaves tonal ranges the image doesn't contain neutral", () => {
+  const white = new Uint8ClampedArray(64 * 64 * 4).fill(255);
+  const s = analyse(white, null);
+  assert.deepEqual(s.zones.shadows, defaultSettings().zones.shadows);
+  assert.deepEqual(s.zones.midtones, defaultSettings().zones.midtones);
+});
+
+test("extractCode finds a code inside pasted text", () => {
+  const c = LOOKS[0].code;
+  assert.equal(extractCode(c), c);
+  assert.equal(extractCode(`  ${c}\n`), c);
+  assert.equal(extractCode(`${LOOKS[0].name}: ${c}`), c);
+  assert.equal(extractCode(`https://codm.kuletxcore.workers.dev/#c=${c}`), c);
+  assert.equal(extractCode(c.replaceAll("_", " ")), c);
+  assert.equal(extractCode("0_1_2"), null);
+  assert.equal(extractCode(`${c}_5`), null, "23 numbers is not a code");
 });

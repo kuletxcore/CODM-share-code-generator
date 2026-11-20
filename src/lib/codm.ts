@@ -116,6 +116,16 @@ export function decode(code: string): Settings | null {
   return s;
 }
 
+/**
+ * Pull a share code out of pasted text such as "Hajin: 0_1_30_...", a share
+ * link, or a code with stray spaces. Returns the 22 numbers joined by "_", or
+ * null. It only finds the code; `decode` still decides whether it is valid.
+ */
+export function extractCode(text: string): string | null {
+  const m = text.match(/(?<![\d_-])-?\d+(?:[\s,_]+-?\d+){21}(?![\d_])/);
+  return m ? m[0].split(/[\s,_]+/).join("_") : null;
+}
+
 // In-game hue controls
 
 /**
@@ -126,7 +136,9 @@ export function decode(code: string): Settings | null {
 export const SWATCH_NAMES = ["Red", "Orange", "Lime", "Green", "Cyan", "Blue", "Purple", "Magenta"];
 
 export function hueParts(deg: number, prefer?: number): { swatch: number; pos: number } {
-  const d = ((deg % 360) + 360) % 360;
+  // Clamp, don't wrap: raw 1000 (360°) is Magenta at slider 100, not Red at 0.
+  // Wrapping would show the wrong swatch and rewrite the hue on the next drag.
+  const d = Math.min(360, Math.max(0, deg));
   // Slider 100 and the next swatch's 0 are the same raw value; honour the swatch
   // the user picked so the end of the slider doesn't jump to the next colour.
   if (prefer !== undefined) {
@@ -364,6 +376,9 @@ export function analyse(
     { l: 0.8, sat: 0.14 },
   ];
   (["shadows", "midtones", "highlights"] as ZoneKey[]).forEach((k, i) => {
+    // (Almost) no pixels in this tonal range: nothing was measured, so leave it
+    // neutral rather than invent a grade from a near-empty bucket.
+    if (t[i].n < (target.length / 4) * 0.005) return;
     const ct = castOf(t[i]);
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,
