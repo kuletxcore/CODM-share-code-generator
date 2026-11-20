@@ -1,20 +1,18 @@
 "use client";
 
 /**
- * Built-in preview scenes: real CODM frames on the default filter, each
- * covering deep shade, sky and saturated colour. Combine, Hijacked and
- * Crossfire are the site owner's own captures (default settings checked);
- * Shipment 2019 and Armada Strike are stills from MorganPixy's "CODM Season
- * 10 2026 - New and Reworked Weapons Showcase" (YouTube), with no HUD. Map
- * names and their source games are checked against Activision and press
- * coverage. `by` is the credit shown under the picker.
+ * Built-in preview scenes: CODM screenshots the site owner captured on the
+ * default filter, each covering deep shade, sky and saturated colour, cropped
+ * to 16:9 clear of the HUD at the screen edges. Map names and their source
+ * games are checked against Activision and press coverage.
  */
 export const SAMPLES = [
-  { id: "port", label: "Shipment 2019", game: "Modern Warfare (2019)", by: "MorganPixy" },
-  { id: "lab", label: "Combine", game: "Black Ops III", by: "owner" },
-  { id: "yacht", label: "Hijacked", game: "Black Ops II", by: "owner" },
-  { id: "sea", label: "Armada Strike", game: "Black Ops Cold War", by: "MorganPixy" },
-  { id: "desert", label: "Crossfire", game: "Call of Duty 4: Modern Warfare", by: "owner" },
+  { id: "port", label: "Shipment 2019", game: "Modern Warfare (2019)" },
+  { id: "lab", label: "Combine", game: "Black Ops III" },
+  { id: "yacht", label: "Hijacked", game: "Black Ops II" },
+  { id: "sea", label: "Armada Strike", game: "Black Ops Cold War" },
+  { id: "desert", label: "Crossfire", game: "Call of Duty 4: Modern Warfare" },
+  { id: "range", label: "Firing Range", game: "Black Ops" },
 ] as const;
 
 export type SampleId = (typeof SAMPLES)[number]["id"];

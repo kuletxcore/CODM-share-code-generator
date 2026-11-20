@@ -412,11 +412,7 @@ function Preview({
               </button>
             ))}
           </div>
-          <p className="text-xs text-mute">
-            {SAMPLES.find((s) => s.id === scene)?.by === "owner"
-              ? "A CODM screenshot on the default filter, captured for this site."
-              : "A CODM still on the default filter, from MorganPixy\u2019s weapons showcase."}
-          </p>
+          <p className="text-xs text-mute">CODM screenshots on the default filter, captured for this site.</p>
         </div>
       )}
     </div>

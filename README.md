@@ -9,7 +9,7 @@ Live: https://codm.kuletxcore.workers.dev
   - MW2019 (HunterRafi), Verdansk Low-End, Kith and Serotonin are rebuilt from the settings screens shown in each creator's video (no code was posted), to the game's display rounding. Each look credits its creator.
   - The footage-based looks (2035, Avalon, Haven's Hollow, Al Mazrah, Vondead, Caldera, MWIII, Black Ops 6) are measured from gameplay videos and expressed relative to the pooled daytime footage of all the games sampled, so only what sets a game apart is kept. Expect subtle results; test in game.
 - **Screen test**: drop one CODM screenshot (or paste it with Ctrl+V) and every look in the gallery, plus the generator's preview, is graded on your own frame (an approximation of the in-game filter). Hold Compare to see the ungraded original. Look cards you save then show your screenshot. Nothing is uploaded; the shot stays in the tab.
-- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on one of five real CODM scenes or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
+- **Generator**: set hue, tint, saturation and brightness for shadows, midtones and highlights, see a live preview on one of six real CODM scenes or your own screenshot, and copy the share code. The URL hash holds the current code, so links are shareable.
 - **Screenshot → Code**: drop in a reference screenshot of the look you want (and, optionally, a CODM screenshot of the same kind of scene on the default filter). The page measures each tonal range and suggests a starting code. Everything runs in the browser; nothing is uploaded.
 
 ## Share code format
@@ -67,7 +67,7 @@ npm run deploy
 
 Stack: Next.js (static export), Tailwind CSS, Motion, three.js (background), Hitmarker typeface from the Call of Duty brand site.
 
-Preview scenes (`public/samples/`) are CODM frames on the default filter. Combine, Hijacked and Crossfire are the owner's own captures; Shipment 2019 and Armada Strike are stills from MorganPixy's YouTube video "CODM Season 10 2026 - New and Reworked Weapons Showcase" (no HUD). The page credits whichever scene is shown.
+Preview scenes (`public/samples/`) are CODM screenshots the owner captured on the default filter, cropped clear of the HUD.
 
 ## Disclaimer
 
