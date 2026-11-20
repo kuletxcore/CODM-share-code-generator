@@ -121,3 +121,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The 22 numbers were the product but never explained; the only documentation lived in the README.
 - **Ship:** Added a decoded inspector that groups all 22 values by in-game screen, highlights changes from default, and offers copy or open-in-generator.
+
+### 23. Inspector wired into the code bar
+
+- **Look:** The decoder had no entry point from the main code surface.
+- **Ship:** Added a decode button beside Copy and connected inspector state to the action bus.
