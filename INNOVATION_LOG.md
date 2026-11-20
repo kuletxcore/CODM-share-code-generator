@@ -231,3 +231,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Copy was the only thing to do with a code; sending the grade as a link, a text file or through the share sheet required leaving the tool.
 - **Ship:** Added an expandable code action panel with link copy, native share, .txt download and Save look.
+
+### 45. Code validity and diff signals
+
+- **Look:** The paste field gave no sign that a pasted code was well-formed until submit, and there was no indication of how far the current code had moved from default.
+- **Ship:** Added a live valid/invalid border, a changed-values counter on the code output and a tooltip with detail.
