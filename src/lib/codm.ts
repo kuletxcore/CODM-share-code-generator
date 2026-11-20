@@ -579,6 +579,32 @@ export const LOOKS: Look[] = [
     image: "/looks/havens-hollow-night.webp",
   },
   {
+    // Black Ops 6, derived from footage relative to the pooled daytime footage
+    // of all the games sampled, like 2035 and Avalon. Weak evidence: two
+    // weapon-inspect videos on one firing range (youtu.be/PYKQS55ybeg,
+    // youtu.be/oib4jqSmRn0) plus the first 15 s of youtu.be/Tw7be_2GCHw on a
+    // desert map. The range videos disagree on the shadow cast; what holds is
+    // darker shadows and less saturated highlights. Replace when there is
+    // multiplayer footage across several maps.
+    name: "Black Ops 6",
+    game: "Black Ops 6",
+    note: "Black Ops 6, from two scenes only: darker green-leaning shadows, muted highlights. Subtle; test in game",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_378_90_-100_1180_806_30_60_1080_683_40_20_700",
+  },
+  {
+    // MWIII multiplayer, derived from footage relative to the pooled daytime
+    // footage of all the games sampled. Five videos (youtu.be/F-EGowtfMS4,
+    // CRF20NdUcgw, CPv_ll8Tw9A, NHKlrR6UFr0, and cluAqepnjEY cropped clear of
+    // its facecam). Three of five lean cool in the shadows, two warm; all are
+    // less saturated than the pool. No card: every frame carries HUD and names.
+    name: "MWIII",
+    game: "MWIII",
+    note: "MWIII multiplayer: cooler shadows, muted colour across the range",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_561_110_40_840_661_40_-20_960_544_30_-20_860",
+  },
+  {
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
     name: "Al Mazrah",
     game: "MWII",
