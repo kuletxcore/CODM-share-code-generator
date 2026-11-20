@@ -111,7 +111,9 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [hover, setHover] = useState(false);
   const reduce = useReducedMotion();
   const playing = auto && !hover && !reduce;
-  const look = shown[Math.min(active, shown.length - 1)];
+  const look = shown[Math.min(active, shown.length - 1)] ?? LOOKS[0];
+  const [recent, setRecent] = useState<{ name: string; code: string }[]>([]);
+  useEffect(() => setRecent(readJson<{ name: string; code: string }[]>(K.recent, [])), [active]);
 
   useEffect(() => {
     if (!copied) return;
@@ -158,6 +160,27 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
           </h2>
           <p className="mt-1 text-sm text-mute">Copy a code and the steps to import it in CODM follow.</p>
         </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {recent[0] && (
+            <button
+              onClick={() => {
+                const i = LOOKS.findIndex((l) => l.code === recent[0].code);
+                if (i >= 0) { setGame(null); pick(i); }
+              }}
+              title="Open the last look you viewed"
+              className="min-h-11 border border-line bg-panel/80 px-3 font-display text-xs font-bold uppercase tracking-wide text-mute hover:border-codm hover:text-text"
+            >
+              ↺ Resume: <span className="text-codm-light">{recent[0].name}</span>
+            </button>
+          )}
+          <button
+            onClick={() => { setGame(null); pick(Math.floor(Math.random() * LOOKS.length)); }}
+            title="Jump to a random look"
+            className="min-h-11 border border-line bg-panel/80 px-3 font-display text-xs font-bold uppercase tracking-wide text-mute hover:border-codm hover:text-text"
+          >
+            ⚄ Surprise me
+          </button>
+        </div>
         <div
           role="group"
           aria-label="Filter looks by game"
@@ -177,7 +200,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
                   : "border-line bg-panel/80 text-mute hover:border-mute hover:text-text"
               }`}
             >
-              {g === "favorites" ? `★ Favourites${favs.length ? ` (${favs.length})` : ""}` : g ?? "All"}
+              {g === "favorites"
+                ? `★ Favourites${favs.length ? ` (${favs.length})` : ""}`
+                : g
+                  ? `${g} (${LOOKS.filter((l) => l.game === g).length})`
+                  : `All (${LOOKS.length})`}
             </button>
           ))}
         </div>
@@ -190,6 +217,21 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         aria-live="polite"
         className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
       >
+        {!shown.length && (
+          <div className="absolute inset-0 z-20 grid place-items-center bg-ink/90 p-6 text-center">
+            <div>
+              <p className="font-display text-xs font-bold uppercase tracking-[0.22em] text-codm">No looks here yet</p>
+              <h3 className="mt-2 font-title text-3xl font-black uppercase">Nothing favourited</h3>
+              <p className="mt-2 text-sm text-mute">Tap the ★ on any look to pin it here.</p>
+              <button
+                onClick={() => { setGame(null); setActive(0); }}
+                className="cut-sm mt-4 min-h-11 bg-codm px-4 font-display text-sm font-extrabold uppercase text-black"
+              >
+                Show all looks
+              </button>
+            </div>
+          </div>
+        )}
         <AnimatePresence initial={false}>
           <motion.div
             key={look.name}

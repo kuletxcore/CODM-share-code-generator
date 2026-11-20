@@ -96,3 +96,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** With twelve looks and six game chips, a small set of favourite grades was still buried in the same long strip.
 - **Ship:** Added a Favourites filter chip with a live count so the chosen looks become their own gallery.
+
+### 18. Empty states and honest chip counts
+
+- **Look:** An empty favourites filter left the stage showing an unrelated look, and chips hid how many looks they contained.
+- **Ship:** Added a proper empty state with a reset action, per-chip counts, and a guard against undefined look selection.
