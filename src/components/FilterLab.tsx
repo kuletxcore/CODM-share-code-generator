@@ -27,6 +27,7 @@ import { ShortcutsHelp, useGlobalHotkeys } from "@/components/Shortcuts";
 import { notify } from "@/components/Toasts";
 import { normalizeCode } from "@/lib/codeTools";
 import MyLooks, { saveLookCode, rememberLook } from "@/components/MyLooks";
+import Onboarding from "@/components/Onboarding";
 
 type Mode = "build" | "convert";
 type Panel = ZoneKey;
@@ -448,6 +449,12 @@ export default function FilterLab() {
       [hist.undo, hist.redo, hist.canUndo, hist.canRedo, code],
     ),
   );
+
+  useEffect(() => {
+    const on = (e: Event) => setMode((e as CustomEvent<"convert">).detail);
+    window.addEventListener("codm:set-mode", on);
+    return () => window.removeEventListener("codm:set-mode", on);
+  }, []);
 
   // A code copied in another tab or chat should be one tap away from loading.
   useEffect(() => {
@@ -916,6 +923,7 @@ export default function FilterLab() {
       <ImportGuide />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onLoadCode={loadCode} />
       <ShortcutsHelp />
+      <Onboarding />
       <MyLooks open={libraryOpen} onClose={() => setLibraryOpen(false)} onLoad={loadCode} currentCode={code} />
     </div>
   );

@@ -76,3 +76,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** The drawer had no trigger and saving from a shortcut did nothing; the feature was unreachable.
 - **Ship:** Connected My Looks to the action bus and header, exposed a shared save helper, and kept the code memo above the handler dependencies.
+
+### 14. First-visit chooser
+
+- **Look:** The landing page opened into a long visual gallery with two editor modes below the fold; a visitor had to guess where to start.
+- **Ship:** Added a first-run chooser with three clear routes — copy a look, build a filter, or convert a screenshot — remembered after the first visit.
