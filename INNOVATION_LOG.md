@@ -181,3 +181,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** Returning a single value to neutral required dragging a precise slider back to its centre, with no visual marker for neutral.
 - **Ship:** Added double-click-to-reset on hue, tint, saturation and brightness sliders, plus tooltips advertising the gesture.
+
+### 35. Keyboard zone navigation
+
+- **Look:** Keyboard users could reach the zone list but had no way to move between its three items without tabbing through the whole page.
+- **Ship:** Added Up/Down arrow navigation with focus follow in the zone list.
