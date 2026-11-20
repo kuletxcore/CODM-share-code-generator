@@ -266,3 +266,8 @@ performance and accessibility of the dense editor.
 
 - **Look:** A tool used beside a game was still just a browser tab with no home-screen presence or shareable app identity.
 - **Ship:** Added a web app manifest with brand colours, shortcuts to looks and the converter, and the yellow mark as an icon.
+
+### 52. Offline service worker
+
+- **Look:** A spotty mobile connection could leave the page blank between the lobby and the range; nothing was cached.
+- **Ship:** Added a versioned service worker that caches the shell, fonts and look art, serves the app offline and cleans old caches.
