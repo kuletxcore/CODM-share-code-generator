@@ -74,6 +74,12 @@ Two of the videos show the in-game Customize Color screen with the filter loaded
 
 **One quirk, left alone.** In the MW2022 video, midtones and highlights show **Tint 1** where the code has 0. The game probably never displays a tint below 1. The codec stays as it is: it would be guessing to change it, and 0 round-trips cleanly.
 
+**The top of every range.** The owner exported a code with every slider and both Range handles pushed to the end: `0_1_0_100_1000_1100` then `125_1000_1000_2000` for each group. This confirms in game the upper limits `decode` enforces: tint 1000, brightness 1000, saturation 2000. It also confirms two more behaviours:
+- Red with the Hue slider at 100 writes 125, the same value as Orange at 0, which is why the editor keeps the chosen swatch.
+- Handles dragged to the ends of the Range bar write 0 and 1000, each falloff being the handle + 100. The bar itself stops at 1000, so DisasterNinja's 1084 (section 4) did not come from dragging a handle.
+
+A test pins this code.
+
 ## 4. The rule that changed: Range handles past 1000
 
 **The problem.** `decode()` rejected any Range handle above 1000, because the README listed 0–1000 as confirmed. DisasterNinja's code has the highlights handle at 1084, so the site could not load it.

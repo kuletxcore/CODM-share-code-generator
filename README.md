@@ -32,9 +32,11 @@ Live: https://codm.kuletxcore.workers.dev
 Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
 - hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
-- tint `0–1000` = 0–100.
-- brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral).
-- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral).
+- tint `0–1000` = 0–100 (top confirmed in game).
+- brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral; top confirmed in game).
+- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral; top confirmed in game).
+
+An in-game export with every slider at 100 reads `125_1000_1000_2000` for each group: Red with the Hue slider at 100 writes 125, the same value as Orange at 0. Both Range handles pushed to the ends write `0_100_1000_1100`.
 
 The preview is an approximation of the in-game filter.
 

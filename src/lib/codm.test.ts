@@ -12,6 +12,7 @@ import {
   encode,
   hueFrom,
   hueParts,
+  type Zone,
 } from "./codm.ts";
 
 test("default settings encode to the default code", () => {
@@ -188,4 +189,22 @@ test("creator looks read back as the on-screen settings", () => {
   // the video shows hue 98; his own code reads 96.8, one display step off
   assert.deepEqual(shown(look("Serotonin"), "midtones"), [0, 97, 15, 80, 70]);
   assert.deepEqual(shown(look("Serotonin"), "highlights"), [0, 0, 25, 70, 100]);
+});
+
+test("an in-game code with every slider at 100 decodes to the top of each range", () => {
+  // Owner's export with every Customize Color slider and both Range handles
+  // pushed to the end. It pins the maxima: tint 1000, brightness 1000,
+  // saturation 2000; Red at slider 100 writes hue 125 (the same raw value as
+  // Orange at 0); Range handles at the ends write 0 and 1000, each falloff
+  // being the handle + 100.
+  const code = "0_1_0_100_1000_1100_125_1000_1000_2000_125_1000_1000_2000_125_1000_1000_2000_125_1000_1000_2000";
+  const max = decode(code);
+  assert.ok(max);
+  assert.equal(encode(max), code);
+  assert.deepEqual([max.shadowPos, max.shadowEdge, max.highlightPos, max.highlightEdge], [0, 100, 1000, 1100]);
+  for (const k of ["global", "shadows", "midtones", "highlights"] as const) {
+    const zone: Zone = max.zones[k];
+    assert.deepEqual(hueParts(zone.hue, 0), { swatch: 0, pos: 100 }, k);
+    assert.deepEqual([zone.tint, zone.sat, zone.bri], [100, 100, 100], k);
+  }
 });
