@@ -648,62 +648,133 @@ export type Game = (typeof GAMES)[number];
 /** Ready-made looks shown in the gallery. */
 export const LOOKS: Look[] = [
   {
-    // Shadows Cyan 60 / tint 10 / bri 46, midtones Orange 0 / tint 6 / sat 56,
-    // highlights Orange 10 / tint 12 / sat 52 / bri 53.
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040.
     name: "Hajin",
     game: "MW4",
     note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_575_100_-80_1000_125_60_20_1120_138_120_60_1040",
+    code: "0_1_30_300_1000_1500_461_40_240_1000_10_70_-80_1040_125_270_20_1020_0_0_0_1000",
     image: "/looks/hajin.webp",
   },
   {
-    // Shadows Cyan 60 / tint 8 / sat 46 / bri 48, midtones Orange 20 / tint 8 /
-    // sat 52 / bri 52, highlights Orange 10 / tint 8 / sat 48 / bri 54.
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Hajin (Strong)",
+    game: "MW4",
+    note: "MW4 BR / Warzone: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_125_140_240_1000_576_60_-80_1120_134_360_180_1080_0_0_0_1000",
+    image: "/looks/hajin.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960.
     name: "Apex",
     game: "MW4",
     note: "MW4 Multiplayer: hazy daylight, golden mids",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_575_80_-40_920_150_80_40_1040_138_80_80_960",
+    code: "0_1_30_300_1000_1500_250_30_240_1000_9_70_-60_980_157_230_40_1000_0_0_0_1000",
     image: "/looks/apex.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Apex (Strong)",
+    game: "MW4",
+    note: "MW4 Multiplayer: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_176_130_240_1000_190_130_-40_980_131_310_220_1020_0_0_0_1000",
+    image: "/looks/apex.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_992_40_0_960_767_20_-20_960_572_30_20_620.
     // Black Ops 7 multiplayer. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. Casts disagree between videos, so they cancel out; muted highlights are what they share. (6 videos.)
     name: "2035",
     game: "Black Ops 7",
     note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_992_40_0_960_767_20_-20_960_572_30_20_620",
+    code: "0_1_30_300_1000_1500_781_100_200_960_885_90_0_920_709_30_-20_960_0_0_0_1000",
     image: "/looks/2035.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "2035 (Strong)",
+    game: "Black Ops 7",
+    note: "Black Ops 7 Multiplayer: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_855_230_580_700_923_90_-120_1160_564_260_100_1200_0_0_0_1000",
+    image: "/looks/2035.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040.
     // Black Ops Royale on Avalon. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (4 videos.)
     name: "Avalon",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_231_80_0_1080_125_30_0_1260_153_20_-20_1040",
+    code: "0_1_30_300_1000_1500_0_0_40_1000_140_80_0_1220_135_110_0_1120_0_0_0_1000",
     image: "/looks/avalon.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Avalon (Strong)",
+    game: "Black Ops 7",
+    note: "Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_250_10_80_960_132_150_0_1500_125_210_0_1380_0_0_0_1000",
+    image: "/looks/avalon.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060.
     // Haven's Hollow by day. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1020_142_10_0_1020_175_100_0_1060",
+    code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1000_215_30_0_1000_0_0_0_1000",
     image: "/looks/havens-hollow.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Haven's Hollow (Strong)",
+    game: "Black Ops 7",
+    note: "Black Ops 7 Warzone Resurgence: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_250_30_0_1000_819_30_40_1000_127_70_40_1020_0_0_0_1000",
+    image: "/looks/havens-hollow.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800.
     // Haunted Hollow (The Haunting) at night. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Haven's Hollow (Night)",
     game: "Black Ops 7",
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_653_190_-60_1180_656_110_-120_1080_697_10_0_800",
+    code: "0_1_30_300_1000_1500_646_680_1000_2000_729_140_300_480_723_180_720_380_0_0_0_1000",
     image: "/looks/havens-hollow-night.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Haven's Hollow (Night) (Strong)",
+    game: "Black Ops 7",
+    note: "Haunted Hollow, Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_635_850_1000_2000_723_280_1000_460_868_210_1000_160_0_0_0_1000",
+    image: "/looks/havens-hollow-night.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_642_20_-120_1160_644_30_0_980_689_30_0_640.
     // Black Ops 6, derived relative to the pooled daytime footage of all the
     // games sampled, like 2035 and Avalon. Sources: 396 in-game stills of 125
     // weapons from the archived IMFDB page (gallery renders and menus filtered
@@ -717,10 +788,22 @@ export const LOOKS: Look[] = [
     game: "Black Ops 6",
     note: "Black Ops 6: darker, richer shadows and muted, slightly cool highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_642_20_-120_1160_644_30_0_980_689_30_0_640",
+    code: "0_1_30_300_1000_1500_539_160_420_1280_779_100_-60_820_769_180_120_760_0_0_0_1000",
     image: "/looks/black-ops-6.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Black Ops 6 (Strong)",
+    game: "Black Ops 6",
+    note: "Black Ops 6: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_683_360_720_1680_420_70_-80_600_589_140_160_520_0_0_0_1000",
+    image: "/looks/black-ops-6.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_547_50_-80_920_656_30_0_920_683_30_20_700.
     // MWIII, derived relative to the pooled daytime footage of all the games
     // sampled. Sources: five multiplayer videos (youtu.be/F-EGowtfMS4,
     // CRF20NdUcgw, CPv_ll8Tw9A, NHKlrR6UFr0, and cluAqepnjEY cropped clear of
@@ -732,19 +815,43 @@ export const LOOKS: Look[] = [
     game: "MWIII",
     note: "MWIII: cooler shadows, muted colour across the range",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_547_50_-80_920_656_30_0_920_683_30_20_700",
+    code: "0_1_30_300_1000_1500_756_260_640_860_473_150_-100_1020_520_200_0_980_0_0_0_1000",
     image: "/looks/mwiii.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "MWIII (Strong)",
+    game: "MWIII",
+    note: "MWIII: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_650_360_560_2000_649_130_120_360_664_170_440_360_0_0_0_1000",
+    image: "/looks/mwiii.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040.
     // Warzone 2.0 on Al Mazrah. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (3 videos.)
     name: "Al Mazrah",
     game: "MWII",
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_542_20_100_680_661_10_0_900_175_20_0_1040",
+    code: "0_1_30_300_1000_1500_574_20_20_1020_544_90_100_800_580_20_20_880_0_0_0_1000",
     image: "/looks/al-mazrah.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Al Mazrah (Strong)",
+    game: "MWII",
+    note: "MWII Warzone: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_761_140_240_880_583_170_160_700_513_110_0_900_0_0_0_1000",
+    image: "/looks/al-mazrah.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880.
     // MWII Warzone Zombie Royale (The Haunting) on Vondel at night. Derived from
     // gameplay footage relative to the pooled daytime footage of all the games
     // sampled. Videos disagree on cast (red vs blue) and agree on darker mids. (3 videos.)
@@ -752,7 +859,16 @@ export const LOOKS: Look[] = [
     game: "MWII",
     note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_994_60_-20_1040_614_30_-120_1060_522_60_0_880",
+    code: "0_1_30_300_1000_1500_516_100_0_1200_854_70_-20_860_614_30_-120_780_0_0_0_1000",
+    image: "/looks/vondead.webp",
+  },
+  {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Vondead (Strong)",
+    game: "MWII",
+    note: "MWII Warzone Zombie Royale: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_716_140_20_740_727_140_-40_1300_500_320_-120_1200_0_0_0_1000",
     image: "/looks/vondead.webp",
   },
   {
@@ -822,15 +938,30 @@ export const LOOKS: Look[] = [
     inGame: true,
   },
   {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900.
     // Warzone Pacific on Caldera. Derived from gameplay footage relative to the pooled daytime footage of all the games sampled, so only the difference from typical footage is kept. (2 videos.)
     name: "Caldera",
     game: "Vanguard",
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_244_80_40_1040_147_30_40_1060_136_30_20_900",
+    code: "0_1_30_300_1000_1500_156_70_0_1040_0_0_40_1000_34_20_160_1000_0_0_0_1000",
     image: "/looks/caldera.webp",
   },
   {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Caldera (Strong)",
+    game: "Vanguard",
+    note: "Vanguard Warzone Pacific: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_125_40_240_1000_186_160_0_1060_136_150_60_1060_0_0_0_1000",
+    image: "/looks/caldera.webp",
+  },
+  {
+    // Re-derived for the calibrated preview (docs/AFTER-MERGE.md, section 8): the
+    // code whose in-game result matches what the earlier preview showed for the
+    // footage. Previous code: 0_1_30_300_1000_1500_0_0_0_1000_117_30_0_900_94_30_0_1120_203_10_40_1020.
     // Re-tuned from six MW 2019 Warzone videos on Verdansk, relative to the
     // pooled daytime footage. All six show warm (not cool) shadows and richer
     // mids; highlights sit close to typical footage. The earlier hand-made
@@ -839,7 +970,16 @@ export const LOOKS: Look[] = [
     game: "MW 2019",
     note: "MW 2019: warm, richer mids",
     mode: "Advanced",
-    code: "0_1_30_300_1000_1500_0_0_0_1000_117_30_0_900_94_30_0_1120_203_10_40_1020",
+    code: "0_1_30_300_1000_1500_125_110_0_1060_634_30_60_1000_841_30_120_1000_0_0_0_1000",
+    image: "/looks/verdansk.webp",
+  },
+  {
+    // Twice the footage difference, for a look that reads clearly in game.
+    name: "Verdansk (Strong)",
+    game: "MW 2019",
+    note: "MW 2019: stronger take, twice the difference from typical footage",
+    mode: "Advanced",
+    code: "0_1_30_300_1000_1500_116_120_120_1020_121_70_-20_1060_104_40_20_1100_0_0_0_1000",
     image: "/looks/verdansk.webp",
   },
   {
