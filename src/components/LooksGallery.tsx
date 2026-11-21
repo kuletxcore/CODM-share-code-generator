@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { DEFAULT_CODE, GAMES, LOOKS, applyGrade, decode, drawSample, lookSlug, type Game, type Look } from "@/lib/codm";
+import { DEFAULT_CODE, GAMES, LOOKS, applyGrade, decode, drawSample, lookSlug, withCranked, type Game, type Look } from "@/lib/codm";
 import { announceCopy, copyText } from "@/components/ImportGuide";
 import { useScreenTest } from "@/components/ScreenTest";
 import ShotFrame from "@/components/ShotFrame";
@@ -64,6 +64,31 @@ export function RenderedThumb({ code }: { code: string }) {
 
 const DWELL = 7; // seconds each look stays on stage while auto-playing
 
+/**
+ * The Cranked switch: the same look at twice the strength, named after the
+ * Call of Duty mode. A real switch (role="switch") so its state is announced.
+ */
+export function CrankedSwitch({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      title="The same look at twice the strength, so it reads clearly in game"
+      className="flex min-h-11 w-fit items-center gap-3 font-display text-sm font-extrabold uppercase tracking-wider"
+    >
+      {/* same square switch as Simple / Advanced in the editor */}
+      <span
+        aria-hidden
+        className={`relative h-7 w-14 shrink-0 border transition-colors ${on ? "border-codm bg-codm/25" : "border-line bg-black/50"}`}
+      >
+        <span className={`absolute top-0.5 h-[22px] w-6 transition-all ${on ? "left-[calc(100%-1.625rem)] bg-codm" : "left-0.5 bg-mute"}`} />
+      </span>
+      <span className={on ? "text-codm" : "text-mute"}>Cranked</span>
+    </button>
+  );
+}
+
 function Art({ look, thumb = false, split = 0 }: { look: Look; thumb?: boolean; split?: number }) {
   const { shot } = useScreenTest();
   if (shot)
@@ -111,7 +136,11 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
   const [announcement, setAnnouncement] = useState("");
   const reduce = useReducedMotion();
   const playing = auto && !hover && !focused && !reduce;
-  const look = shown[Math.min(active, shown.length - 1)];
+  // Cranked stays on as the visitor moves between looks; looks without a
+  // Cranked code just show their own.
+  const [crank, setCrank] = useState(false);
+  const base = shown[Math.min(active, shown.length - 1)];
+  const look = withCranked(base, crank);
 
   useEffect(() => {
     if (!copied) return;
@@ -192,7 +221,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
         // visitor can actually read what is on screen.
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className="cut relative mt-4 aspect-[4/3] overflow-hidden border border-line bg-black sm:aspect-[21/9]"
+        className="cut relative mt-4 aspect-square overflow-hidden border border-line bg-black sm:aspect-[21/9]"
       >
         <AnimatePresence initial={false}>
           <motion.div
@@ -234,20 +263,32 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
             </div>
             <h3
               className={`mt-2 font-title font-black uppercase leading-[0.9] tracking-wide ${
-                look.name.length > 12 ? "text-4xl sm:text-5xl lg:text-7xl" : "text-5xl sm:text-6xl lg:text-8xl"
+                base.name.length > 12 ? "text-4xl sm:text-5xl lg:text-7xl" : "text-5xl sm:text-6xl lg:text-8xl"
               }`}
             >
-              {look.name}
+              {/* the switch below shows Cranked; the heading keeps its size */}
+              {base.name}
             </h3>
             <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
-            {look.code !== DEFAULT_CODE && (
-              <Link
-                href={`/look/${lookSlug(look)}`}
-                className="mt-1 inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute underline-offset-4 hover:text-text hover:underline"
-              >
-                Look page and values →
-              </Link>
-            )}
+            <div className="mt-1 flex flex-wrap items-center gap-x-5">
+              {base.cranked && (
+                <CrankedSwitch
+                  on={crank}
+                  onChange={(v) => {
+                    setAuto(false);
+                    setCrank(v);
+                  }}
+                />
+              )}
+              {look.code !== DEFAULT_CODE && (
+                <Link
+                  href={`/look/${lookSlug(base)}`}
+                  className="inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute underline-offset-4 hover:text-text hover:underline"
+                >
+                  Look page →
+                </Link>
+              )}
+            </div>
           </motion.div>
           <div className="flex max-w-md gap-1">
             <button

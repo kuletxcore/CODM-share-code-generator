@@ -631,7 +631,16 @@ export type Look = {
   inGame?: boolean;
   /** Game the look comes from, for the gallery filter. */
   game?: Game;
+  /**
+   * A stronger code for the same look, behind the Cranked switch (named after
+   * the Call of Duty mode): twice the footage difference, so it reads clearly in game.
+   */
+  cranked?: string;
 };
+
+/** The look as shown with the Cranked switch on, or the look itself. */
+export const withCranked = (look: Look, on: boolean): Look =>
+  on && look.cranked ? { ...look, name: `${look.name} (Cranked)`, code: look.cranked } : look;
 
 /** URL slug for a look's own page, from its name ("MW2019 (HunterRafi)" becomes "mw2019-hunterrafi"). */
 export const lookSlug = (look: Pick<Look, "name">) =>
@@ -656,15 +665,8 @@ export const LOOKS: Look[] = [
     note: "MW4 BR / Warzone: bright sun, warm autumn",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_461_40_240_1000_10_70_-80_1040_125_270_20_1020_0_0_0_1000",
-    image: "/looks/hajin.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Hajin (Cranked)",
-    game: "MW4",
-    note: "MW4 BR / Warzone: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_125_140_240_1000_576_60_-80_1120_134_360_180_1080_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_125_140_240_1000_576_60_-80_1120_134_360_180_1080_0_0_0_1000",
     image: "/looks/hajin.webp",
   },
   {
@@ -676,15 +678,8 @@ export const LOOKS: Look[] = [
     note: "MW4 Multiplayer: hazy daylight, golden mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_250_30_240_1000_9_70_-60_980_157_230_40_1000_0_0_0_1000",
-    image: "/looks/apex.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Apex (Cranked)",
-    game: "MW4",
-    note: "MW4 Multiplayer: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_176_130_240_1000_190_130_-40_980_131_310_220_1020_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_176_130_240_1000_190_130_-40_980_131_310_220_1020_0_0_0_1000",
     image: "/looks/apex.webp",
   },
   {
@@ -697,15 +692,8 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Multiplayer: neutral, muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_781_100_200_960_885_90_0_920_709_30_-20_960_0_0_0_1000",
-    image: "/looks/2035.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "2035 (Cranked)",
-    game: "Black Ops 7",
-    note: "Black Ops 7 Multiplayer: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_855_230_580_700_923_90_-120_1160_564_260_100_1200_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_855_230_580_700_923_90_-120_1160_564_260_100_1200_0_0_0_1000",
     image: "/looks/2035.webp",
   },
   {
@@ -718,15 +706,8 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone: warm gold shadows, rich mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_40_1000_140_80_0_1220_135_110_0_1120_0_0_0_1000",
-    image: "/looks/avalon.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Avalon (Cranked)",
-    game: "Black Ops 7",
-    note: "Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_250_10_80_960_132_150_0_1500_125_210_0_1380_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_250_10_80_960_132_150_0_1500_125_210_0_1380_0_0_0_1000",
     image: "/looks/avalon.webp",
   },
   {
@@ -739,15 +720,8 @@ export const LOOKS: Look[] = [
     note: "Black Ops 7 Warzone Resurgence: warm sunlit highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_819_30_40_1000_215_30_0_1000_0_0_0_1000",
-    image: "/looks/havens-hollow.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Haven's Hollow (Cranked)",
-    game: "Black Ops 7",
-    note: "Black Ops 7 Warzone Resurgence: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_250_30_0_1000_819_30_40_1000_127_70_40_1020_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_250_30_0_1000_819_30_40_1000_127_70_40_1020_0_0_0_1000",
     image: "/looks/havens-hollow.webp",
   },
   {
@@ -760,15 +734,8 @@ export const LOOKS: Look[] = [
     note: "Haunted Hollow, Black Ops 7 Warzone: deep blue shadows, darker mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_646_680_1000_2000_729_140_300_480_723_180_720_380_0_0_0_1000",
-    image: "/looks/havens-hollow-night.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Haven's Hollow (Night) (Cranked)",
-    game: "Black Ops 7",
-    note: "Haunted Hollow, Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_635_850_1000_2000_723_280_1000_460_868_210_1000_160_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_635_850_1000_2000_723_280_1000_460_868_210_1000_160_0_0_0_1000",
     image: "/looks/havens-hollow-night.webp",
   },
   {
@@ -789,15 +756,8 @@ export const LOOKS: Look[] = [
     note: "Black Ops 6: darker, richer shadows and muted, slightly cool highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_539_160_420_1280_779_100_-60_820_769_180_120_760_0_0_0_1000",
-    image: "/looks/black-ops-6.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Black Ops 6 (Cranked)",
-    game: "Black Ops 6",
-    note: "Black Ops 6: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_683_360_720_1680_420_70_-80_600_589_140_160_520_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_683_360_720_1680_420_70_-80_600_589_140_160_520_0_0_0_1000",
     image: "/looks/black-ops-6.webp",
   },
   {
@@ -816,15 +776,8 @@ export const LOOKS: Look[] = [
     note: "MWIII: cooler shadows, muted colour across the range",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_756_260_640_860_473_150_-100_1020_520_200_0_980_0_0_0_1000",
-    image: "/looks/mwiii.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "MWIII (Cranked)",
-    game: "MWIII",
-    note: "MWIII: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_650_360_560_2000_649_130_120_360_664_170_440_360_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_650_360_560_2000_649_130_120_360_664_170_440_360_0_0_0_1000",
     image: "/looks/mwiii.webp",
   },
   {
@@ -837,15 +790,8 @@ export const LOOKS: Look[] = [
     note: "MWII Warzone: dusty, desaturated, lifted shadows",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_574_20_20_1020_544_90_100_800_580_20_20_880_0_0_0_1000",
-    image: "/looks/al-mazrah.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Al Mazrah (Cranked)",
-    game: "MWII",
-    note: "MWII Warzone: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_761_140_240_880_583_170_160_700_513_110_0_900_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_761_140_240_880_583_170_160_700_513_110_0_900_0_0_0_1000",
     image: "/looks/al-mazrah.webp",
   },
   {
@@ -860,15 +806,8 @@ export const LOOKS: Look[] = [
     note: "MWII Warzone Zombie Royale: dark mids, reddish shadows, cool muted highlights",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_516_100_0_1200_854_70_-20_860_614_30_-120_780_0_0_0_1000",
-    image: "/looks/vondead.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Vondead (Cranked)",
-    game: "MWII",
-    note: "MWII Warzone Zombie Royale: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_716_140_20_740_727_140_-40_1300_500_320_-120_1200_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_716_140_20_740_727_140_-40_1300_500_320_-120_1200_0_0_0_1000",
     image: "/looks/vondead.webp",
   },
   {
@@ -947,15 +886,8 @@ export const LOOKS: Look[] = [
     note: "Vanguard Warzone Pacific: olive shadows, warm mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_156_70_0_1040_0_0_40_1000_34_20_160_1000_0_0_0_1000",
-    image: "/looks/caldera.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Caldera (Cranked)",
-    game: "Vanguard",
-    note: "Vanguard Warzone Pacific: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_125_40_240_1000_186_160_0_1060_136_150_60_1060_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_125_40_240_1000_186_160_0_1060_136_150_60_1060_0_0_0_1000",
     image: "/looks/caldera.webp",
   },
   {
@@ -971,15 +903,8 @@ export const LOOKS: Look[] = [
     note: "MW 2019: warm, richer mids",
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_125_110_0_1060_634_30_60_1000_841_30_120_1000_0_0_0_1000",
-    image: "/looks/verdansk.webp",
-  },
-  {
-    // Twice the footage difference, for a look that reads clearly in game.
-    name: "Verdansk (Cranked)",
-    game: "MW 2019",
-    note: "MW 2019: stronger take, twice the difference from typical footage",
-    mode: "Advanced",
-    code: "0_1_30_300_1000_1500_116_120_120_1020_121_70_-20_1060_104_40_20_1100_0_0_0_1000",
+    // twice the footage difference, for a look that reads clearly in game
+    cranked: "0_1_30_300_1000_1500_116_120_120_1020_121_70_-20_1060_104_40_20_1100_0_0_0_1000",
     image: "/looks/verdansk.webp",
   },
   {

@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { PAGE_LOOKS, SWATCH_NAMES, decode, hueParts, lookSlug, type Look, type ZoneKey } from "@/lib/codm";
+import { PAGE_LOOKS, SWATCH_NAMES, decode, hueParts, lookSlug, withCranked, type Look, type ZoneKey } from "@/lib/codm";
 import ImportGuide, { copyCode, copyText } from "@/components/ImportGuide";
 import { addRecent } from "@/lib/myCodes";
-import { RenderedThumb } from "@/components/LooksGallery";
+import { CrankedSwitch, RenderedThumb } from "@/components/LooksGallery";
 import { hashFor } from "@/lib/shareUrl";
 
 const ZONE_LABEL: Record<ZoneKey, string> = {
@@ -115,15 +115,18 @@ function QuickCopy({ code, name }: { code: string; name: string }) {
  * without the gallery: the picture, the code, the values as the game shows
  * them, and the ways out (copy now, or open it in the generator).
  */
-export default function LookPage({ look }: { look: Look }) {
+export default function LookPage({ look: base }: { look: Look }) {
   const router = useRouter();
+  const [crank, setCrank] = useState(false);
+  // everything below shows the Cranked code once the switch is on
+  const look = withCranked(base, crank);
   const [copied, setCopied] = useState<"" | "ok" | "failed">("");
   const copy = async () => {
     setCopied((await copyCode(look.code, look.name, { note: look.note, image: look.image })) ? "ok" : "failed");
     setTimeout(() => setCopied(""), 1400);
   };
-  const sameGame = PAGE_LOOKS.filter((l) => l.code !== look.code && l.game === look.game);
-  const more = (sameGame.length ? sameGame : PAGE_LOOKS.filter((l) => l.code !== look.code)).slice(0, 4);
+  const sameGame = PAGE_LOOKS.filter((l) => l.code !== base.code && l.game === base.game);
+  const more = (sameGame.length ? sameGame : PAGE_LOOKS.filter((l) => l.code !== base.code)).slice(0, 4);
   const label = look.inGame ? "In game" : look.image ? "Inspiration" : "Preview on a CODM scene";
 
   return (
@@ -175,6 +178,11 @@ export default function LookPage({ look }: { look: Look }) {
               {look.name}
             </h1>
             <p className="mt-3 max-w-prose text-sm text-text/90 sm:text-base">{look.note}</p>
+            {base.cranked && (
+              <div className="mt-2">
+                <CrankedSwitch on={crank} onChange={setCrank} />
+              </div>
+            )}
             <div className="mt-5 flex flex-wrap gap-1">
               <button
                 onClick={copy}
