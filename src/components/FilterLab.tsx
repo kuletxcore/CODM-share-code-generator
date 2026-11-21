@@ -811,7 +811,7 @@ function Editor() {
                         {!active && <span className="absolute inset-0 bg-white/[0.035] hover:bg-white/[0.07]" />}
                         <span
                           className={`relative font-display text-xl font-extrabold uppercase tracking-wide ${
-                            active ? "text-[#0b0f05]" : ""
+                            active ? "text-text" : ""
                           }`}
                         >
                           {PANEL_INFO[p].label}
@@ -876,7 +876,7 @@ function Editor() {
                 )}
               </div>
 
-              <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
+              <div className="cut glass flex flex-col gap-4 border p-5">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={panel}
@@ -1123,7 +1123,7 @@ function Converter({
         </p>
       </div>
 
-      <div className="cut flex flex-col gap-4 border border-line bg-panel/95 p-5">
+      <div className="cut glass flex flex-col gap-4 border p-5">
         <h2 className="font-display text-3xl font-extrabold uppercase leading-none">Result</h2>
         {!result ? (
           <p className="text-sm text-mute">Add a reference screenshot to get a code.</p>

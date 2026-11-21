@@ -203,7 +203,7 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               className={`min-h-11 shrink-0 border px-3 font-display text-sm font-bold uppercase tracking-wide transition-colors ${
                 game === g
                   ? "border-codm bg-codm text-black"
-                  : "border-line bg-panel/80 text-mute hover:border-mute hover:text-text"
+                  : "border-line glass text-mute hover:border-mute hover:text-text"
               }`}
             >
               {g ?? "All"}

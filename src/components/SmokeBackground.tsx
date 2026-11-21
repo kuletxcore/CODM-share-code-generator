@@ -26,12 +26,12 @@ void main(){
   float t = uTime * 0.035;
   vec2 q = vec2(fbm(p + vec2(0.0, t)), fbm(p + vec2(5.2, -t)));
   float n = fbm(p + 2.4 * q + vec2(t * 1.7, t * 0.4));
-  vec3 base = vec3(0.035, 0.04, 0.035);
-  vec3 smoke = mix(vec3(0.09, 0.1, 0.09), vec3(0.2, 0.19, 0.15), n);
+  // MW4 menu smoke: warm sepia billows over near-black, gold glow from the left
+  vec3 base = vec3(0.03, 0.028, 0.024);
+  vec3 smoke = mix(vec3(0.1, 0.095, 0.08), vec3(0.27, 0.245, 0.2), n);
   vec3 col = mix(base, smoke, smoothstep(0.35, 0.95, n) * 0.85);
-  // faint warm glow from lower left, cool from upper right
-  col += vec3(0.16, 0.12, 0.0) * smoothstep(0.9, 0.0, distance(uv, vec2(0.05, 0.0))) * 0.35;
-  col += vec3(0.03, 0.06, 0.03) * smoothstep(1.0, 0.0, distance(uv, vec2(1.0, 1.0))) * 0.5;
+  col += vec3(0.3, 0.2, 0.04) * smoothstep(0.85, 0.0, distance(uv, vec2(0.0, 0.55))) * 0.3;
+  col += vec3(0.05, 0.045, 0.035) * smoothstep(1.0, 0.0, distance(uv, vec2(1.0, 1.0))) * 0.5;
   // vignette
   col *= smoothstep(1.25, 0.25, distance(uv, vec2(0.5)));
   gl_FragColor = vec4(col, 1.0);

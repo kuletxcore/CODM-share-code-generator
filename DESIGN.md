@@ -6,7 +6,7 @@ Design direction for the CODM Filter Lab. Read this before changing UI. It descr
 
 An unofficial, fan-made tool for Call of Duty: Mobile colour filter share codes. Visitors either copy a ready-made look or build their own, then paste the 22-number code into CODM (Settings, Audio and Graphics, Graphic Style, Import). Most visitors arrive on a phone, often with the game open in another app.
 
-**Design read:** a companion utility for CODM players, in the visual language of Call of Duty menus (MW4 mode selector), dial **ENERGY 2 / RHYTHM 2 / MOTION 2**.
+**Design read:** a companion utility for CODM players, in the visual language of the MW4 menus (main menu, Quick Play, settings), keeping CODM yellow as the accent, dial **ENERGY 2 / RHYTHM 2 / MOTION 2**.
 
 - ENERGY 2: confident brand type and one loud accent, but the page is a tool, not a poster.
 - RHYTHM 2: a cinematic gallery stage, then a dense working area. Two compositions, not a template of identical sections.
@@ -16,13 +16,15 @@ An unofficial, fan-made tool for Call of Duty: Mobile colour filter share codes.
 
 | Decision | Reason |
 |---|---|
-| Dark theme only (`ink #0a0b0a`) | CODM's own menus are dark and the site is used next to the game; a light page would flash between apps. No theme toggle is shipped, so there is no second mode to keep working. |
+| Dark theme only (`ink #080807`, warm charcoal like MW4's menus) | CODM's own menus are dark and the site is used next to the game; a light page would flash between apps. No theme toggle is shipped, so there is no second mode to keep working. |
 | CODM yellow `#ffea3b` as the single accent | Taken from the official wordmark. Used for the primary action on each screen (Copy code, Copy, Done), the active tab or chip, focus rings and the compare divider. Nothing else is yellow. |
-| Lime `#a6e22e` for "selected row" and "done" | The selected-row gradient of the MW4 mode list. Also marks completed import steps and the copied state. |
+| Olive selection, lime `#a9c75a` for "done" | The selected Shadows / Midtones / Highlights row uses MW4's settings highlight: an olive gradient with a lime edge and light text. Lime also marks completed import steps and the copied state. |
 | Hitmarker type family | The Call of Duty brand typeface (Condensed for UI, Text for body, Normal Black for titles), supplied by the owner and self-hosted. Obel Mono (SIL OFL 1.1, chosen by the owner) only for share codes and readouts, so the 22 numbers line up and read as data; self-hosted, subset to ASCII, licence at `public/fonts/ObelMono-OFL.txt`. |
 | Cut corners (`.cut`, `.cut-sm`) | The clipped corner of CoD menu panels and buttons. The identity motif, applied to panels, primary buttons and the stage. |
+| Metallic sheen on yellow fills | MW4's active blocks (Quick Play, the selected menu item) are metallic. A light-to-dark sheen sits on every `bg-codm` fill; the colour stays CODM yellow (the owner compared it with MW4 gold `#e2b450` and kept the yellow). |
+| Frosted glass panels (`.glass`) | MW4's mode list and challenge cards are translucent over the scene. The editor panels, look cards and the screen-test panel are frosted over the smoke. |
 | Scanlines on the stage and tonal scope | A faint HUD texture on the two surfaces that show game imagery, nowhere else. |
-| Smoke background (three.js) | Moves slowly behind everything like a menu screen. 24 fps, paused while a pointer is down or the tab is hidden, a third of the resolution on touch screens. |
+| Smoke background (three.js) | Warm sepia billows with a gold glow from the left, like MW4's main menu. Moves slowly behind everything like a menu screen. 24 fps, paused while a pointer is down or the tab is hidden, a third of the resolution on touch screens. |
 | Official logo in the header | Used with the owner's approval; the page and the share card both say "Unofficial fan-made". |
 
 ## Colour tokens
@@ -31,17 +33,18 @@ Defined in `src/app/globals.css` under `@theme`. Core palette: ink, panel, text,
 
 | Token | Value | Use |
 |---|---|---|
-| `ink` | `#0a0b0a` | Page background |
-| `panel` / `panel-2` | `#121412` / `#1a1d1a` | Raised surfaces, inactive controls |
-| `line` | `#2c302b` | Borders and dividers (never text) |
-| `mute` | `#8e948b` | Secondary text |
-| `text` | `#e9ece6` | Body text |
+| `ink` | `#080807` | Page background |
+| `panel` / `panel-2` | `#14140f` / `#1d1c17` | Raised surfaces, inactive controls |
+| `line` | `#34322a` | Borders and dividers (never text) |
+| `mute` | `#9a958a` | Secondary text |
+| `text` | `#ece8de` | Body text |
 | `codm` / `codm-light` | `#ffea3b` / `#fff38a` | Accent, hover of the accent |
-| `lime` | `#a6e22e` | Selected row, completed state |
+| `lime` | `#a9c75a` | Completed state, edge of the selected row |
+| `olive` | `#4f5c35` | Selected-row gradient |
 
 The tonal scope adds two functional colours for the Range handles: shadows `#8fc2ff`, highlights `#ffc46b`. They mark which handle is which and appear nowhere else.
 
-**Measured contrast (WCAG AA needs 4.5:1 for body text):** text on ink 16.5:1, text on panel 15.5:1, mute on ink 6.3:1, mute on panel 6.0:1, mute on panel-2 5.5:1, black on CODM yellow 17.1:1, black on lime 12.5:1. Mute on `line` is 4.3:1, so muted text never sits directly on a `line` fill.
+**Measured contrast (WCAG AA needs 4.5:1 for body text):** text on ink 16.4:1, mute on ink 6.7:1, mute on panel 6.2:1, mute on panel-2 5.7:1, text on olive 5.9:1, black on CODM yellow 17.1:1. Mute on `line` is 4.3:1, so muted text never sits directly on a `line` fill.
 
 ## Type
 

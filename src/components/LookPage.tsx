@@ -238,7 +238,7 @@ export default function LookPage({ look: base }: { look: Look }) {
               <li key={l.name}>
                 <Link
                   href={`/look/${lookSlug(l)}`}
-                  className="cut-sm flex min-h-11 flex-col border border-line bg-panel/70 p-3 transition-colors hover:border-codm"
+                  className="cut-sm flex min-h-11 flex-col border border-line glass p-3 transition-colors hover:border-codm"
                 >
                   <span className="font-display text-base font-extrabold uppercase leading-tight">{l.name}</span>
                   <span className="mt-1 text-[11px] uppercase tracking-wider text-mute">{l.game ?? l.mode}</span>
