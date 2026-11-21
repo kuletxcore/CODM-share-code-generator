@@ -660,7 +660,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Hajin (Strong)",
+    name: "Hajin (Cranked)",
     game: "MW4",
     note: "MW4 BR / Warzone: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -680,7 +680,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Apex (Strong)",
+    name: "Apex (Cranked)",
     game: "MW4",
     note: "MW4 Multiplayer: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -701,7 +701,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "2035 (Strong)",
+    name: "2035 (Cranked)",
     game: "Black Ops 7",
     note: "Black Ops 7 Multiplayer: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -722,7 +722,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Avalon (Strong)",
+    name: "Avalon (Cranked)",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -743,7 +743,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Haven's Hollow (Strong)",
+    name: "Haven's Hollow (Cranked)",
     game: "Black Ops 7",
     note: "Black Ops 7 Warzone Resurgence: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -764,7 +764,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Haven's Hollow (Night) (Strong)",
+    name: "Haven's Hollow (Night) (Cranked)",
     game: "Black Ops 7",
     note: "Haunted Hollow, Black Ops 7 Warzone: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -793,7 +793,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Black Ops 6 (Strong)",
+    name: "Black Ops 6 (Cranked)",
     game: "Black Ops 6",
     note: "Black Ops 6: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -820,7 +820,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "MWIII (Strong)",
+    name: "MWIII (Cranked)",
     game: "MWIII",
     note: "MWIII: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -841,7 +841,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Al Mazrah (Strong)",
+    name: "Al Mazrah (Cranked)",
     game: "MWII",
     note: "MWII Warzone: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -864,7 +864,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Vondead (Strong)",
+    name: "Vondead (Cranked)",
     game: "MWII",
     note: "MWII Warzone Zombie Royale: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -951,7 +951,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Caldera (Strong)",
+    name: "Caldera (Cranked)",
     game: "Vanguard",
     note: "Vanguard Warzone Pacific: stronger take, twice the difference from typical footage",
     mode: "Advanced",
@@ -975,7 +975,7 @@ export const LOOKS: Look[] = [
   },
   {
     // Twice the footage difference, for a look that reads clearly in game.
-    name: "Verdansk (Strong)",
+    name: "Verdansk (Cranked)",
     game: "MW 2019",
     note: "MW 2019: stronger take, twice the difference from typical footage",
     mode: "Advanced",
