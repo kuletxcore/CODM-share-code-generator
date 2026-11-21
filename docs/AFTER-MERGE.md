@@ -159,7 +159,7 @@ What the game does, and the preview now does:
 - **Tint multiplies by the swatch colour.** Its weight is `1 − (1 − tint/100)^1.5`: 0.33 at Tint 25, 0.65 at 50, 1 at 100. Simple Red 100 keeps red and takes green and blue to zero. The swatches are not a plain hue wheel: measured at Tint 100, their second channel is stronger (Orange 1, 0.84, 0; Lime 0.59, 1, 0; Green 0, 1, 0.42; Cyan 0, 0.91, 1; Blue 0, 0.35, 1; Purple 0.54, 0, 1; Magenta 1, 0, 0.92), and the Hue slider blends towards the next swatch.
 - **A Shadows, Midtones or Highlights tint darkens too.** On top of the same colour shift as the Simple tab, red keeps about 0.54 at Tint 50 and 0.17 at 100 (the Simple tab keeps all of it). Bright colours darken less: Cyan 100 keeps about 0.78, so the preview scales the darkening by the swatch's own luminance. This is why creator looks raise zone brightness above 50.
 - **Saturation runs before the tint.** Saturation 0 with Red 25 gives a red-tinted grey. Saturation 100 scales colour by about 1.75.
-- **Brightness is exposure.** 0 is black, 25 is a gain of about 0.34, 75 about 1.9, 100 about 2.4. Shadows Brightness 100 is stronger, about 3.3 in the darks.
+- **Brightness is exposure.** 0 is black, 25 is a gain of about 0.34, 100 about 2.4, rising in a straight line above 50. Shadows Brightness 100 is stronger, about 3.3 in the darks.
 - **The Range handles are positions in linear light.** With the default range, shadows fade out between display luminance 0.2 and 0.58. Highlights fade *in* from the highlights handle to its falloff, so on the default range (1000, 1500) Highlights changes nothing: the F11 Highlights Red 100 shot is identical to the default. Most creator codes keep the default range, so their Highlights settings do nothing in game.
 
 Mean error per pixel, preview against game (0–255), with "no change" as the baseline:
@@ -204,6 +204,8 @@ The third set, with the camera held still, compared pixel by pixel (mean error p
 | Infinix: Simple Brightness 25 / Saturation 25 | 25.1 / 3.8 | 3.9 / 2.7 |
 
 The handle positions were read off the Range bar in the screenshots, with each falloff at handle + 100 as the game writes it once a handle moves.
+
+**A real code as a final check.** A code from a Reddit post (`0_1_77_177_512_612_33_153_118_1492_0_55_-84_2000_200_297_210_866_123_97_176_490`, both Range handles moved, every group set) was tried in game on Nuketown's airport. Mean error against the game screenshot: no change 11.3, the old preview 37.8, the calibrated preview with a square-root brightness rise 14.8, and with the straight-line rise 7.2. The square-root rise had fitted the Infinix Brightness 75 shot best (2.1, against 4.1 for the straight line), but it made small brightness steps like this code's 56 and 61 far too bright, so the straight line was kept.
 
 The same model fits both phones and both quality settings, so the preview needs no per-device setting. Midtones Red 100 looked weak on the Infinix only because the Practice Range scene is dark: most of it sits in Shadows.
 

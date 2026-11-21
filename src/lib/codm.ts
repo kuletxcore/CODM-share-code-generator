@@ -178,8 +178,8 @@ const luma = (r: number, g: number, b: number) =>
  *   or Highlights tint also darkens (`zoneDim`); the Simple tab does not.
  * - Saturation 0 is grey; 100 scales colour by about 1.75, not 2. It runs
  *   before the tint, so Saturation 0 with a tint gives a tinted grey.
- * - Brightness is an exposure gain: 0 is black, 25 about 0.34x, 75 about 1.9x,
- *   100 about 2.4x (3.3x on the Shadows tab).
+ * - Brightness is an exposure gain: 0 is black, 25 about 0.34x, 100 about
+ *   2.4x (3.3x on the Shadows tab), rising in a straight line above 50.
  * - The Range handles are positions in linear light. Shadows fade out between
  *   the shadows handle and its falloff; highlights fade in between the
  *   highlights handle and its falloff, so the default range (1000, 1500) puts
@@ -243,14 +243,18 @@ export const satGain = (sat: number) => {
   const x = clamp(sat / 50, 0, 2);
   return x <= 1 ? x : 1 + (x - 1) * (SAT_TOP - 1);
 };
-/** Brightness 0..100 to an exposure gain: 0 is black, 25 about 0.34, 75 about 1.9, 100 `top`. */
+/**
+ * Brightness 0..100 to an exposure gain: 0 is black, 25 about 0.34, 100 `top`,
+ * straight in between above 50. A square-root rise fitted Brightness 75 alone
+ * but made small steps (a Reddit code's 56 and 61) far too bright.
+ */
 export const briGain = (bri: number, top = BRI_TOP) => {
   const x = clamp(bri / 50, 0, 2);
-  return x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * Math.sqrt(x - 1);
+  return x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * (x - 1);
 };
 /** `briGain` inverted. */
 const briFromGain = (gain: number, top = BRI_TOP) =>
-  50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + ((gain - 1) / (top - 1)) ** 2);
+  50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + (gain - 1) / (top - 1));
 
 /**
  * The extra darkening a Shadows, Midtones or Highlights tint brings (the

@@ -75,7 +75,7 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   });
   const exposure = zs.map((z, i) => {
     const x = clamp(z.bri / 50, 0, 2);
-    return x <= 1 ? x ** 1.56 : 1 + (i === 0 ? 2.3 : 1.4) * Math.sqrt(x - 1);
+    return x <= 1 ? x ** 1.56 : 1 + (i === 0 ? 2.3 : 1.4) * (x - 1);
   });
   const neutral = weight.every((w, i) => w === 0 && satGain[i] === 1 && exposure[i] === 1);
   if (neutral) return;
