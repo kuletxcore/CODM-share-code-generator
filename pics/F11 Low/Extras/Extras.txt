@@ -1,1 +1,0 @@
-covers "Curves I haven't measured below 50" on Infinix
