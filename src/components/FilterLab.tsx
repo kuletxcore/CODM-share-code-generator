@@ -20,7 +20,10 @@ import {
   LOOKS,
 } from "@/lib/codm";
 import LooksGallery from "@/components/LooksGallery";
-import ImportGuide, { copyCode } from "@/components/ImportGuide";
+import ImportGuide, { copyCode, copyText } from "@/components/ImportGuide";
+import { hashFor, readHash, shareUrl } from "@/lib/shareUrl";
+import { lookName, nameFor, remove as removeCode, save as saveCode } from "@/lib/myCodes";
+import MyCodesPanel, { useMyCodes } from "@/components/MyCodesPanel";
 import TonalScope from "@/components/TonalScope";
 import { createGradeGpu, type GradeGpu } from "@/lib/gpuGrade";
 import { ScreenTestBar, ScreenTestProvider, useScreenTest } from "@/components/ScreenTest";
@@ -215,14 +218,19 @@ function DropZone({
 
 // Preview
 
+/** A second grade held beside the one being edited; the compare wipe shows it instead of the original. */
+type Pin = { code: string; name: string };
+
 function Preview({
   settings,
+  pin,
   source,
   onUpload,
   onClear,
   view,
 }: {
   settings: Settings;
+  pin: Pin | null;
   source: HTMLCanvasElement | null;
   onUpload: (f: File) => void;
   onClear: () => void;
@@ -244,6 +252,13 @@ function Preview({
     };
   }, [scene]);
   const [split, setSplit] = useState(0);
+  // A new pin opens the wipe halfway so both grades are in view at once.
+  const [pinSeen, setPinSeen] = useState<string | null>(null);
+  if ((pin?.code ?? null) !== pinSeen) {
+    setPinSeen(pin?.code ?? null);
+    setSplit(pin ? 0.5 : 0);
+  }
+  const pinned = useMemo(() => (pin ? decode(pin.code) : null), [pin]);
   const wipe = useRef<{ x: number; y: number; on: boolean } | null>(null);
   // The screen test outranks the built-in scene: your own frame, graded live.
   const src = source ?? shot?.canvas ?? sample;
@@ -267,9 +282,9 @@ function Preview({
   }, [gpuOk, src]);
   useEffect(() => {
     if (!gpuOk || !src) return;
-    const id = requestAnimationFrame(() => gpu.current?.render(settings, split));
+    const id = requestAnimationFrame(() => gpu.current?.render(settings, split, pinned));
     return () => cancelAnimationFrame(id);
-  }, [gpuOk, src, settings, split]);
+  }, [gpuOk, src, settings, split, pinned]);
 
   // CPU fallback. Original pixels, read once per image.
   const orig = useMemo(
@@ -284,6 +299,12 @@ function Preview({
     applyGrade(data, settings);
     return data;
   }, [orig, settings]);
+  const left = useMemo(() => {
+    if (!orig || !pinned) return null;
+    const data = new Uint8ClampedArray(orig.data);
+    applyGrade(data, pinned);
+    return data;
+  }, [orig, pinned]);
 
   // Build each frame from the two buffers so moving the compare slider never
   // leaves anything from the previous frame behind.
@@ -296,10 +317,11 @@ function Preview({
       if (c.height !== h) c.height = h;
       const out = new ImageData(new Uint8ClampedArray(graded), w, h);
       const x = Math.min(w, r(w * split));
+      const before = left ?? orig.data;
       if (x > 0) {
         for (let y = 0; y < h; y++) {
           const row = y * w * 4;
-          out.data.set(orig.data.subarray(row, row + x * 4), row);
+          out.data.set(before.subarray(row, row + x * 4), row);
           // divider
           for (let dx = Math.max(0, x - 2); dx < Math.min(w, x + 1); dx++) {
             const i = row + dx * 4;
@@ -313,7 +335,7 @@ function Preview({
       c.getContext("2d")!.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(id);
-  }, [view, orig, graded, split]);
+  }, [view, orig, graded, left, split]);
 
   return (
     // Below xl the preview is pinned as a viewfinder so the result stays in sight
@@ -343,13 +365,20 @@ function Preview({
         onDoubleClick={() => setSplit(0)}
       >
         <canvas ref={view} className="block aspect-video h-auto max-h-[27svh] w-auto max-w-full object-contain md:max-h-[38svh] xl:max-h-none xl:w-full" />
-        <div className="pointer-events-none absolute left-3 top-3 flex gap-2 font-display text-xs font-bold uppercase tracking-widest">
-          {split > 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Original</span>}
-          <span className="bg-codm px-2 py-0.5 text-black">
-            {!source && shot ? "Filtered · your screen · approx." : "Filtered · approx."}
+        <div className="pointer-events-none absolute inset-x-3 top-3 flex justify-between gap-2 font-display text-xs font-bold uppercase tracking-widest">
+          {split > 0 && (
+            <span className="truncate bg-black/70 px-2 py-0.5 text-mute">{pin ? `Pinned · ${pin.name}` : "Original"}</span>
+          )}
+          <span className="ml-auto shrink-0 bg-codm px-2 py-0.5 text-black">
+            {pin ? "Editing" : "Filtered"}
+            {!source && shot ? " · your screen" : ""} · approx.
           </span>
-          {split === 0 && <span className="bg-black/70 px-2 py-0.5 text-mute">Drag to compare</span>}
         </div>
+        {split === 0 && (
+          <span className="pointer-events-none absolute bottom-3 left-3 bg-black/70 px-2 py-0.5 font-display text-xs font-bold uppercase tracking-widest text-mute">
+            {pin ? "Drag to see the pinned grade" : "Drag to compare"}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="flex min-w-48 flex-1 items-center gap-3">
@@ -388,7 +417,7 @@ function Preview({
         ) : shot ? (
           <button
             onClick={clearShot}
-            className="font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+            className="min-h-11 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
           >
             Remove screen test
           </button>
@@ -419,6 +448,69 @@ function Preview({
   );
 }
 
+/**
+ * Pin a grade, keep editing, and the compare wipe shows the two side by side.
+ * The pair travels as one link, so two looks can be compared on someone else's
+ * screen test too.
+ */
+function PinBar({
+  code,
+  pin,
+  onPin,
+  onSwap,
+  onUnpin,
+}: {
+  code: string;
+  pin: Pin | null;
+  onPin: () => void;
+  onSwap: () => void;
+  onUnpin: () => void;
+}) {
+  const [link, setLink] = useState<"" | "ok" | "failed">("");
+  const btn =
+    "min-h-11 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line disabled:cursor-not-allowed disabled:opacity-40";
+  if (!pin)
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button onClick={onPin} className={btn}>
+          Pin this grade
+        </button>
+        <p className="min-w-0 flex-1 text-xs text-mute">
+          Keeps it on the left of the compare wipe while you edit or load another look.
+        </p>
+      </div>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="mr-2 min-w-0 truncate font-display text-sm font-bold uppercase tracking-wider">
+        <span className="text-mute">Pinned · </span>
+        {pin.name}
+      </span>
+      <button onClick={onSwap} disabled={pin.code === code} className={btn}>
+        Swap
+      </button>
+      <button
+        onClick={async () => {
+          setLink((await copyText(shareUrl(code, pin.code))) ? "ok" : "failed");
+          setTimeout(() => setLink(""), 1400);
+        }}
+        className={btn}
+      >
+        {link === "ok" ? "Link copied ✓" : link === "failed" ? "Blocked" : "Copy compare link"}
+      </button>
+      <button
+        onClick={onUnpin}
+        className="min-h-11 px-2 font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text"
+      >
+        Unpin
+      </button>
+      <span role="status" className="sr-only">
+        {link === "ok" ? "Compare link copied" : link === "failed" ? "Your browser blocked copying." : ""}
+      </span>
+    </div>
+  );
+}
+
 function Editor() {
   const [mode, setMode] = useState<Mode>("build");
   const view = useRef<HTMLCanvasElement>(null);
@@ -429,16 +521,17 @@ function Editor() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pin, setPin] = useState<Pin | null>(null);
 
   const code = useMemo(() => encode(settings), [settings]);
 
   // undo/redo history, see the effect below the hash sync
   const steps = useRef({ past: [] as string[], future: [] as string[], last: DEFAULT_CODE, skip: false });
 
-  // restore from #c=<code>, keep the hash in sync so the URL is shareable
+  // restore from #c=<code>[&p=<code>], keep the hash in sync so the URL is shareable
   useEffect(() => {
-    const m = location.hash.match(/^#c=([-\d_]+)$/);
-    const s = m && decode(m[1]);
+    const h = readHash(location.hash);
+    const s = h.code && decode(h.code);
     // one-off read of the URL on load; the page is statically rendered so it can't go in initial state
     if (!s) return;
     // the shared code is the starting point, not an undoable step
@@ -446,10 +539,14 @@ function Editor() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(s);
     setAdvanced(usesAdvanced(s) || s.zones.global.tint < 3);
+    const p = h.pin && decode(h.pin);
+    if (p) setPin({ code: encode(p), name: nameFor(encode(p)) });
+    // a shared link or the QR hand-off opens on the editor, where its code and Copy are
+    if (h.code !== DEFAULT_CODE || p) document.getElementById("editor")?.scrollIntoView({ block: "start" });
   }, []);
   useEffect(() => {
-    history.replaceState(null, "", `#c=${code}`);
-  }, [code]);
+    history.replaceState(null, "", hashFor(code, pin?.code));
+  }, [code, pin]);
 
   // Undo/redo over share codes. A drag settles into one step after a short
   // pause; loading a look or a pasted code is a step too, so it can be undone.
@@ -527,6 +624,18 @@ function Editor() {
     return true;
   }, []);
 
+  // the docked code bar shows only while the editor is on screen and its own bar is not
+  const area = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  // the editor counts as on screen once it reaches the upper three quarters, not when its edge peeks in
+  const areaOn = useOnScreen(area, "0px 0px -25% 0px");
+  const barOn = useOnScreen(bar);
+
+  const toEditor = () => {
+    setMode("build");
+    document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const upload = async (f: File) => {
     try {
       setSource(await fileToCanvas(f, 1280));
@@ -537,7 +646,7 @@ function Editor() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-40 sm:px-8">
+    <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col px-4 pb-28 sm:px-8">
       {/* top bar */}
       <header className="flex flex-wrap items-end justify-between gap-4 pt-5 sm:pt-10">
         <div>
@@ -579,13 +688,13 @@ function Editor() {
       <LooksGallery
         onEdit={(c) => {
           loadCode(c);
-          setMode("build");
-          document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          toEditor();
         }}
       />
 
       <ScreenTestBar looks={LOOKS.length} />
 
+      <div ref={area}>
       <div id="editor" className="mt-12 flex scroll-mt-6 flex-wrap items-end justify-between gap-2">
         <h2 className="font-title text-3xl font-black uppercase tracking-wide sm:text-4xl">Make your own</h2>
         <nav aria-label="Mode" className="flex gap-1">
@@ -615,6 +724,7 @@ function Editor() {
         </nav>
       </div>
       <div className="mt-3 h-px bg-gradient-to-r from-codm/60 via-line to-transparent" />
+      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} barRef={bar} />
 
       {error && (
         <p role="alert" className="mt-4 border-l-2 border-red-500 bg-red-500/10 px-3 py-2 text-sm">
@@ -725,10 +835,22 @@ function Editor() {
               <div className="contents xl:flex xl:flex-col xl:gap-4">
                 <Preview
                   settings={settings}
+                  pin={pin}
                   source={source}
                   onUpload={upload}
                   onClear={() => setSource(null)}
                   view={view}
+                />
+                <PinBar
+                  code={code}
+                  pin={pin}
+                  onPin={() => setPin({ code, name: nameFor(code) })}
+                  onSwap={() => {
+                    if (!pin) return;
+                    setPin({ code, name: nameFor(code) });
+                    loadCode(pin.code);
+                  }}
+                  onUnpin={() => setPin(null)}
                 />
                 {advanced && (
                   <div className="isolate flex flex-col gap-2 overflow-hidden px-3">
@@ -901,9 +1023,19 @@ function Editor() {
         )}
       </AnimatePresence>
 
+      <MyCodesPanel code={code} onLoad={loadCode} />
+      </div>
+
       <Notes />
-      <CodeBar code={code} onLoad={loadCode} onReset={() => setSettings(defaultSettings())} />
-      <ImportGuide />
+      <DockBar code={code} show={areaOn && !barOn} />
+      <ImportGuide
+        onTweak={(c, name) => {
+          // the imported grade stays pinned as the reference while it is tweaked
+          if (!loadCode(c)) return;
+          setPin({ code: c, name: name ?? nameFor(c) });
+          toEditor();
+        }}
+      />
     </div>
   );
 }
@@ -1053,28 +1185,57 @@ function Converter({
 
 // Code bar
 
+const isSavedIn = (list: { code: string }[], code: string) => list.some((e) => e.code === code);
+
+function useCopy(code: string) {
+  const [copied, setCopied] = useState<"" | "ok" | "failed">("");
+  const copy = async () => {
+    setCopied((await copyCode(code, lookName(code))) ? "ok" : "failed");
+    setTimeout(() => setCopied(""), 1400);
+  };
+  return { copied, copy };
+}
+
+function CopyButton({ code, wide }: { code: string; wide?: boolean }) {
+  const { copied, copy } = useCopy(code);
+  return (
+    <>
+      <button
+        onClick={copy}
+        className={`cut-sm relative shrink-0 px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black ${
+          copied === "ok" ? "bg-lime" : "bg-codm hover:bg-codm-light"
+        } ${wide ? "min-w-32" : "min-w-28"}`}
+      >
+        {copied === "ok" ? "Copied ✓" : copied === "failed" ? "Blocked" : "Copy"}
+      </button>
+      <span role="status" className="sr-only">
+        {copied === "ok" ? "Code copied" : copied === "failed" ? "Your browser blocked copying. Select the code and copy it." : ""}
+      </span>
+    </>
+  );
+}
+
+/** The share code, Copy, Save and the paste field, at the top of the editor. */
 function CodeBar({
   code,
   onLoad,
   onReset,
+  barRef,
 }: {
   code: string;
   onLoad: (c: string) => boolean;
   onReset: () => void;
+  barRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [copied, setCopied] = useState<"" | "ok" | "failed">("");
   const [input, setInput] = useState("");
   const [bad, setBad] = useState(false);
-
-  const copy = async () => {
-    setCopied((await copyCode(code)) ? "ok" : "failed");
-    setTimeout(() => setCopied(""), 1400);
-  };
+  const { saved } = useMyCodes();
+  const isSaved = isSavedIn(saved, code);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-8 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div ref={barRef} className="mt-4 border border-line bg-panel/90">
+      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <span className="hidden font-display text-xs font-bold uppercase tracking-[0.2em] text-mute sm:block">
             Share code
           </span>
@@ -1085,15 +1246,16 @@ function CodeBar({
           >
             {code}
           </output>
+          <CopyButton code={code} />
           <button
-            onClick={copy}
-            className="cut-sm relative min-w-28 bg-codm px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
+            onClick={() => (isSaved ? removeCode("saved", code) : saveCode(code, nameFor(code)))}
+            aria-pressed={isSaved}
+            className={`min-h-11 shrink-0 px-3 font-display font-bold uppercase tracking-wider ${
+              isSaved ? "bg-lime/15 text-lime hover:bg-lime/25" : "bg-panel-2 hover:bg-line"
+            }`}
           >
-            {copied === "ok" ? "Copied" : copied === "failed" ? "Blocked" : "Copy"}
+            {isSaved ? "Saved ✓" : "Save"}
           </button>
-          <span role="status" className="sr-only">
-            {copied === "ok" ? "Code copied" : copied === "failed" ? "Your browser blocked copying. Select the code and copy it." : ""}
-          </span>
         </div>
         <form
           className="flex items-center gap-2"
@@ -1113,6 +1275,7 @@ function CodeBar({
             placeholder="Paste a code to edit it"
             aria-label="Paste a share code"
             aria-invalid={bad}
+            aria-describedby={bad ? "paste-error" : undefined}
             className={`min-h-11 w-full min-w-0 border bg-black/50 px-3 font-mono text-sm lg:w-64 ${
               bad ? "border-red-500" : "border-line"
             }`}
@@ -1133,12 +1296,48 @@ function CodeBar({
         </form>
       </div>
       {bad && (
-        <p className="mx-auto max-w-[1400px] px-4 pb-2 text-xs text-red-400 sm:px-8">
+        <p id="paste-error" className="px-3 pb-2 text-xs text-red-400 sm:px-4">
           That doesn&apos;t look like a filter code. It should be 22 numbers joined by underscores.
         </p>
       )}
     </div>
   );
+}
+
+/**
+ * Code and Copy, docked to the bottom edge only while the editor is on screen
+ * and its own code bar is not, so the first screen of the page stays clear on
+ * a phone and Copy is still one tap away while the sliders scroll.
+ */
+function DockBar({ code, show }: { code: string; show: boolean }) {
+  return (
+    <div
+      inert={!show}
+      className={`fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/90 backdrop-blur-md transition-transform duration-300 ease-out motion-reduce:transition-none ${
+        show ? "translate-y-0" : "translate-y-full"
+      }`}
+    >
+      <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 sm:px-8">
+        <code className="min-w-0 flex-1 truncate bg-black/50 px-3 py-2 font-mono text-xs text-codm sm:text-sm" title={code}>
+          {code}
+        </code>
+        <CopyButton code={code} />
+      </div>
+    </div>
+  );
+}
+
+/** True while `el` overlaps the viewport, shrunk by `margin` (an IntersectionObserver rootMargin). */
+function useOnScreen(el: React.RefObject<HTMLElement | null>, margin = "0px") {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const t = el.current;
+    if (!t) return;
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: margin });
+    io.observe(t);
+    return () => io.disconnect();
+  }, [el, margin]);
+  return on;
 }
 
 // Notes + disclaimer

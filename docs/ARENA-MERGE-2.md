@@ -118,7 +118,7 @@ Unhandled rejections in the screen-test frame are now caught.
 
 ## Deferred
 
-These are worth doing; this round stayed focused on the clear picks.
+These are worth doing; this round stayed focused on the clear picks. All five have since been built, rewritten rather than ported: see [AFTER-MERGE.md](AFTER-MERGE.md#6-the-deferred-list-built).
 
 - **Recent and favourite codes on this device** (35a5bc8c, 5a181f54). Both had bugs, such as stale names, saved names ignored, or a localStorage write on every slider tick.
 - **A page per look at `/look/<slug>`** (4d4b3931). Each look gets an indexable, shareable URL. Needs a lazy-loaded card renderer and an honest fallback image.
