@@ -152,21 +152,35 @@ Checked with `npm run check` (32 tests, including the hash format, the stored-co
 
 ## 7. Calibrating the preview
 
-In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting:
-
-| Test | Game | Old preview | Now |
-|---|---|---|---|
-| Simple Red, Tint 50 (plus Midtones Saturation 0), Firing Range sky | 158 106 109 | 255 76 76 | 152 110 110 |
-| Simple Red, Tint 100, Nuketown | red kept, green and blue at about 5 | red clipped | red kept, green and blue at 0 |
-| Simple Blue, Tint 50, Nuketown mid-greys | 101 111 133 | | 107 106 133 |
-| Simple Brightness 100, Nuketown darks / mids / lights | 98 / 184 / 232 | 2× gain, clipped | 91 / 181 / 234 |
+In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting: Firing Range, Nuketown, and a set in `pics/` taken on an Oppo F11 at Low graphics.
 
 What the game does, and the preview now does:
-- **Tint** multiplies the colour by the hue colour in linear light, weighted by Tint/100. Red 100 leaves red alone and takes green and blue to zero; Tint 50 scales the other channels to about 0.73. The old preview pushed towards the hue while holding luminance fixed, which for red means boosting red more than four times.
-- **Saturation 0** gives full grey, as before.
-- **Brightness 100** lifts each channel along `1 − (1 − x)^1.5` instead of doubling it. Below 50 the preview uses the mirror curve, `x^1.5` at 0, which has not been checked in game yet.
+- **It grades in linear HDR light before a tone map.** Undoing a Reinhard-style tone map (`v = l / (1 − l)` on linear light) turns every test into simple gains that hold from darks to near-white. This is why effects fade near white.
+- **Tint multiplies by the hue colour.** Its weight is `1 − (1 − tint/100)^1.5`: 0.33 at Tint 25, 0.65 at 50, 1 at 100. Simple Red 100 keeps red and takes green and blue to zero.
+- **A Shadows, Midtones or Highlights tint darkens too.** At Red 100 those tabs keep about 0.16 of the red channel (the Simple tab keeps all of it). This is why creator looks raise zone brightness above 50.
+- **Saturation runs before the tint.** Saturation 0 with Red 25 gives a red-tinted grey. Saturation 100 scales colour by about 1.75.
+- **Brightness is exposure.** 0 is black, 100 is a gain of about 2.4.
+- **The Range handles are positions in linear light.** With the default range, shadows fade out between display luminance 0.2 and 0.58. Highlights fade *in* from the highlights handle to its falloff, so on the default range (1000, 1500) Highlights changes nothing: the F11 Highlights Red 100 shot is identical to the default. Most creator codes keep the default range, so their Highlights settings do nothing in game.
 
-The screen-test analyser inverts the same maths, so a known tint or brightness reads back (a Red 30 tint reads 27, Brightness 80 reads 80).
+Mean error per pixel, preview against game (0–255), with "no change" as the baseline:
+
+| Test | No change | Old preview | Now |
+|---|---|---|---|
+| Firing Range: Simple Red 50, Midtones Saturation 0 | 34.7 | sky 255 76 76 vs 158 106 109 | 5.5 |
+| Nuketown: Simple Red 100 | 109.1 | | 7.0 |
+| Nuketown: Simple Blue 50 | 27.7 | | 11.4 |
+| Nuketown: Simple Brightness 100 | 34.3 | 2× gain, clipped | 11.0 |
+| F11: Simple Red 25 | 14.6 | | 5.9 |
+| F11: Simple Red 25, Saturation 0 | 15.8 | | 6.6 |
+| F11: Simple Saturation 100 | 15.0 | | 9.8 |
+| F11: Simple Brightness 0 | 134.0 | | 1.5 |
+| F11: Shadows Red 100 | 17.0 | | 8.3 |
+| F11: Midtones Red 100 | 90.4 | | 12.6 |
+| F11: Highlights Red 100 | 5.8 (frame noise) | | 5.8 |
+
+Known gaps: the blue swatch reads slightly greener in game than `hueToRgb` gives; the shadows-to-midtones handover sits a little lower in game; Brightness 100 lifts deep shadows a little more. All screenshots are from one phone at Low graphics; other devices or quality settings may tone-map differently.
+
+The screen-test analyser runs the same model forward, so a known midtones tint or brightness reads back exactly.
 
 The looks derived from footage were tuned against the old preview, so in game they are several times too faint. Re-deriving them is the next step.
 

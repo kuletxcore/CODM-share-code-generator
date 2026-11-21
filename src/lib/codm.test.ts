@@ -113,10 +113,12 @@ test("analyse grades a tonal range that holds a small share of the image", () =>
 });
 
 test("analyse leaves tonal ranges the image doesn't contain neutral", () => {
+  // All white: no shadows, and on the default range the game's Highlights
+  // start above white (in-game tests), so everything is midtones.
   const white = new Uint8ClampedArray(64 * 64 * 4).fill(255);
   const s = analyse(white, null);
   assert.deepEqual(s.zones.shadows, defaultSettings().zones.shadows);
-  assert.deepEqual(s.zones.midtones, defaultSettings().zones.midtones);
+  assert.deepEqual(s.zones.highlights, defaultSettings().zones.highlights);
 });
 
 test("extractCode finds a code inside pasted text", () => {

@@ -37,37 +37,28 @@ float smoothB(float a, float b, float x){
   float t = clamp((x - a) / d, 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);
 }
-// lift() and the linear-light tint mirror codm.ts; see the note there
-float lift(float x, float e){
-  float v = clamp(x, 0.0, 1.0);
-  if (e > 0.0) return 1.0 - pow(1.0 - v, 1.0 + 0.5 * e);
-  if (e < 0.0) return pow(v, 1.0 - 0.5 * e);
-  return v;
-}
-vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
-  if (k <= 0.001) return c;
-  float t = p.x * k;
-  vec3 n = c;
-  if (t > 0.0) {
-    vec3 h = pow(tint, vec3(2.2));
-    n = pow(pow(max(c, 0.0), vec3(2.2)) * (1.0 + (h - 1.0) * t), vec3(1.0 / 2.2));
-  }
-  float sm = 1.0 + (p.y - 1.0) * k;
-  float l2 = luma(n);
-  n = vec3(l2) + (n - vec3(l2)) * sm;
-  float e = (p.z - 1.0) * k;
-  return vec3(lift(n.r, e), lift(n.g, e), lift(n.b, e));
+// Mirrors paintGrade in codm.ts: zones blend in linear HDR light, then the
+// Reinhard-style tone map brings it back. tint is already in linear light and
+// p is (tint weight, saturation gain, exposure gain).
+vec3 toLight(vec3 x){ vec3 l = pow(clamp(x, 0.0, 0.999), vec3(2.2)); return l / (1.0 - l); }
+vec3 toDisplay(vec3 v){ v = max(v, 0.0); return pow(v / (1.0 + v), vec3(1.0 / 2.2)); }
+vec3 zone(vec3 v, vec3 tint, vec3 p, float k){
+  if (k <= 0.001) return v;
+  float l = luma(v);
+  v = max(vec3(l) + (v - vec3(l)) * (1.0 + (p.y - 1.0) * k), 0.0);
+  return v * (1.0 + (tint - 1.0) * (p.x * k)) * (1.0 + (p.z - 1.0) * k);
 }
 vec3 grade(vec3 c, vec4 bands, vec3 tint[4], vec3 p[4]){
   float l0 = luma(c);
   float ws = 1.0 - smoothB(bands.x, bands.y, l0);
   float wh = smoothB(bands.z, bands.w, l0) * (1.0 - ws);
   float wm = max(0.0, 1.0 - ws - wh);
-  c = zone(c, tint[0], p[0], ws);
-  c = zone(c, tint[1], p[1], wm);
-  c = zone(c, tint[2], p[2], wh);
-  c = zone(c, tint[3], p[3], 1.0);
-  return clamp(c, 0.0, 1.0);
+  vec3 v = toLight(c);
+  v = zone(v, tint[0], p[0], ws);
+  v = zone(v, tint[1], p[1], wm);
+  v = zone(v, tint[2], p[2], wh);
+  v = zone(v, tint[3], p[3], 1.0);
+  return toDisplay(v);
 }
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
