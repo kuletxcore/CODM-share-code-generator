@@ -19,11 +19,13 @@ import {
 } from "./codm.ts";
 
 /**
- * The pre-optimisation implementation, kept verbatim as the oracle.
+ * The grade written out plainly, kept as the oracle.
  *
- * `applyGrade` now hoists per-zone constants out of the pixel loop and skips
+ * `applyGrade` hoists per-zone constants out of the pixel loop and skips
  * neutral zones. That is only safe if it produces bit-identical pixels, so the
- * reference lives here rather than in a comment.
+ * reference lives here rather than in a comment. It follows the in-game
+ * calibration: zones blend in linear HDR light (multiply tint, exposure gain)
+ * before a Reinhard-style tone map; see docs/AFTER-MERGE.md.
  */
 function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -32,59 +34,73 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
     return t * t * (3 - 2 * t);
   };
-  const hueToRgb = (h: number): [number, number, number] => {
-    const x = (((h % 360) + 360) % 360) / 60;
-    const f = (n: number) => {
-      const k = (n + x) % 6;
-      return 1 - Math.max(0, Math.min(k, 4 - k, 1));
-    };
-    return [f(5), f(3), f(1)];
+  const toLight = (x: number) => {
+    const l = clamp(x, 0, 0.999) ** 2.2;
+    return l / (1 - l);
   };
-  const s0 = clamp(s.shadowPos / 1000, 0, 1);
-  const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
-  const h1 = clamp(s.highlightPos / 1000, 0, 1);
-  const width = Math.max((s.highlightEdge - s.highlightPos) / 1000, 0.02);
-  const h0 = h1 - width;
+  const toDisplay = (v: number) => (Math.max(0, v) / (1 + Math.max(0, v))) ** (1 / 2.2);
+  const at = (v: number) => clamp(v / 1000, 0, 1.5) ** (1 / 2.2);
+  const s0 = at(s.shadowPos);
+  const s1 = Math.max(at(s.shadowEdge), s0 + 0.02);
+  const h0 = at(s.highlightPos);
+  const h1 = Math.max(at(s.highlightEdge), h0 + 0.02);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  const tintRgb = zs.map((z) => hueToRgb(z.hue));
-  const tintAmt = zs.map((z) => clamp(z.tint / 100, 0, 1));
-  const satMul = zs.map((z) => clamp(z.sat / 50, 0, 2));
-  const briMul = zs.map((z) => clamp(z.bri / 50, 0, 2));
+  // swatch colours as the game applies them; the hue slider blends to the next
+  const swatches = [
+    [1, 0, 0],
+    [1, 0.84, 0],
+    [0.59, 1, 0],
+    [0, 1, 0.42],
+    [0, 0.91, 1],
+    [0, 0.35, 1],
+    [0.54, 0, 1],
+    [1, 0, 0.92],
+  ];
+  const colour = zs.map((z) => {
+    const x = ((((z.hue % 360) + 360) % 360) / 45) % 8;
+    const a = swatches[Math.floor(x)],
+      b = swatches[(Math.floor(x) + 1) % 8];
+    return a.map((c, j) => (c + (b[j] - c) * (x - Math.floor(x))) ** 2.2);
+  });
+  const dim = zs.map((z, i) => {
+    if (i === 3) return 1;
+    const c = colour[i];
+    const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
+    return 1 - (1 - full) * clamp(z.tint / 100, 0, 1) ** 0.85;
+  });
+  const weight = zs.map((z) => 1 - (1 - clamp(z.tint / 100, 0, 1)) ** 1.5);
+  const satGain = zs.map((z) => {
+    const x = clamp(z.sat / 50, 0, 2);
+    return x <= 1 ? x : 1 + (x - 1) * 0.75;
+  });
+  const exposure = zs.map((z, i) => {
+    const x = clamp(z.bri / 50, 0, 2);
+    return x <= 1 ? x ** 1.56 : 1 + (i === 0 ? 2.3 : 1.4) * (x - 1);
+  });
+  const neutral = weight.every((w, i) => w === 0 && satGain[i] === 1 && exposure[i] === 1);
+  if (neutral) return;
   const w = [0, 0, 0, 1];
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i] / 255,
-      g = data[i + 1] / 255,
-      b = data[i + 2] / 255;
-    const l0 = luma(r, g, b);
+    const l0 = luma(data[i] / 255, data[i + 1] / 255, data[i + 2] / 255);
     const ws = 1 - smooth(s0, s1, l0);
     const wh = smooth(h0, h1, l0) * (1 - ws);
-    const wm = Math.max(0, 1 - ws - wh);
     w[0] = ws;
-    w[1] = wm;
+    w[1] = Math.max(0, 1 - ws - wh);
     w[2] = wh;
+    let v = [toLight(data[i] / 255), toLight(data[i + 1] / 255), toLight(data[i + 2] / 255)];
     for (let z = 0; z < 4; z++) {
       const k = w[z];
       if (k <= 0.001) continue;
-      const l = luma(r, g, b);
-      const t = tintAmt[z] * k;
-      const c = tintRgb[z];
-      const cl = luma(c[0], c[1], c[2]) || 1;
-      let nr = r + (l * (c[0] / cl) - r) * t;
-      let ng = g + (l * (c[1] / cl) - g) * t;
-      let nb = b + (l * (c[2] / cl) - b) * t;
-      const sm = 1 + (satMul[z] - 1) * k;
-      const l2 = luma(nr, ng, nb);
-      nr = l2 + (nr - l2) * sm;
-      ng = l2 + (ng - l2) * sm;
-      nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k;
-      r = nr * bm;
-      g = ng * bm;
-      b = nb * bm;
+      const sm = 1 + (satGain[z] - 1) * k;
+      const l = luma(v[0], v[1], v[2]);
+      v = v.map((c) => Math.max(0, l + (c - l) * sm));
+      const t = weight[z] * k;
+      const e = (1 + (exposure[z] - 1) * k) * (1 + (dim[z] - 1) * k);
+      v = v.map((c, j) => c * (1 + (colour[z][j] - 1) * t) * e);
     }
-    data[i] = r * 255;
-    data[i + 1] = g * 255;
-    data[i + 2] = b * 255;
+    data[i] = toDisplay(v[0]) * 255;
+    data[i + 1] = toDisplay(v[1]) * 255;
+    data[i + 2] = toDisplay(v[2]) * 255;
   }
 }
 

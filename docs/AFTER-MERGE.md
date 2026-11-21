@@ -150,6 +150,71 @@ The five ideas [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred) deferred are now on
 
 Checked with `npm run check` (32 tests, including the hash format, the stored-codes cleanup and unique look slugs), `npm run build` (20 look pages), and Chromium at 390 and 1440 wide: the dock stays off the first screen, the pinned grade lands on the left of the wipe on both the GPU and the CPU path, and a look page's Customize and Needs tweaking open the generator on that code.
 
+## 7. Calibrating the preview
+
+In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting: Firing Range, Nuketown, a set in `pics/` taken on an Oppo F11 at Low graphics, and a second set in `pics/Batch 2/` taken in the Practice Range on an Infinix GT50 Pro at Max graphics, and a third in `pics/F11 Low/` (Practice Range, F11 at Low, camera held still, plus Brightness 25 and Saturation 25 on the Infinix in `Extras/`).
+
+What the game does, and the preview now does:
+- **It grades in linear HDR light before a tone map.** Undoing a Reinhard-style tone map (`v = l / (1 − l)` on linear light) turns every test into simple gains that hold from darks to near-white. This is why effects fade near white.
+- **Tint multiplies by the swatch colour.** Its weight is `1 − (1 − tint/100)^1.5`: 0.33 at Tint 25, 0.65 at 50, 1 at 100. Simple Red 100 keeps red and takes green and blue to zero. The swatches are not a plain hue wheel: measured at Tint 100, their second channel is stronger (Orange 1, 0.84, 0; Lime 0.59, 1, 0; Green 0, 1, 0.42; Cyan 0, 0.91, 1; Blue 0, 0.35, 1; Purple 0.54, 0, 1; Magenta 1, 0, 0.92), and the Hue slider blends towards the next swatch.
+- **A Shadows, Midtones or Highlights tint darkens too.** On top of the same colour shift as the Simple tab, red keeps about 0.54 at Tint 50 and 0.17 at 100 (the Simple tab keeps all of it). Bright colours darken less: Cyan 100 keeps about 0.78, so the preview scales the darkening by the swatch's own luminance. This is why creator looks raise zone brightness above 50.
+- **Saturation runs before the tint.** Saturation 0 with Red 25 gives a red-tinted grey. Saturation 100 scales colour by about 1.75.
+- **Brightness is exposure.** 0 is black, 25 is a gain of about 0.34, 100 about 2.4, rising in a straight line above 50. Shadows Brightness 100 is stronger, about 3.3 in the darks.
+- **The Range handles are positions in linear light.** With the default range, shadows fade out between display luminance 0.2 and 0.58. Highlights fade *in* from the highlights handle to its falloff, so on the default range (1000, 1500) Highlights changes nothing: the F11 Highlights Red 100 shot is identical to the default. Most creator codes keep the default range, so their Highlights settings do nothing in game.
+
+Mean error per pixel, preview against game (0–255), with "no change" as the baseline:
+
+| Test | No change | Old preview | Now |
+|---|---|---|---|
+| Firing Range: Simple Red 50, Midtones Saturation 0 | 34.7 | sky 255 76 76 vs 158 106 109 | 5.5 |
+| Nuketown: Simple Red 100 | 109.1 | | 7.0 |
+| Nuketown: Simple Blue 50 | 27.7 | | 11.4 |
+| Nuketown: Simple Brightness 100 | 34.3 | 2× gain, clipped | 11.0 |
+| F11: Simple Red 25 | 14.6 | | 5.9 |
+| F11: Simple Red 25, Saturation 0 | 15.8 | | 6.6 |
+| F11: Simple Saturation 100 | 15.0 | | 9.8 |
+| F11: Simple Brightness 0 | 134.0 | | 1.5 |
+| F11: Shadows Red 100 | 17.0 | | 8.3 |
+| F11: Midtones Red 100 | 90.4 | | 12.6 |
+| F11: Highlights Red 100 | 5.8 (frame noise) | | 5.8 |
+
+The Infinix set was compared by percentiles of the same region, because the camera moved slightly between the default and the tests. Mean error per channel percentile, preview against game:
+
+| Infinix GT50 Pro, Max graphics | No change | Now |
+|---|---|---|
+| Simple swatches at Tint 100 (seven) | 32.7–48.4 | 4.8–8.2 |
+| Simple Red 25 | 6.4 | 2.1 |
+| Simple Brightness 75 | 18.2 | 2.1 |
+| Midtones Red 50 | 18.3 | 2.0 |
+| Midtones Brightness 100 | 8.6 | 2.6 |
+| Shadows Brightness 100 | 24.3 | 9.9 |
+| Midtones Red 100 | 31.5 | 14.7 |
+
+The third set, with the camera held still, compared pixel by pixel (mean error per channel, 0–255):
+
+| F11 Low, Practice Range | No change | Now |
+|---|---|---|
+| Shadows Red 100, shadows handle at about 470 | 47.6 | 3.5 |
+| Shadows Brightness 100 | 24.0 | 5.2 |
+| Midtones Cyan 100 | 8.2 | 4.2 |
+| Midtones Red 24 | 3.8 | 2.1 |
+| Simple Brightness 25 | 22.8 | 4.2 |
+| Simple Saturation 25 | 2.9 | 2.0 |
+| Kith, imported | 26.4 | 7.4 |
+| Infinix: Simple Brightness 25 / Saturation 25 | 25.1 / 3.8 | 3.9 / 2.7 |
+
+The handle positions were read off the Range bar in the screenshots, with each falloff at handle + 100 as the game writes it once a handle moves.
+
+**A real code as a final check.** A code from a Reddit post (`0_1_77_177_512_612_33_153_118_1492_0_55_-84_2000_200_297_210_866_123_97_176_490`, both Range handles moved, every group set) was tried in game on Terminal (the airport map from MW2). Mean error against the game screenshot: no change 11.3, the old preview 37.8, the calibrated preview with a square-root brightness rise 14.8, and with the straight-line rise 7.2. The square-root rise had fitted the Infinix Brightness 75 shot best (2.1, against 4.1 for the straight line), but it made small brightness steps like this code's 56 and 61 far too bright, so the straight line was kept.
+
+The same model fits both phones and both quality settings, so the preview needs no per-device setting. Midtones Red 100 looked weak on the Infinix only because the Practice Range scene is dark: most of it sits in Shadows.
+
+Known gaps: with the highlights handle moved to about 490, the game tinted only a narrow band of bright, not-quite-white pixels and left white alone, where the preview tints everything above the handle; the Highlights band shape is still a guess (on the default range it is empty either way). Zone darkening is measured for red and cyan only.
+
+The screen-test analyser runs the same model forward, so a known midtones tint or brightness reads back exactly.
+
+The looks derived from footage were tuned against the old preview, so in game they are several times too faint. Re-deriving them is the next step.
+
 ## Checks
 
 Every change above was checked with:

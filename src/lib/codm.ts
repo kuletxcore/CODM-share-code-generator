@@ -169,21 +169,114 @@ export function hueToRgb(h: number): [number, number, number] {
 const luma = (r: number, g: number, b: number) =>
   0.2126 * r + 0.7152 * g + 0.0722 * b;
 
+/*
+ * The grade, fitted to in-game before/after screenshots (docs/AFTER-MERGE.md,
+ * "Calibrating the preview"). The game grades in linear HDR light before a
+ * Reinhard-style tone map, which is why every effect fades near white:
+ * - Tint multiplies by the swatch colour (`gameHue`). Its weight rises as
+ *   1 - (1 - t)^1.5 (Tint 25 weighs 0.33, 50 weighs 0.65). A Shadows, Midtones
+ *   or Highlights tint also darkens (`zoneDim`); the Simple tab does not.
+ * - Saturation 0 is grey; 100 scales colour by about 1.75, not 2. It runs
+ *   before the tint, so Saturation 0 with a tint gives a tinted grey.
+ * - Brightness is an exposure gain: 0 is black, 25 about 0.34x, 100 about
+ *   2.4x (3.3x on the Shadows tab), rising in a straight line above 50.
+ * - The Range handles are positions in linear light. Shadows fade out between
+ *   the shadows handle and its falloff; highlights fade in between the
+ *   highlights handle and its falloff, so the default range (1000, 1500) puts
+ *   nothing in Highlights.
+ */
+const GAMMA = 2.2;
+const INV_GAMMA = 1 / GAMMA;
+const SAT_TOP = 1.75;
+const BRI_TOP = 2.4;
+/** Shadows Brightness pushes harder: about 3.3x in the darks at 100. */
+const SHADOW_BRI_TOP = 3.3;
+/** Below 50 brightness falls to black along this power (Brightness 25 is about 0.34x). */
+const BRI_POWER = 1.56;
+
+/**
+ * The swatch colours as the game applies them (display values), measured from
+ * Tint 100 on each swatch: their second channel is stronger than a plain hue
+ * wheel's. The Hue slider moves from one swatch towards the next.
+ */
+const SWATCHES: [number, number, number][] = [
+  [1, 0, 0],
+  [1, 0.84, 0],
+  [0.59, 1, 0],
+  [0, 1, 0.42],
+  [0, 0.91, 1],
+  [0, 0.35, 1],
+  [0.54, 0, 1],
+  [1, 0, 0.92],
+];
+
+/** A hue in degrees to the colour the game multiplies by, in linear light. */
+export function gameHue(h: number): [number, number, number] {
+  const x = ((((h % 360) + 360) % 360) / 45) % 8;
+  const i = Math.floor(x),
+    f = x - i;
+  const a = SWATCHES[i],
+    b = SWATCHES[(i + 1) % 8];
+  return [0, 1, 2].map((c) => (a[c] + (b[c] - a[c]) * f) ** GAMMA) as [number, number, number];
+}
+/** Display values above this would map to infinite light; 0.999 is ~500x. */
+const WHITE = 0.999;
+
 const smooth = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
   return t * t * (3 - 2 * t);
 };
 
-// Luminance thresholds used by both the preview and the analyser. The falloff
-// shapes are a guess; only the handle positions are confirmed.
+/** Display value (0..1) to linear HDR light, and back. */
+export function toLight(x: number) {
+  const l = clamp(x, 0, WHITE) ** GAMMA;
+  return l / (1 - l);
+}
+export function toDisplay(v: number) {
+  return (Math.max(0, v) / (1 + Math.max(0, v))) ** INV_GAMMA;
+}
+
+/** Tint 0..100 to the weight the game gives the hue colour. */
+export const tintWeight = (tint: number) => 1 - (1 - clamp(tint / 100, 0, 1)) ** 1.5;
+/** Saturation 0..100 to a colour gain. */
+export const satGain = (sat: number) => {
+  const x = clamp(sat / 50, 0, 2);
+  return x <= 1 ? x : 1 + (x - 1) * (SAT_TOP - 1);
+};
+/**
+ * Brightness 0..100 to an exposure gain: 0 is black, 25 about 0.34, 100 `top`,
+ * straight in between above 50. A square-root rise fitted Brightness 75 alone
+ * but made small steps (a Reddit code's 56 and 61) far too bright.
+ */
+export const briGain = (bri: number, top = BRI_TOP) => {
+  const x = clamp(bri / 50, 0, 2);
+  return x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * (x - 1);
+};
+/** `briGain` inverted. */
+const briFromGain = (gain: number, top = BRI_TOP) =>
+  50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + (gain - 1) / (top - 1));
+
+/**
+ * The extra darkening a Shadows, Midtones or Highlights tint brings (the
+ * Simple tab has none). Dark colours darken most: at Tint 100 Red keeps about
+ * 0.17 and Cyan about 0.78, so it follows the swatch's own luminance.
+ */
+export const zoneDim = (tint: number, hue: number) => {
+  const c = gameHue(hue);
+  const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
+  return 1 - (1 - full) * clamp(tint / 100, 0, 1) ** 0.85;
+};
+
+// Luminance bands (display luma) used by both the preview and the analyser.
 type Bands = { s0: number; s1: number; h0: number; h1: number };
 
 function thresholds(s: Settings): Bands {
-  const s0 = clamp(s.shadowPos / 1000, 0, 1);
-  const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
-  const h1 = clamp(s.highlightPos / 1000, 0, 1);
-  const width = Math.max((s.highlightEdge - s.highlightPos) / 1000, 0.02);
-  return { s0, s1, h0: h1 - width, h1 };
+  const at = (v: number) => clamp(v / 1000, 0, 1.5) ** INV_GAMMA;
+  const s0 = at(s.shadowPos);
+  const s1 = Math.max(at(s.shadowEdge), s0 + 0.02);
+  const h0 = at(s.highlightPos);
+  const h1 = Math.max(at(s.highlightEdge), h0 + 0.02);
+  return { s0, s1, h0, h1 };
 }
 
 function zoneWeights(l: number, t: Bands) {
@@ -197,22 +290,23 @@ function zoneWeights(l: number, t: Bands) {
  * Per-pixel constants for one grade, computed once.
  *
  * The zone maths is the same for every pixel, so the only things worth doing per
- * pixel are the luminance lookup and the four zone blends. `applyGrade` used to
- * re-derive the tint/amount/multiplier arrays for every pixel; hoisting them here
- * is what makes a full-frame regrade cheap enough to run inside a pointer move.
+ * pixel are the luminance lookup and the four zone blends. Hoisting them here is
+ * what makes a full-frame regrade cheap enough to run inside a pointer move.
  */
 export type GradePlan = {
   s0: number;
   s1: number;
   h0: number;
   h1: number;
-  /** Tint colour per zone, pre-divided by its own luma (luminance-preserving). */
+  /** The colour each zone multiplies by at full weight, in linear light. */
   tint: Float64Array;
-  /** Tint amount 0..1 per zone. */
+  /** Extra exposure from a zone tint (1 for the Simple group). */
+  dim: Float64Array;
+  /** Tint weight 0..1 per zone (`tintWeight`). */
   amount: Float64Array;
-  /** Saturation multiplier per zone. */
+  /** Saturation gain per zone. */
   sat: Float64Array;
-  /** Brightness multiplier per zone. */
+  /** Exposure gain per zone. */
   bri: Float64Array;
   /** 1 when the zone would change anything at all, 0 when it is a no-op. */
   live: Uint8Array;
@@ -220,32 +314,37 @@ export type GradePlan = {
   neutral: boolean;
 };
 
+/** Zone order everywhere: shadows, midtones, highlights, then the Simple group. */
+function zoneList(s: Settings) {
+  return [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+}
+
+function zoneTint(hue: number) {
+  return gameHue(hue);
+}
+
 export function gradePlan(s: Settings): GradePlan {
   const b = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  const zs = zoneList(s);
   const tint = new Float64Array(12);
   const amount = new Float64Array(4);
   const sat = new Float64Array(4);
   const bri = new Float64Array(4);
   const live = new Uint8Array(4);
+  const dim = new Float64Array(4);
   for (let z = 0; z < 4; z++) {
     const zone = zs[z];
-    const c = hueToRgb(zone.hue);
-    const cl = luma(c[0], c[1], c[2]) || 1;
-    tint[z * 3] = c[0] / cl;
-    tint[z * 3 + 1] = c[1] / cl;
-    tint[z * 3 + 2] = c[2] / cl;
-    amount[z] = clamp(zone.tint / 100, 0, 1);
-    sat[z] = clamp(zone.sat / 50, 0, 2);
-    bri[z] = clamp(zone.bri / 50, 0, 2);
+    tint.set(zoneTint(zone.hue), z * 3);
+    dim[z] = z === 3 ? 1 : zoneDim(zone.tint, zone.hue);
+    amount[z] = tintWeight(zone.tint);
+    sat[z] = satGain(zone.sat);
+    bri[z] = briGain(zone.bri, z === 0 ? SHADOW_BRI_TOP : BRI_TOP);
     live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
   }
   return {
-    s0: b.s0,
-    s1: b.s1,
-    h0: b.h0,
-    h1: b.h1,
+    ...b,
     tint,
+    dim,
     amount,
     sat,
     bri,
@@ -268,54 +367,50 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
   // what makes "no filter" free instead of a full-frame pass.
   if (plan.neutral) return;
 
-  const { s0, s1, h0, h1, tint, amount, sat, bri, live } = plan;
+  const { s0, s1, h0, h1, tint, dim, amount, sat, bri, live } = plan;
   const allLive = live[0] && live[1] && live[2] && live[3];
 
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i] / 255,
-      g = data[i + 1] / 255,
-      b = data[i + 2] / 255;
+    const r0 = data[i] / 255,
+      g0 = data[i + 1] / 255,
+      b0 = data[i + 2] / 255;
     // Zone weights come from the pixel's ORIGINAL luminance, all at once.
-    const l0 = luma(r, g, b);
+    const l0 = luma(r0, g0, b0);
     const ws = 1 - smooth(s0, s1, l0);
     const wh = smooth(h0, h1, l0) * (1 - ws);
     const wm = Math.max(0, 1 - ws - wh);
+    let r = toLight(r0),
+      g = toLight(g0),
+      b = toLight(b0);
     for (let z = 0; z < 4; z++) {
       if (!allLive && !live[z]) continue;
-      // index 3 is the first code group, applied to the whole image
       const k = z === 3 ? 1 : z === 0 ? ws : z === 1 ? wm : wh;
       if (k <= 0.001) continue;
-      const l = luma(r, g, b);
-      const t = amount[z] * k;
-      const p = z * 3;
-      // luminance-preserving tint
-      let nr = r + (l * tint[p] - r) * t;
-      let ng = g + (l * tint[p + 1] - g) * t;
-      let nb = b + (l * tint[p + 2] - b) * t;
       const sm = 1 + (sat[z] - 1) * k;
-      const l2 = luma(nr, ng, nb);
-      nr = l2 + (nr - l2) * sm;
-      ng = l2 + (ng - l2) * sm;
-      nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (bri[z] - 1) * k;
-      r = nr * bm;
-      g = ng * bm;
-      b = nb * bm;
+      const l = luma(r, g, b);
+      r = Math.max(0, l + (r - l) * sm);
+      g = Math.max(0, l + (g - l) * sm);
+      b = Math.max(0, l + (b - l) * sm);
+      const t = amount[z] * k;
+      const e = (1 + (bri[z] - 1) * k) * (1 + (dim[z] - 1) * k);
+      const p = z * 3;
+      r *= (1 + (tint[p] - 1) * t) * e;
+      g *= (1 + (tint[p + 1] - 1) * t) * e;
+      b *= (1 + (tint[p + 2] - 1) * t) * e;
     }
-    data[i] = r * 255;
-    data[i + 1] = g * 255;
-    data[i + 2] = b * 255;
+    data[i] = toDisplay(r) * 255;
+    data[i + 1] = toDisplay(g) * 255;
+    data[i + 2] = toDisplay(b) * 255;
   }
 }
 
 /** The per-zone inputs applyGrade uses, flattened for the GPU version of the same maths. */
 export function gradeUniforms(s: Settings) {
-  const b = thresholds(s);
-  const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
+  const p = gradePlan(s);
   return {
-    bands: [b.s0, b.s1, b.h0, b.h1],
-    tint: zs.flatMap((z) => hueToRgb(z.hue)),
-    params: zs.flatMap((z) => [clamp(z.tint / 100, 0, 1), clamp(z.sat / 50, 0, 2), clamp(z.bri / 50, 0, 2)]),
+    bands: [p.s0, p.s1, p.h0, p.h1],
+    tint: Array.from(p.tint),
+    params: [0, 1, 2, 3].flatMap((z) => [p.amount[z], p.sat[z], p.bri[z], p.dim[z]]),
   };
 }
 
@@ -389,14 +484,34 @@ export function analyse(
     const cb = b ? castOf(b[i]) : { x: 0, y: 0 };
     const dx = ct.x - cb.x,
       dy = ct.y - cb.y;
-    const mag = Math.hypot(dx, dy);
     const hue = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
-    // without a baseline the scene's own colours inflate the cast, so damp it
-    const tint = clamp(mag * (b ? 70 : 35), 0, 60);
     const refSat = b ? b[i].sat : neutral[i].sat;
     const refL = b ? b[i].l : neutral[i].l;
     const sat = clamp(50 * (t[i].sat / (refSat || 0.01)), 15, 85);
-    const bri = clamp(50 * Math.pow(t[i].l / (refL || 0.01), 0.6), 25, 75);
+    // Run the forward model on the zone's average colour: the tint whose
+    // multiply best matches the target's colour balance, then the exposure
+    // that matches its brightness after that tint's own darkening.
+    const from = (b ? [b[i].r, b[i].g, b[i].b] : [refL, refL, refL]).map(toLight);
+    const to = [t[i].r, t[i].g, t[i].b].map(toLight);
+    const h = zoneTint(hue);
+    const balance = (v: number[]) => {
+      const l = luma(v[0], v[1], v[2]) || 1e-6;
+      return v.map((c) => c / l);
+    };
+    const want = balance(to);
+    const tinted = (tint: number) => from.map((c, j) => c * (1 + (h[j] - 1) * tintWeight(tint)) * zoneDim(tint, hue));
+    let best = 0,
+      bestErr = Infinity;
+    for (let tint = 0; tint <= 100; tint++) {
+      const got = balance(tinted(tint));
+      const err = got.reduce((sum, c, j) => sum + (c - want[j]) ** 2, 0);
+      if (err < bestErr) [best, bestErr] = [tint, err];
+    }
+    // without a baseline the scene's own colours inflate the cast, so damp it
+    const tint = b ? best : best * 0.5;
+    const lit = tinted(tint);
+    const gain = luma(to[0], to[1], to[2]) / (luma(lit[0], lit[1], lit[2]) || 1e-6);
+    const bri = clamp(briFromGain(gain, i === 0 ? SHADOW_BRI_TOP : BRI_TOP), 15, 85);
     s.zones[k] = {
       hue: Math.round(hue),
       tint: Math.round(tint),
