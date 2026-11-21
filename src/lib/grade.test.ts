@@ -19,7 +19,9 @@ import {
 } from "./codm.ts";
 
 /**
- * The pre-optimisation implementation, kept verbatim as the oracle.
+ * The pre-optimisation implementation, kept as the oracle. Its tint and
+ * brightness steps follow the in-game calibration (multiply in linear light,
+ * curved brightness).
  *
  * `applyGrade` now hoists per-zone constants out of the pixel loop and skips
  * neutral zones. That is only safe if it produces bit-identical pixels, so the
@@ -39,6 +41,10 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
       return 1 - Math.max(0, Math.min(k, 4 - k, 1));
     };
     return [f(5), f(3), f(1)];
+  };
+  const lift = (x: number, e: number) => {
+    const v = clamp(x, 0, 1);
+    return e > 0 ? 1 - (1 - v) ** (1 + 0.5 * e) : e < 0 ? v ** (1 - 0.5 * e) : v;
   };
   const s0 = clamp(s.shadowPos / 1000, 0, 1);
   const s1 = Math.max(clamp(s.shadowEdge / 1000, 0, 1.5), s0 + 0.02);
@@ -65,22 +71,25 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     for (let z = 0; z < 4; z++) {
       const k = w[z];
       if (k <= 0.001) continue;
-      const l = luma(r, g, b);
       const t = tintAmt[z] * k;
       const c = tintRgb[z];
-      const cl = luma(c[0], c[1], c[2]) || 1;
-      let nr = r + (l * (c[0] / cl) - r) * t;
-      let ng = g + (l * (c[1] / cl) - g) * t;
-      let nb = b + (l * (c[2] / cl) - b) * t;
+      let nr = r,
+        ng = g,
+        nb = b;
+      if (t > 0) {
+        nr = (Math.max(0, r) ** 2.2 * (1 + (c[0] ** 2.2 - 1) * t)) ** (1 / 2.2);
+        ng = (Math.max(0, g) ** 2.2 * (1 + (c[1] ** 2.2 - 1) * t)) ** (1 / 2.2);
+        nb = (Math.max(0, b) ** 2.2 * (1 + (c[2] ** 2.2 - 1) * t)) ** (1 / 2.2);
+      }
       const sm = 1 + (satMul[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (briMul[z] - 1) * k;
-      r = nr * bm;
-      g = ng * bm;
-      b = nb * bm;
+      const e = (briMul[z] - 1) * k;
+      r = lift(nr, e);
+      g = lift(ng, e);
+      b = lift(nb, e);
     }
     data[i] = r * 255;
     data[i + 1] = g * 255;

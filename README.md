@@ -41,7 +41,7 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
 An in-game export with every slider at 100 reads `125_1000_1000_2000` for each group: Red with the Hue slider at 100 writes 125, the same value as Orange at 0. Both Range handles pushed to the ends write `0_100_1000_1100`.
 
-The preview is an approximation of the in-game filter.
+The preview is an approximation of the in-game filter. Its tint and brightness are fitted to before/after screenshots from the game (see [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md#7-calibrating-the-preview)): tint multiplies the colour by the hue, so Tint 50 is much gentler than it sounds, and Brightness 100 lifts rather than doubles.
 
 ## Using a code in game
 

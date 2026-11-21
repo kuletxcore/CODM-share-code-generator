@@ -169,6 +169,26 @@ export function hueToRgb(h: number): [number, number, number] {
 const luma = (r: number, g: number, b: number) =>
   0.2126 * r + 0.7152 * g + 0.0722 * b;
 
+/*
+ * Tint and brightness, fitted to in-game screenshots (docs/AFTER-MERGE.md,
+ * "Calibrating the preview"). Tint multiplies the colour by the hue in linear
+ * light: Red 100 leaves red alone and takes green and blue to 0, Red 50 and
+ * Blue 50 scale the other channels to about 0.73. Brightness 100 lifts like
+ * 1 - (1 - x)^1.5 rather than doubling. Brightness below 50 is the mirror
+ * curve, x^1.5 at 0: not yet checked in game.
+ */
+const GAMMA = 2.2;
+const INV_GAMMA = 1 / GAMMA;
+const BRI_CURVE = 0.5;
+
+/** Brightness for one channel; `e` is -1..1, 0 leaves it alone. */
+function lift(x: number, e: number) {
+  const v = Math.min(1, Math.max(0, x));
+  if (e > 0) return 1 - (1 - v) ** (1 + BRI_CURVE * e);
+  if (e < 0) return v ** (1 - BRI_CURVE * e);
+  return v;
+}
+
 const smooth = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
   return t * t * (3 - 2 * t);
@@ -206,7 +226,7 @@ export type GradePlan = {
   s1: number;
   h0: number;
   h1: number;
-  /** Tint colour per zone, pre-divided by its own luma (luminance-preserving). */
+  /** Tint colour per zone, in linear light (the game multiplies by it). */
   tint: Float64Array;
   /** Tint amount 0..1 per zone. */
   amount: Float64Array;
@@ -231,10 +251,9 @@ export function gradePlan(s: Settings): GradePlan {
   for (let z = 0; z < 4; z++) {
     const zone = zs[z];
     const c = hueToRgb(zone.hue);
-    const cl = luma(c[0], c[1], c[2]) || 1;
-    tint[z * 3] = c[0] / cl;
-    tint[z * 3 + 1] = c[1] / cl;
-    tint[z * 3 + 2] = c[2] / cl;
+    tint[z * 3] = c[0] ** GAMMA;
+    tint[z * 3 + 1] = c[1] ** GAMMA;
+    tint[z * 3 + 2] = c[2] ** GAMMA;
     amount[z] = clamp(zone.tint / 100, 0, 1);
     sat[z] = clamp(zone.sat / 50, 0, 2);
     bri[z] = clamp(zone.bri / 50, 0, 2);
@@ -285,22 +304,26 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
       // index 3 is the first code group, applied to the whole image
       const k = z === 3 ? 1 : z === 0 ? ws : z === 1 ? wm : wh;
       if (k <= 0.001) continue;
-      const l = luma(r, g, b);
       const t = amount[z] * k;
       const p = z * 3;
-      // luminance-preserving tint
-      let nr = r + (l * tint[p] - r) * t;
-      let ng = g + (l * tint[p + 1] - g) * t;
-      let nb = b + (l * tint[p + 2] - b) * t;
+      let nr = r,
+        ng = g,
+        nb = b;
+      if (t > 0) {
+        // multiply by the hue colour in linear light
+        nr = (Math.max(0, r) ** GAMMA * (1 + (tint[p] - 1) * t)) ** INV_GAMMA;
+        ng = (Math.max(0, g) ** GAMMA * (1 + (tint[p + 1] - 1) * t)) ** INV_GAMMA;
+        nb = (Math.max(0, b) ** GAMMA * (1 + (tint[p + 2] - 1) * t)) ** INV_GAMMA;
+      }
       const sm = 1 + (sat[z] - 1) * k;
       const l2 = luma(nr, ng, nb);
       nr = l2 + (nr - l2) * sm;
       ng = l2 + (ng - l2) * sm;
       nb = l2 + (nb - l2) * sm;
-      const bm = 1 + (bri[z] - 1) * k;
-      r = nr * bm;
-      g = ng * bm;
-      b = nb * bm;
+      const e = (bri[z] - 1) * k;
+      r = lift(nr, e);
+      g = lift(ng, e);
+      b = lift(nb, e);
     }
     data[i] = r * 255;
     data[i + 1] = g * 255;
@@ -350,6 +373,14 @@ function zoneStats(data: Uint8ClampedArray, bands: Bands): ZoneStat[] {
   });
 }
 
+/** The brightness setting that moves luminance `from` to `to`: `lift` inverted. */
+function briFor(from: number, to: number) {
+  const a = clamp(from, 0.01, 0.99),
+    b = clamp(to, 0.01, 0.99);
+  const e = b >= a ? (Math.log(1 - b) / Math.log(1 - a) - 1) / BRI_CURVE : -(Math.log(b) / Math.log(a) - 1) / BRI_CURVE;
+  return 50 + 50 * clamp(e, -1, 1);
+}
+
 function castOf(z: ZoneStat) {
   // chroma vector on the opponent axes, normalised by luminance
   const l = z.l || 1e-3;
@@ -391,12 +422,18 @@ export function analyse(
       dy = ct.y - cb.y;
     const mag = Math.hypot(dx, dy);
     const hue = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
-    // without a baseline the scene's own colours inflate the cast, so damp it
-    const tint = clamp(mag * (b ? 70 : 35), 0, 60);
+    // Without a baseline the scene's own colours inflate the cast, so damp it.
+    // The power curve inverts the game's tint, which is gentle at low values
+    // (multiplied in linear light): fitted so a known tint reads back.
+    const tint = clamp(4.5 * Math.pow(mag * (b ? 70 : 35), 0.72), 0, 80);
     const refSat = b ? b[i].sat : neutral[i].sat;
     const refL = b ? b[i].l : neutral[i].l;
     const sat = clamp(50 * (t[i].sat / (refSat || 0.01)), 15, 85);
-    const bri = clamp(50 * Math.pow(t[i].l / (refL || 0.01), 0.6), 25, 75);
+    // the tint's multiply darkens on its own, so measure brightness past it
+    const h = hueToRgb(hue);
+    const ref = b ? [b[i].r, b[i].g, b[i].b] : [refL, refL, refL];
+    const tinted = ref.map((v, c) => (Math.max(0, v) ** GAMMA * (1 + (h[c] ** GAMMA - 1) * (tint / 100))) ** INV_GAMMA);
+    const bri = clamp(briFor(luma(tinted[0], tinted[1], tinted[2]), t[i].l), 15, 85);
     s.zones[k] = {
       hue: Math.round(hue),
       tint: Math.round(tint),

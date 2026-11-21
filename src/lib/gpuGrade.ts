@@ -37,16 +37,26 @@ float smoothB(float a, float b, float x){
   float t = clamp((x - a) / d, 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);
 }
+// lift() and the linear-light tint mirror codm.ts; see the note there
+float lift(float x, float e){
+  float v = clamp(x, 0.0, 1.0);
+  if (e > 0.0) return 1.0 - pow(1.0 - v, 1.0 + 0.5 * e);
+  if (e < 0.0) return pow(v, 1.0 - 0.5 * e);
+  return v;
+}
 vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
   if (k <= 0.001) return c;
-  float l = luma(c);
   float t = p.x * k;
-  float cl = luma(tint); if (cl == 0.0) cl = 1.0;
-  vec3 n = c + (l * (tint / cl) - c) * t;
+  vec3 n = c;
+  if (t > 0.0) {
+    vec3 h = pow(tint, vec3(2.2));
+    n = pow(pow(max(c, 0.0), vec3(2.2)) * (1.0 + (h - 1.0) * t), vec3(1.0 / 2.2));
+  }
   float sm = 1.0 + (p.y - 1.0) * k;
   float l2 = luma(n);
   n = vec3(l2) + (n - vec3(l2)) * sm;
-  return n * (1.0 + (p.z - 1.0) * k);
+  float e = (p.z - 1.0) * k;
+  return vec3(lift(n.r, e), lift(n.g, e), lift(n.b, e));
 }
 vec3 grade(vec3 c, vec4 bands, vec3 tint[4], vec3 p[4]){
   float l0 = luma(c);

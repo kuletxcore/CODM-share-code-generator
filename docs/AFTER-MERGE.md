@@ -150,6 +150,26 @@ The five ideas [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred) deferred are now on
 
 Checked with `npm run check` (32 tests, including the hash format, the stored-codes cleanup and unique look slugs), `npm run build` (20 look pages), and Chromium at 390 and 1440 wide: the dock stays off the first screen, the pinned grade lands on the left of the wipe on both the GPU and the CPU path, and a look page's Customize and Needs tweaking open the generator on that code.
 
+## 7. Calibrating the preview
+
+In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting:
+
+| Test | Game | Old preview | Now |
+|---|---|---|---|
+| Simple Red, Tint 50 (plus Midtones Saturation 0), Firing Range sky | 158 106 109 | 255 76 76 | 152 110 110 |
+| Simple Red, Tint 100, Nuketown | red kept, green and blue at about 5 | red clipped | red kept, green and blue at 0 |
+| Simple Blue, Tint 50, Nuketown mid-greys | 101 111 133 | | 107 106 133 |
+| Simple Brightness 100, Nuketown darks / mids / lights | 98 / 184 / 232 | 2× gain, clipped | 91 / 181 / 234 |
+
+What the game does, and the preview now does:
+- **Tint** multiplies the colour by the hue colour in linear light, weighted by Tint/100. Red 100 leaves red alone and takes green and blue to zero; Tint 50 scales the other channels to about 0.73. The old preview pushed towards the hue while holding luminance fixed, which for red means boosting red more than four times.
+- **Saturation 0** gives full grey, as before.
+- **Brightness 100** lifts each channel along `1 − (1 − x)^1.5` instead of doubling it. Below 50 the preview uses the mirror curve, `x^1.5` at 0, which has not been checked in game yet.
+
+The screen-test analyser inverts the same maths, so a known tint or brightness reads back (a Red 30 tint reads 27, Brightness 80 reads 80).
+
+The looks derived from footage were tuned against the old preview, so in game they are several times too faint. Re-deriving them is the next step.
+
 ## Checks
 
 Every change above was checked with:
