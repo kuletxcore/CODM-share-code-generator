@@ -178,7 +178,8 @@ const luma = (r: number, g: number, b: number) =>
  *   or Highlights tint also darkens (`zoneDim`); the Simple tab does not.
  * - Saturation 0 is grey; 100 scales colour by about 1.75, not 2. It runs
  *   before the tint, so Saturation 0 with a tint gives a tinted grey.
- * - Brightness is an exposure gain: 0 is black, 75 about 1.9x, 100 about 2.4x.
+ * - Brightness is an exposure gain: 0 is black, 25 about 0.34x, 75 about 1.9x,
+ *   100 about 2.4x (3.3x on the Shadows tab).
  * - The Range handles are positions in linear light. Shadows fade out between
  *   the shadows handle and its falloff; highlights fade in between the
  *   highlights handle and its falloff, so the default range (1000, 1500) puts
@@ -188,8 +189,10 @@ const GAMMA = 2.2;
 const INV_GAMMA = 1 / GAMMA;
 const SAT_TOP = 1.75;
 const BRI_TOP = 2.4;
-/** Below 50 brightness falls to black along this power; above it rises faster. */
-const BRI_POWER = Math.log2(BRI_TOP);
+/** Shadows Brightness pushes harder: about 3.3x in the darks at 100. */
+const SHADOW_BRI_TOP = 3.3;
+/** Below 50 brightness falls to black along this power (Brightness 25 is about 0.34x). */
+const BRI_POWER = 1.56;
 
 /**
  * The swatch colours as the game applies them (display values), measured from
@@ -240,16 +243,25 @@ export const satGain = (sat: number) => {
   const x = clamp(sat / 50, 0, 2);
   return x <= 1 ? x : 1 + (x - 1) * (SAT_TOP - 1);
 };
-/** Brightness 0..100 to an exposure gain: 0 is black, 75 about 1.9, 100 about 2.4. */
-export const briGain = (bri: number) => {
+/** Brightness 0..100 to an exposure gain: 0 is black, 25 about 0.34, 75 about 1.9, 100 `top`. */
+export const briGain = (bri: number, top = BRI_TOP) => {
   const x = clamp(bri / 50, 0, 2);
-  return x <= 1 ? x ** BRI_POWER : 1 + (BRI_TOP - 1) * Math.sqrt(x - 1);
+  return x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * Math.sqrt(x - 1);
 };
+/** `briGain` inverted. */
+const briFromGain = (gain: number, top = BRI_TOP) =>
+  50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + ((gain - 1) / (top - 1)) ** 2);
+
 /**
  * The extra darkening a Shadows, Midtones or Highlights tint brings (the
- * Simple tab has none): red keeps 0.54 at Tint 50 and 0.17 at 100.
+ * Simple tab has none). Dark colours darken most: at Tint 100 Red keeps about
+ * 0.17 and Cyan about 0.78, so it follows the swatch's own luminance.
  */
-export const zoneDim = (tint: number) => 1 - 0.83 * clamp(tint / 100, 0, 1) ** 0.85;
+export const zoneDim = (tint: number, hue: number) => {
+  const c = gameHue(hue);
+  const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
+  return 1 - (1 - full) * clamp(tint / 100, 0, 1) ** 0.85;
+};
 
 // Luminance bands (display luma) used by both the preview and the analyser.
 type Bands = { s0: number; s1: number; h0: number; h1: number };
@@ -319,10 +331,10 @@ export function gradePlan(s: Settings): GradePlan {
   for (let z = 0; z < 4; z++) {
     const zone = zs[z];
     tint.set(zoneTint(zone.hue), z * 3);
-    dim[z] = z === 3 ? 1 : zoneDim(zone.tint);
+    dim[z] = z === 3 ? 1 : zoneDim(zone.tint, zone.hue);
     amount[z] = tintWeight(zone.tint);
     sat[z] = satGain(zone.sat);
-    bri[z] = briGain(zone.bri);
+    bri[z] = briGain(zone.bri, z === 0 ? SHADOW_BRI_TOP : BRI_TOP);
     live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
   }
   return {
@@ -483,7 +495,7 @@ export function analyse(
       return v.map((c) => c / l);
     };
     const want = balance(to);
-    const tinted = (tint: number) => from.map((c, j) => c * (1 + (h[j] - 1) * tintWeight(tint)) * zoneDim(tint));
+    const tinted = (tint: number) => from.map((c, j) => c * (1 + (h[j] - 1) * tintWeight(tint)) * zoneDim(tint, hue));
     let best = 0,
       bestErr = Infinity;
     for (let tint = 0; tint <= 100; tint++) {
@@ -495,9 +507,7 @@ export function analyse(
     const tint = b ? best : best * 0.5;
     const lit = tinted(tint);
     const gain = luma(to[0], to[1], to[2]) / (luma(lit[0], lit[1], lit[2]) || 1e-6);
-    // briGain inverted
-    const x = gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + ((gain - 1) / (BRI_TOP - 1)) ** 2;
-    const bri = clamp(50 * x, 15, 85);
+    const bri = clamp(briFromGain(gain, i === 0 ? SHADOW_BRI_TOP : BRI_TOP), 15, 85);
     s.zones[k] = {
       hue: Math.round(hue),
       tint: Math.round(tint),

@@ -152,14 +152,14 @@ Checked with `npm run check` (32 tests, including the hash format, the stored-co
 
 ## 7. Calibrating the preview
 
-In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting: Firing Range, Nuketown, a set in `pics/` taken on an Oppo F11 at Low graphics, and a second set in `pics/Batch 2/` taken in the Practice Range on an Infinix GT50 Pro at Max graphics.
+In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting: Firing Range, Nuketown, a set in `pics/` taken on an Oppo F11 at Low graphics, and a second set in `pics/Batch 2/` taken in the Practice Range on an Infinix GT50 Pro at Max graphics, and a third in `pics/F11 Low/` (Practice Range, F11 at Low, camera held still, plus Brightness 25 and Saturation 25 on the Infinix in `Extras/`).
 
 What the game does, and the preview now does:
 - **It grades in linear HDR light before a tone map.** Undoing a Reinhard-style tone map (`v = l / (1 − l)` on linear light) turns every test into simple gains that hold from darks to near-white. This is why effects fade near white.
 - **Tint multiplies by the swatch colour.** Its weight is `1 − (1 − tint/100)^1.5`: 0.33 at Tint 25, 0.65 at 50, 1 at 100. Simple Red 100 keeps red and takes green and blue to zero. The swatches are not a plain hue wheel: measured at Tint 100, their second channel is stronger (Orange 1, 0.84, 0; Lime 0.59, 1, 0; Green 0, 1, 0.42; Cyan 0, 0.91, 1; Blue 0, 0.35, 1; Purple 0.54, 0, 1; Magenta 1, 0, 0.92), and the Hue slider blends towards the next swatch.
-- **A Shadows, Midtones or Highlights tint darkens too.** On top of the same colour shift as the Simple tab, red keeps about 0.54 at Tint 50 and 0.17 at 100 (the Simple tab keeps all of it). This is why creator looks raise zone brightness above 50. Only red has been measured; other hues may darken differently.
+- **A Shadows, Midtones or Highlights tint darkens too.** On top of the same colour shift as the Simple tab, red keeps about 0.54 at Tint 50 and 0.17 at 100 (the Simple tab keeps all of it). Bright colours darken less: Cyan 100 keeps about 0.78, so the preview scales the darkening by the swatch's own luminance. This is why creator looks raise zone brightness above 50.
 - **Saturation runs before the tint.** Saturation 0 with Red 25 gives a red-tinted grey. Saturation 100 scales colour by about 1.75.
-- **Brightness is exposure.** 0 is black, 75 is a gain of about 1.9, 100 about 2.4.
+- **Brightness is exposure.** 0 is black, 25 is a gain of about 0.34, 75 about 1.9, 100 about 2.4. Shadows Brightness 100 is stronger, about 3.3 in the darks.
 - **The Range handles are positions in linear light.** With the default range, shadows fade out between display luminance 0.2 and 0.58. Highlights fade *in* from the highlights handle to its falloff, so on the default range (1000, 1500) Highlights changes nothing: the F11 Highlights Red 100 shot is identical to the default. Most creator codes keep the default range, so their Highlights settings do nothing in game.
 
 Mean error per pixel, preview against game (0–255), with "no change" as the baseline:
@@ -190,9 +190,24 @@ The Infinix set was compared by percentiles of the same region, because the came
 | Shadows Brightness 100 | 24.3 | 9.9 |
 | Midtones Red 100 | 31.5 | 14.7 |
 
+The third set, with the camera held still, compared pixel by pixel (mean error per channel, 0–255):
+
+| F11 Low, Practice Range | No change | Now |
+|---|---|---|
+| Shadows Red 100, shadows handle at about 470 | 47.6 | 3.5 |
+| Shadows Brightness 100 | 24.0 | 5.2 |
+| Midtones Cyan 100 | 8.2 | 4.2 |
+| Midtones Red 24 | 3.8 | 2.1 |
+| Simple Brightness 25 | 22.8 | 4.2 |
+| Simple Saturation 25 | 2.9 | 2.0 |
+| Kith, imported | 26.4 | 7.4 |
+| Infinix: Simple Brightness 25 / Saturation 25 | 25.1 / 3.8 | 3.9 / 2.7 |
+
+The handle positions were read off the Range bar in the screenshots, with each falloff at handle + 100 as the game writes it once a handle moves.
+
 The same model fits both phones and both quality settings, so the preview needs no per-device setting. Midtones Red 100 looked weak on the Infinix only because the Practice Range scene is dark: most of it sits in Shadows.
 
-Known gaps: the shadows-to-midtones handover sits a little lower in game, and Shadows Brightness 100 reaches further into the midtones than the preview's band; Brightness 100 lifts deep shadows a little more; zone darkening is measured for red only.
+Known gaps: with the highlights handle moved to about 490, the game tinted only a narrow band of bright, not-quite-white pixels and left white alone, where the preview tints everything above the handle; the Highlights band shape is still a guess (on the default range it is empty either way). Zone darkening is measured for red and cyan only.
 
 The screen-test analyser runs the same model forward, so a known midtones tint or brightness reads back exactly.
 

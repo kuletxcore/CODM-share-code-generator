@@ -62,15 +62,20 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
       b = swatches[(Math.floor(x) + 1) % 8];
     return a.map((c, j) => (c + (b[j] - c) * (x - Math.floor(x))) ** 2.2);
   });
-  const dim = zs.map((z, i) => (i === 3 ? 1 : 1 - 0.83 * clamp(z.tint / 100, 0, 1) ** 0.85));
+  const dim = zs.map((z, i) => {
+    if (i === 3) return 1;
+    const c = colour[i];
+    const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
+    return 1 - (1 - full) * clamp(z.tint / 100, 0, 1) ** 0.85;
+  });
   const weight = zs.map((z) => 1 - (1 - clamp(z.tint / 100, 0, 1)) ** 1.5);
   const satGain = zs.map((z) => {
     const x = clamp(z.sat / 50, 0, 2);
     return x <= 1 ? x : 1 + (x - 1) * 0.75;
   });
-  const exposure = zs.map((z) => {
+  const exposure = zs.map((z, i) => {
     const x = clamp(z.bri / 50, 0, 2);
-    return x <= 1 ? x ** Math.log2(2.4) : 1 + 1.4 * Math.sqrt(x - 1);
+    return x <= 1 ? x ** 1.56 : 1 + (i === 0 ? 2.3 : 1.4) * Math.sqrt(x - 1);
   });
   const neutral = weight.every((w, i) => w === 0 && satGain[i] === 1 && exposure[i] === 1);
   if (neutral) return;
