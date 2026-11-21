@@ -6,6 +6,7 @@ import {
   analyse,
   extractCode,
   LOOKS,
+  lookSlug,
   PRESETS,
   decode,
   defaultSettings,
@@ -209,4 +210,12 @@ test("an in-game code with every slider at 100 decodes to the top of each range"
     assert.deepEqual(hueParts(zone.hue, 0), { swatch: 0, pos: 100 }, k);
     assert.deepEqual([zone.tint, zone.sat, zone.bri], [100, 100, 100], k);
   }
+});
+
+test("every look has its own non-empty slug", () => {
+  const slugs = LOOKS.map(lookSlug);
+  assert.ok(slugs.every((s) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s)), slugs.join(" "));
+  assert.equal(new Set(slugs).size, slugs.length);
+  assert.equal(lookSlug({ name: "MW2019 (HunterRafi)" }), "mw2019-hunterrafi");
+  assert.equal(lookSlug({ name: "Haven's Hollow" }), "havens-hollow");
 });

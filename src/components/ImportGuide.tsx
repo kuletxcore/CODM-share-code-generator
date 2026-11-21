@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { addRecent } from "@/lib/myCodes";
 
 const EVENT = "codm:copied";
 const OFF_KEY = "codm-guide-off";
@@ -10,6 +11,8 @@ type Copied = { code: string; name?: string; note?: string; image?: string; sour
 
 /** Call after a share code lands on the clipboard; opens the import guide. */
 export function announceCopy(code: string, name?: string, extra: Omit<Copied, "code" | "name"> = {}) {
+  // every copy on the site passes through here, so this is the one place recents are written
+  if (!extra.blocked) addRecent(code, name);
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { code, name, ...extra } }));
 }
 
@@ -107,7 +110,12 @@ const readOff = () => {
  * CODM. Steps can be ticked off; the code can be copied again. Visitors who
  * know the way can switch it to a short toast.
  */
-export default function ImportGuide() {
+export default function ImportGuide({
+  onTweak,
+}: {
+  /** "Needs tweaking": reopen the editor on this code, pinned as the reference. */
+  onTweak?: (code: string, name?: string) => void;
+}) {
   const [open, setOpen] = useState<Copied | null>(null);
   const [toast, setToast] = useState<Copied | null>(null);
   const [card, setCard] = useState<"idle" | "busy" | "shared" | "saved" | "cancelled" | "failed">("idle");
@@ -176,7 +184,7 @@ export default function ImportGuide() {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-40 max-h-[80svh] overflow-y-auto border-t-2 border-codm bg-ink/95 px-4 pb-5 pt-4 shadow-[0_-20px_60px_rgba(0,0,0,0.6)] sm:inset-x-auto sm:bottom-28 sm:right-6 sm:w-[400px] sm:border-2 sm:pb-4 lg:bottom-24"
+            className="fixed inset-x-0 bottom-0 z-40 max-h-[80svh] overflow-y-auto border-t-2 border-codm bg-ink/95 px-4 pb-5 pt-4 shadow-[0_-20px_60px_rgba(0,0,0,0.6)] sm:inset-x-auto sm:bottom-20 sm:right-6 sm:w-[400px] sm:border-2 sm:pb-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -284,7 +292,7 @@ export default function ImportGuide() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-mute">
                 <input
                   type="checkbox"
@@ -294,12 +302,28 @@ export default function ImportGuide() {
                 />
                 Skip the steps next time
               </label>
+              <div className="ml-auto flex gap-1">
+              {onTweak && (
+                <button
+                  onClick={() => {
+                    const { code, name } = open;
+                    // closing hands focus back to the opener first; the editor scroll follows
+                    setOpen(null);
+                    onTweak(code, name);
+                  }}
+                  title="Open this code in the editor, pinned beside your changes"
+                  className="min-h-11 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
+                >
+                  Needs tweaking
+                </button>
+              )}
               <button
                 onClick={() => setOpen(null)}
                 className="cut-sm min-h-11 bg-codm px-5 font-display text-base font-extrabold uppercase tracking-wider text-black hover:bg-codm-light"
               >
                 Done
               </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -312,7 +336,7 @@ export default function ImportGuide() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="cut fixed inset-x-4 bottom-36 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3 lg:bottom-24"
+            className="cut fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between gap-3 border border-codm bg-ink/95 px-4 py-3"
           >
             <span className="font-display text-base font-extrabold uppercase tracking-wide text-codm">
               {toast.blocked ? "Copy blocked" : "Code copied"}

@@ -136,6 +136,20 @@ These use the same method as 2035 and Avalon: per-video medians of the zone anal
 
 **New chips.** `GAMES` gained **CODM**, **MWIII** and **Black Ops 6**.
 
+## 6. The deferred list, built
+
+The five ideas [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred) deferred are now on the site. Each was rewritten, not ported, because every branch version had a bug noted at the time.
+
+| Idea (branch) | What shipped | What changed from the branch |
+|---|---|---|
+| Recent and favourite codes (35a5bc8c, 5a181f54) | **Your codes**: the last 8 copied codes and up to 30 saved ones, under the editor, with Load, Copy, Rename and Remove | A recent entry is written once per copy, in the one function every copy passes through, never on a slider tick. Saving keeps the look's name, and Rename keeps the old name if the new one is blank. Entries are re-checked with the strict codec when read back, and other tabs stay in step. |
+| A page per look (4d4b3931) | `/look/<slug>` for every look except Default, plus `/sitemap.xml` | The page shows the values as the game's Customize Color screens show them, not raw code slots. A look without its own still is previewed on a CODM scene, labelled as such, and its link preview uses the site card, never another look's image. Copy opens the same import guide. |
+| Code bar that docks (fae6c3f0) | The share-code bar now sits at the top of the editor; a short bar with the code and Copy docks to the bottom only while the editor is on screen and that bar is not | The first phone screen no longer loses about 120px to a bar showing the default code under a gallery that has its own Copy. A shared link or QR hand-off now opens on the editor, where its code is. |
+| "Needs tweaking" (5a181f54) | A button in the import guide that reopens the copied code in the editor, pinned | The branch's wipe clipped the wrong side. Here the pinned grade is drawn left of the divider by the same shader and CPU path as the original was, checked on both. |
+| Duel links (9a3eb115) | **Pin this grade** plus **Copy compare link** (`#c=<code>&p=<pinned>`) | A separate duel view would have duplicated the preview. Pinning gives the same comparison inside the generator, including on a screen test, and the hash keeps it shareable. |
+
+Checked with `npm run check` (32 tests, including the hash format, the stored-codes cleanup and unique look slugs), `npm run build` (20 look pages), and Chromium at 390 and 1440 wide: the dock stays off the first screen, the pinned grade lands on the left of the wipe on both the GPU and the CPU path, and a look page's Customize and Needs tweaking open the generator on that code.
+
 ## Checks
 
 Every change above was checked with:
@@ -150,4 +164,3 @@ GitHub CI and the Cloudflare preview build passed on each push. All downloaded v
 - **Test on a phone.** Try the scene picker and the screen test on the [preview](https://claude-merge-codm.kuletxcore.workers.dev), then import one creator look in CODM and compare.
 - **Find the handle's real maximum.** Importing a code with the highlights handle at a very large value would show whether the game clamps it or refuses the code.
 - **A card for Serotonin.** His video is 360p; a clean screenshot of the look in game would give it a card.
-- **The deferred list** in [ARENA-MERGE-2.md](ARENA-MERGE-2.md#deferred): recent and favourite codes, per-look pages, a docking code bar, "Needs tweaking" and duel links.

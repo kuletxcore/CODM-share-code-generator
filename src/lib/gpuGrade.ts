@@ -23,6 +23,11 @@ uniform sampler2D uTex;
 uniform vec4 uBands;
 uniform vec3 uTint[4];
 uniform vec3 uP[4];
+// the pinned grade, drawn left of the divider instead of the original
+uniform float uPin;
+uniform vec4 uBandsB;
+uniform vec3 uTintB[4];
+uniform vec3 uPB[4];
 uniform vec2 uSize;
 uniform float uSplitX;
 
@@ -43,6 +48,17 @@ vec3 zone(vec3 c, vec3 tint, vec3 p, float k){
   n = vec3(l2) + (n - vec3(l2)) * sm;
   return n * (1.0 + (p.z - 1.0) * k);
 }
+vec3 grade(vec3 c, vec4 bands, vec3 tint[4], vec3 p[4]){
+  float l0 = luma(c);
+  float ws = 1.0 - smoothB(bands.x, bands.y, l0);
+  float wh = smoothB(bands.z, bands.w, l0) * (1.0 - ws);
+  float wm = max(0.0, 1.0 - ws - wh);
+  c = zone(c, tint[0], p[0], ws);
+  c = zone(c, tint[1], p[1], wm);
+  c = zone(c, tint[2], p[2], wh);
+  c = zone(c, tint[3], p[3], 1.0);
+  return clamp(c, 0.0, 1.0);
+}
 void main(){
   vec3 c = texture2D(uTex, vUv).rgb;
   float col = floor(vUv.x * uSize.x);
@@ -50,21 +66,17 @@ void main(){
     gl_FragColor = vec4(1.0, 234.0 / 255.0, 59.0 / 255.0, 1.0);
     return;
   }
-  if (col < uSplitX) { gl_FragColor = vec4(c, 1.0); return; }
-  float l0 = luma(c);
-  float ws = 1.0 - smoothB(uBands.x, uBands.y, l0);
-  float wh = smoothB(uBands.z, uBands.w, l0) * (1.0 - ws);
-  float wm = max(0.0, 1.0 - ws - wh);
-  c = zone(c, uTint[0], uP[0], ws);
-  c = zone(c, uTint[1], uP[1], wm);
-  c = zone(c, uTint[2], uP[2], wh);
-  c = zone(c, uTint[3], uP[3], 1.0);
-  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+  if (col < uSplitX) {
+    gl_FragColor = vec4(uPin > 0.5 ? grade(c, uBandsB, uTintB, uPB) : c, 1.0);
+    return;
+  }
+  gl_FragColor = vec4(grade(c, uBands, uTint, uP), 1.0);
 }`;
 
 export type GradeGpu = {
   setSource: (src: HTMLCanvasElement) => void;
-  render: (s: Settings, split: number) => void;
+  /** Grades with `s`; left of `split` shows the original, or the `pin` grade when given. */
+  render: (s: Settings, split: number, pin?: Settings | null) => void;
   dispose: () => void;
 };
 
@@ -111,7 +123,11 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uTint = u("uTint"),
     uP = u("uP"),
     uSize = u("uSize"),
-    uSplitX = u("uSplitX");
+    uSplitX = u("uSplitX"),
+    uPin = u("uPin"),
+    uBandsB = u("uBandsB"),
+    uTintB = u("uTintB"),
+    uPB = u("uPB");
   let w = 1,
     h = 1;
 
@@ -122,11 +138,18 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.viewport(0, 0, w, h);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     },
-    render(s, split) {
+    render(s, split, pin) {
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
       gl.uniform3fv(uP, g.params);
+      gl.uniform1f(uPin, pin ? 1 : 0);
+      if (pin) {
+        const b = gradeUniforms(pin);
+        gl.uniform4fv(uBandsB, b.bands);
+        gl.uniform3fv(uTintB, b.tint);
+        gl.uniform3fv(uPB, b.params);
+      }
       gl.uniform2f(uSize, w, h);
       // same rounding as the CPU compositor: original left of round(w * split)
       gl.uniform1f(uSplitX, Math.min(w, Math.round(w * split)));

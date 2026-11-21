@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { GAMES, LOOKS, applyGrade, decode, drawSample, type Game, type Look } from "@/lib/codm";
+import Link from "next/link";
+import { DEFAULT_CODE, GAMES, LOOKS, applyGrade, decode, drawSample, lookSlug, type Game, type Look } from "@/lib/codm";
 import { announceCopy, copyText } from "@/components/ImportGuide";
 import { useScreenTest } from "@/components/ScreenTest";
 import ShotFrame from "@/components/ShotFrame";
@@ -47,7 +48,7 @@ function gradedImage(code: string): Promise<ImageData> | null {
 }
 
 /** Preview for looks without a reference image: the 3D scene with the look applied. */
-function RenderedThumb({ code }: { code: string }) {
+export function RenderedThumb({ code }: { code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     let live = true;
@@ -239,6 +240,14 @@ export default function LooksGallery({ onEdit }: { onEdit: (code: string) => voi
               {look.name}
             </h3>
             <p className="mt-2 max-w-md text-sm text-text/90 sm:text-base">{look.note}</p>
+            {look.code !== DEFAULT_CODE && (
+              <Link
+                href={`/look/${lookSlug(look)}`}
+                className="mt-1 inline-flex min-h-11 items-center font-display text-sm font-bold uppercase tracking-wider text-mute underline-offset-4 hover:text-text hover:underline"
+              >
+                Look page and values →
+              </Link>
+            )}
           </motion.div>
           <div className="flex max-w-md gap-1">
             <button

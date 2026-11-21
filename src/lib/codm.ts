@@ -518,6 +518,15 @@ export type Look = {
   game?: Game;
 };
 
+/** URL slug for a look's own page, from its name ("MW2019 (HunterRafi)" becomes "mw2019-hunterrafi"). */
+export const lookSlug = (look: Pick<Look, "name">) =>
+  look.name
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
 export const GAMES = ["MW4", "Black Ops 7", "Black Ops 6", "MWIII", "MWII", "Vanguard", "MW 2019", "Cold War", "CODM"] as const;
 export type Game = (typeof GAMES)[number];
 
@@ -781,3 +790,6 @@ export const LOOKS: Look[] = [
     code: DEFAULT_CODE,
   },
 ];
+
+/** Looks with a page at /look/<slug>: all but the in-game default, which is the reset code. */
+export const PAGE_LOOKS = LOOKS.filter((l) => l.code !== DEFAULT_CODE);
