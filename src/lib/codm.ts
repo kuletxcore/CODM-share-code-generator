@@ -757,10 +757,12 @@ export const LOOKS: Look[] = [
     // in-game replication of the settings the video shows: Shadows Cyan 90 /
     // Tint 5 / Sat 65 / Bri 100, Midtones Red 10 / Tint 1 / 65 / 80 (he raises
     // the tint only to show the reddish cast it gives, and says to keep it at
-    // 1), Highlights Orange 0 /
-    // Tint 1 / 30 / 50. His narration (the video's captions) states each of
-    // these values, and that highlight hue and tint are left untouched. A code a viewer (@WisdomSlaps) posted under the video
-    // shows the same numbers in game, apart from a Red highlights swatch.
+    // 1), Highlights Orange 0 / Tint 1 / 30 / 50. His narration (the video's
+    // hardcoded subtitles) states each of these values and calls the
+    // highlights swatch "yellow", the game's Orange, with the hue slider and
+    // tint untouched. A code a viewer (@WisdomSlaps) posted under the video
+    // shows the same numbers apart from a Red highlights swatch; the owner
+    // tested both in game and kept this one.
     // The card is a "Setting: ON" frame from the video.
     name: "Kith",
     game: "CODM",
