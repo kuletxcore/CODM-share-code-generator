@@ -173,13 +173,12 @@ const luma = (r: number, g: number, b: number) =>
  * The grade, fitted to in-game before/after screenshots (docs/AFTER-MERGE.md,
  * "Calibrating the preview"). The game grades in linear HDR light before a
  * Reinhard-style tone map, which is why every effect fades near white:
- * - Tint multiplies by the hue colour. Its weight rises as 1 - (1 - t)^1.5
- *   (Tint 25 weighs 0.33, 50 weighs 0.65). A Shadows, Midtones or Highlights
- *   tint also darkens: at Red 100 those tabs keep only 0.16 of the red channel,
- *   where the Simple tab keeps all of it.
+ * - Tint multiplies by the swatch colour (`gameHue`). Its weight rises as
+ *   1 - (1 - t)^1.5 (Tint 25 weighs 0.33, 50 weighs 0.65). A Shadows, Midtones
+ *   or Highlights tint also darkens (`zoneDim`); the Simple tab does not.
  * - Saturation 0 is grey; 100 scales colour by about 1.75, not 2. It runs
  *   before the tint, so Saturation 0 with a tint gives a tinted grey.
- * - Brightness is an exposure gain: 0 is black, 100 is about 2.4x.
+ * - Brightness is an exposure gain: 0 is black, 75 about 1.9x, 100 about 2.4x.
  * - The Range handles are positions in linear light. Shadows fade out between
  *   the shadows handle and its falloff; highlights fade in between the
  *   highlights handle and its falloff, so the default range (1000, 1500) puts
@@ -187,11 +186,36 @@ const luma = (r: number, g: number, b: number) =>
  */
 const GAMMA = 2.2;
 const INV_GAMMA = 1 / GAMMA;
-/** How much of the hue colour a Shadows, Midtones or Highlights tint keeps. */
-const ZONE_TINT_LEVEL = 0.16;
 const SAT_TOP = 1.75;
 const BRI_TOP = 2.4;
+/** Below 50 brightness falls to black along this power; above it rises faster. */
 const BRI_POWER = Math.log2(BRI_TOP);
+
+/**
+ * The swatch colours as the game applies them (display values), measured from
+ * Tint 100 on each swatch: their second channel is stronger than a plain hue
+ * wheel's. The Hue slider moves from one swatch towards the next.
+ */
+const SWATCHES: [number, number, number][] = [
+  [1, 0, 0],
+  [1, 0.84, 0],
+  [0.59, 1, 0],
+  [0, 1, 0.42],
+  [0, 0.91, 1],
+  [0, 0.35, 1],
+  [0.54, 0, 1],
+  [1, 0, 0.92],
+];
+
+/** A hue in degrees to the colour the game multiplies by, in linear light. */
+export function gameHue(h: number): [number, number, number] {
+  const x = ((((h % 360) + 360) % 360) / 45) % 8;
+  const i = Math.floor(x),
+    f = x - i;
+  const a = SWATCHES[i],
+    b = SWATCHES[(i + 1) % 8];
+  return [0, 1, 2].map((c) => (a[c] + (b[c] - a[c]) * f) ** GAMMA) as [number, number, number];
+}
 /** Display values above this would map to infinite light; 0.999 is ~500x. */
 const WHITE = 0.999;
 
@@ -216,8 +240,16 @@ export const satGain = (sat: number) => {
   const x = clamp(sat / 50, 0, 2);
   return x <= 1 ? x : 1 + (x - 1) * (SAT_TOP - 1);
 };
-/** Brightness 0..100 to an exposure gain. */
-export const briGain = (bri: number) => clamp(bri / 50, 0, 2) ** BRI_POWER;
+/** Brightness 0..100 to an exposure gain: 0 is black, 75 about 1.9, 100 about 2.4. */
+export const briGain = (bri: number) => {
+  const x = clamp(bri / 50, 0, 2);
+  return x <= 1 ? x ** BRI_POWER : 1 + (BRI_TOP - 1) * Math.sqrt(x - 1);
+};
+/**
+ * The extra darkening a Shadows, Midtones or Highlights tint brings (the
+ * Simple tab has none): red keeps 0.54 at Tint 50 and 0.17 at 100.
+ */
+export const zoneDim = (tint: number) => 1 - 0.83 * clamp(tint / 100, 0, 1) ** 0.85;
 
 // Luminance bands (display luma) used by both the preview and the analyser.
 type Bands = { s0: number; s1: number; h0: number; h1: number };
@@ -252,6 +284,8 @@ export type GradePlan = {
   h1: number;
   /** The colour each zone multiplies by at full weight, in linear light. */
   tint: Float64Array;
+  /** Extra exposure from a zone tint (1 for the Simple group). */
+  dim: Float64Array;
   /** Tint weight 0..1 per zone (`tintWeight`). */
   amount: Float64Array;
   /** Saturation gain per zone. */
@@ -269,9 +303,8 @@ function zoneList(s: Settings) {
   return [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
 }
 
-function zoneTint(hue: number, z: number) {
-  const level = z === 3 ? 1 : ZONE_TINT_LEVEL;
-  return hueToRgb(hue).map((c) => c ** GAMMA * level);
+function zoneTint(hue: number) {
+  return gameHue(hue);
 }
 
 export function gradePlan(s: Settings): GradePlan {
@@ -282,9 +315,11 @@ export function gradePlan(s: Settings): GradePlan {
   const sat = new Float64Array(4);
   const bri = new Float64Array(4);
   const live = new Uint8Array(4);
+  const dim = new Float64Array(4);
   for (let z = 0; z < 4; z++) {
     const zone = zs[z];
-    tint.set(zoneTint(zone.hue, z), z * 3);
+    tint.set(zoneTint(zone.hue), z * 3);
+    dim[z] = z === 3 ? 1 : zoneDim(zone.tint);
     amount[z] = tintWeight(zone.tint);
     sat[z] = satGain(zone.sat);
     bri[z] = briGain(zone.bri);
@@ -293,6 +328,7 @@ export function gradePlan(s: Settings): GradePlan {
   return {
     ...b,
     tint,
+    dim,
     amount,
     sat,
     bri,
@@ -315,7 +351,7 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
   // what makes "no filter" free instead of a full-frame pass.
   if (plan.neutral) return;
 
-  const { s0, s1, h0, h1, tint, amount, sat, bri, live } = plan;
+  const { s0, s1, h0, h1, tint, dim, amount, sat, bri, live } = plan;
   const allLive = live[0] && live[1] && live[2] && live[3];
 
   for (let i = 0; i < data.length; i += 4) {
@@ -340,7 +376,7 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
       g = Math.max(0, l + (g - l) * sm);
       b = Math.max(0, l + (b - l) * sm);
       const t = amount[z] * k;
-      const e = 1 + (bri[z] - 1) * k;
+      const e = (1 + (bri[z] - 1) * k) * (1 + (dim[z] - 1) * k);
       const p = z * 3;
       r *= (1 + (tint[p] - 1) * t) * e;
       g *= (1 + (tint[p + 1] - 1) * t) * e;
@@ -358,7 +394,7 @@ export function gradeUniforms(s: Settings) {
   return {
     bands: [p.s0, p.s1, p.h0, p.h1],
     tint: Array.from(p.tint),
-    params: [0, 1, 2, 3].flatMap((z) => [p.amount[z], p.sat[z], p.bri[z]]),
+    params: [0, 1, 2, 3].flatMap((z) => [p.amount[z], p.sat[z], p.bri[z], p.dim[z]]),
   };
 }
 
@@ -441,13 +477,13 @@ export function analyse(
     // that matches its brightness after that tint's own darkening.
     const from = (b ? [b[i].r, b[i].g, b[i].b] : [refL, refL, refL]).map(toLight);
     const to = [t[i].r, t[i].g, t[i].b].map(toLight);
-    const h = zoneTint(hue, i);
+    const h = zoneTint(hue);
     const balance = (v: number[]) => {
       const l = luma(v[0], v[1], v[2]) || 1e-6;
       return v.map((c) => c / l);
     };
     const want = balance(to);
-    const tinted = (tint: number) => from.map((c, j) => c * (1 + (h[j] - 1) * tintWeight(tint)));
+    const tinted = (tint: number) => from.map((c, j) => c * (1 + (h[j] - 1) * tintWeight(tint)) * zoneDim(tint));
     let best = 0,
       bestErr = Infinity;
     for (let tint = 0; tint <= 100; tint++) {
@@ -459,7 +495,9 @@ export function analyse(
     const tint = b ? best : best * 0.5;
     const lit = tinted(tint);
     const gain = luma(to[0], to[1], to[2]) / (luma(lit[0], lit[1], lit[2]) || 1e-6);
-    const bri = clamp(50 * gain ** (1 / BRI_POWER), 15, 85);
+    // briGain inverted
+    const x = gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + ((gain - 1) / (BRI_TOP - 1)) ** 2;
+    const bri = clamp(50 * x, 15, 85);
     s.zones[k] = {
       hue: Math.round(hue),
       tint: Math.round(tint),

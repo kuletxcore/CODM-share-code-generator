@@ -34,14 +34,6 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
     return t * t * (3 - 2 * t);
   };
-  const hueToRgb = (h: number): [number, number, number] => {
-    const x = (((h % 360) + 360) % 360) / 60;
-    const f = (n: number) => {
-      const k = (n + x) % 6;
-      return 1 - Math.max(0, Math.min(k, 4 - k, 1));
-    };
-    return [f(5), f(3), f(1)];
-  };
   const toLight = (x: number) => {
     const l = clamp(x, 0, 0.999) ** 2.2;
     return l / (1 - l);
@@ -53,13 +45,33 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   const h0 = at(s.highlightPos);
   const h1 = Math.max(at(s.highlightEdge), h0 + 0.02);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  const colour = zs.map((z, i) => hueToRgb(z.hue).map((c) => c ** 2.2 * (i === 3 ? 1 : 0.16)));
+  // swatch colours as the game applies them; the hue slider blends to the next
+  const swatches = [
+    [1, 0, 0],
+    [1, 0.84, 0],
+    [0.59, 1, 0],
+    [0, 1, 0.42],
+    [0, 0.91, 1],
+    [0, 0.35, 1],
+    [0.54, 0, 1],
+    [1, 0, 0.92],
+  ];
+  const colour = zs.map((z) => {
+    const x = ((((z.hue % 360) + 360) % 360) / 45) % 8;
+    const a = swatches[Math.floor(x)],
+      b = swatches[(Math.floor(x) + 1) % 8];
+    return a.map((c, j) => (c + (b[j] - c) * (x - Math.floor(x))) ** 2.2);
+  });
+  const dim = zs.map((z, i) => (i === 3 ? 1 : 1 - 0.83 * clamp(z.tint / 100, 0, 1) ** 0.85));
   const weight = zs.map((z) => 1 - (1 - clamp(z.tint / 100, 0, 1)) ** 1.5);
   const satGain = zs.map((z) => {
     const x = clamp(z.sat / 50, 0, 2);
     return x <= 1 ? x : 1 + (x - 1) * 0.75;
   });
-  const exposure = zs.map((z) => clamp(z.bri / 50, 0, 2) ** Math.log2(2.4));
+  const exposure = zs.map((z) => {
+    const x = clamp(z.bri / 50, 0, 2);
+    return x <= 1 ? x ** Math.log2(2.4) : 1 + 1.4 * Math.sqrt(x - 1);
+  });
   const neutral = weight.every((w, i) => w === 0 && satGain[i] === 1 && exposure[i] === 1);
   if (neutral) return;
   const w = [0, 0, 0, 1];
@@ -78,7 +90,7 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
       const l = luma(v[0], v[1], v[2]);
       v = v.map((c) => Math.max(0, l + (c - l) * sm));
       const t = weight[z] * k;
-      const e = 1 + (exposure[z] - 1) * k;
+      const e = (1 + (exposure[z] - 1) * k) * (1 + (dim[z] - 1) * k);
       v = v.map((c, j) => c * (1 + (colour[z][j] - 1) * t) * e);
     }
     data[i] = toDisplay(v[0]) * 255;

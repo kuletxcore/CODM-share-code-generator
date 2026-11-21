@@ -22,12 +22,12 @@ varying vec2 vUv;
 uniform sampler2D uTex;
 uniform vec4 uBands;
 uniform vec3 uTint[4];
-uniform vec3 uP[4];
+uniform vec4 uP[4];
 // the pinned grade, drawn left of the divider instead of the original
 uniform float uPin;
 uniform vec4 uBandsB;
 uniform vec3 uTintB[4];
-uniform vec3 uPB[4];
+uniform vec4 uPB[4];
 uniform vec2 uSize;
 uniform float uSplitX;
 
@@ -39,16 +39,16 @@ float smoothB(float a, float b, float x){
 }
 // Mirrors paintGrade in codm.ts: zones blend in linear HDR light, then the
 // Reinhard-style tone map brings it back. tint is already in linear light and
-// p is (tint weight, saturation gain, exposure gain).
+// p is (tint weight, saturation gain, exposure gain, zone tint darkening).
 vec3 toLight(vec3 x){ vec3 l = pow(clamp(x, 0.0, 0.999), vec3(2.2)); return l / (1.0 - l); }
 vec3 toDisplay(vec3 v){ v = max(v, 0.0); return pow(v / (1.0 + v), vec3(1.0 / 2.2)); }
-vec3 zone(vec3 v, vec3 tint, vec3 p, float k){
+vec3 zone(vec3 v, vec3 tint, vec4 p, float k){
   if (k <= 0.001) return v;
   float l = luma(v);
   v = max(vec3(l) + (v - vec3(l)) * (1.0 + (p.y - 1.0) * k), 0.0);
-  return v * (1.0 + (tint - 1.0) * (p.x * k)) * (1.0 + (p.z - 1.0) * k);
+  return v * (1.0 + (tint - 1.0) * (p.x * k)) * (1.0 + (p.z - 1.0) * k) * (1.0 + (p.w - 1.0) * k);
 }
-vec3 grade(vec3 c, vec4 bands, vec3 tint[4], vec3 p[4]){
+vec3 grade(vec3 c, vec4 bands, vec3 tint[4], vec4 p[4]){
   float l0 = luma(c);
   float ws = 1.0 - smoothB(bands.x, bands.y, l0);
   float wh = smoothB(bands.z, bands.w, l0) * (1.0 - ws);
@@ -143,13 +143,13 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       const g = gradeUniforms(s);
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
-      gl.uniform3fv(uP, g.params);
+      gl.uniform4fv(uP, g.params);
       gl.uniform1f(uPin, pin ? 1 : 0);
       if (pin) {
         const b = gradeUniforms(pin);
         gl.uniform4fv(uBandsB, b.bands);
         gl.uniform3fv(uTintB, b.tint);
-        gl.uniform3fv(uPB, b.params);
+        gl.uniform4fv(uPB, b.params);
       }
       gl.uniform2f(uSize, w, h);
       // same rounding as the CPU compositor: original left of round(w * split)
