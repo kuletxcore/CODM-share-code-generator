@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PAGE_LOOKS, SWATCH_NAMES, decode, hueParts, lookSlug, type Look, type ZoneKey } from "@/lib/codm";
-import ImportGuide, { copyCode } from "@/components/ImportGuide";
+import ImportGuide, { copyCode, copyText } from "@/components/ImportGuide";
+import { addRecent } from "@/lib/myCodes";
 import { RenderedThumb } from "@/components/LooksGallery";
 import { hashFor } from "@/lib/shareUrl";
 
@@ -67,6 +68,45 @@ function Values({ look }: { look: Look }) {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Clipboard icon beside the code: copies in one tap without opening the import
+ * guide, for visitors who already know the steps.
+ */
+function QuickCopy({ code, name }: { code: string; name: string }) {
+  const [state, setState] = useState<"" | "ok" | "failed">("");
+  return (
+    <>
+      <button
+        onClick={async () => {
+          const ok = await copyText(code);
+          if (ok) addRecent(code, name);
+          setState(ok ? "ok" : "failed");
+          setTimeout(() => setState(""), 1400);
+        }}
+        aria-label={`Copy the ${name} code`}
+        title={state === "failed" ? "Copy blocked: select the code" : "Copy code"}
+        className={`grid w-12 shrink-0 place-items-center border-l border-line transition-colors ${
+          state === "ok" ? "bg-lime/15 text-lime" : state === "failed" ? "text-mute" : "text-text hover:bg-panel-2"
+        }`}
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          {state === "ok" ? (
+            <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+          ) : (
+            <>
+              <rect x="8" y="4" width="8" height="4" rx="1" />
+              <path d="M8 6H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-2" />
+            </>
+          )}
+        </svg>
+      </button>
+      <span role="status" className="sr-only">
+        {state === "ok" ? "Code copied" : state === "failed" ? "Your browser blocked copying. Select the code and copy it." : ""}
+      </span>
+    </>
   );
 }
 
@@ -161,9 +201,10 @@ export default function LookPage({ look }: { look: Look }) {
           <h2 id="code-title" className="font-display text-sm font-bold uppercase tracking-[0.2em] text-mute">
             Share code
           </h2>
-          <code className="mt-2 block break-all border border-line bg-black/50 p-3 font-mono text-sm text-codm">
-            {look.code}
-          </code>
+          <div className="mt-2 flex items-stretch border border-line bg-black/50">
+            <code className="min-w-0 flex-1 break-all p-3 font-mono text-sm text-codm">{look.code}</code>
+            <QuickCopy code={look.code} name={look.name} />
+          </div>
           <p className="mt-2 text-sm text-mute">
             In CODM: Settings → Audio and Graphics → your mode tab → Graphic Style → Import → Go, choose a Custom slot,
             paste the code into &ldquo;Enter the Share code&rdquo; and tap Apply.
