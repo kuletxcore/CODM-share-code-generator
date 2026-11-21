@@ -205,7 +205,7 @@ The third set, with the camera held still, compared pixel by pixel (mean error p
 
 The handle positions were read off the Range bar in the screenshots, with each falloff at handle + 100 as the game writes it once a handle moves.
 
-**A real code as a final check.** A code from a Reddit post (`0_1_77_177_512_612_33_153_118_1492_0_55_-84_2000_200_297_210_866_123_97_176_490`, both Range handles moved, every group set) was tried in game on Nuketown's airport. Mean error against the game screenshot: no change 11.3, the old preview 37.8, the calibrated preview with a square-root brightness rise 14.8, and with the straight-line rise 7.2. The square-root rise had fitted the Infinix Brightness 75 shot best (2.1, against 4.1 for the straight line), but it made small brightness steps like this code's 56 and 61 far too bright, so the straight line was kept.
+**A real code as a final check.** A code from a Reddit post (`0_1_77_177_512_612_33_153_118_1492_0_55_-84_2000_200_297_210_866_123_97_176_490`, both Range handles moved, every group set) was tried in game on Terminal (the airport map from MW2). Mean error against the game screenshot: no change 11.3, the old preview 37.8, the calibrated preview with a square-root brightness rise 14.8, and with the straight-line rise 7.2. The square-root rise had fitted the Infinix Brightness 75 shot best (2.1, against 4.1 for the straight line), but it made small brightness steps like this code's 56 and 61 far too bright, so the straight line was kept.
 
 The same model fits both phones and both quality settings, so the preview needs no per-device setting. Midtones Red 100 looked weak on the Infinix only because the Practice Range scene is dark: most of it sits in Shadows.
 
