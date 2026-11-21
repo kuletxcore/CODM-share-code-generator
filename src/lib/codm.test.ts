@@ -221,3 +221,14 @@ test("every look has its own non-empty slug", () => {
   assert.equal(lookSlug({ name: "MW2019 (HunterRafi)" }), "mw2019-hunterrafi");
   assert.equal(lookSlug({ name: "Haven's Hollow" }), "havens-hollow");
 });
+
+test("every Cranked code is a valid code that differs from its look", () => {
+  const cranked = LOOKS.filter((l) => l.cranked);
+  assert.ok(cranked.length > 0);
+  for (const l of cranked) {
+    const s = decode(l.cranked!);
+    assert.ok(s, `${l.name} (Cranked) decodes`);
+    assert.equal(encode(s), l.cranked, `${l.name} (Cranked) round-trips`);
+    assert.notEqual(l.cranked, l.code, `${l.name} (Cranked) is its own code`);
+  }
+});

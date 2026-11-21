@@ -215,6 +215,33 @@ The screen-test analyser runs the same model forward, so a known midtones tint o
 
 The looks derived from footage were tuned against the old preview, so in game they are several times too faint. Re-deriving them is the next step.
 
+## 8. The footage looks, re-derived
+
+The looks measured from gameplay footage were tuned so that the earlier preview matched the footage. With the calibrated preview, those codes no longer give that result in game. Each was re-derived: the six sample scenes were graded with the earlier preview and the old code (the target), and a search found the code whose calibrated, in-game result comes closest. The search sets the Simple group, Shadows and Midtones, and keeps the default Range bar, on which Highlights changes nothing in game.
+
+The owner chose to keep both: the faithful code under the look's own name, and a **Cranked** code, named after the Call of Duty game mode, fitted to twice the difference from typical footage so the look reads clearly in game. At the owner's suggestion it sits behind a Cranked switch on the look (gallery stage and look page) rather than as a separate look.
+
+Mean error per channel (0–255) on the six sample scenes against the target. "Footage difference" is how far the target is from the untouched scene; Cranked is measured against its own, doubled target.
+
+| Look | Footage difference | Old code in game | Faithful | Cranked |
+|---|---|---|---|---|
+| Hajin | 5.7 | 7.2 | 2.6 | 4.8 |
+| Apex | 5.8 | 6.6 | 2.5 | 4.5 |
+| 2035 | 3.5 | 4.5 | 1.4 | 2.5 |
+| Avalon | 3.1 | 2.5 | 1.4 | 2.6 |
+| Haven's Hollow | 2.0 | 1.9 | 1.8 | 3.3 |
+| Haven's Hollow (Night) | 30.2 | 26.1 | 5.4 | 14.9 |
+| Black Ops 6 | 7.3 | 8.8 | 2.7 | 4.6 |
+| MWIII | 9.2 | 10.2 | 3.4 | 5.4 |
+| Al Mazrah | 3.2 | 2.9 | 1.9 | 2.5 |
+| Vondead | 9.0 | 4.4 | 2.2 | 3.7 |
+| Caldera | 3.3 | 2.6 | 0.9 | 1.6 |
+| Verdansk | 2.7 | 3.1 | 1.5 | 3.0 |
+
+- The footage differences are small, so the faithful codes stay subtle in game; that is what the footage showed. The Cranked codes are an exaggerated take, and the switch's tooltip says so.
+- Haven's Hollow (Night) is the least certain: its darkening leans on zone tint darkening for a blue hue, which has only been measured for red and cyan.
+- Each look's comment in `src/lib/codm.ts` keeps its previous code.
+
 ## Checks
 
 Every change above was checked with:
