@@ -131,7 +131,7 @@ export function ScreenTestBar({ looks }: { looks: number }) {
   return (
     <section
       aria-label="Screen test"
-      className="cut relative mt-8 overflow-hidden border border-line bg-panel/70"
+      className="cut relative mt-8 overflow-hidden border border-line glass"
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);
