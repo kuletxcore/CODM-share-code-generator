@@ -153,18 +153,13 @@ export function ScreenTestBar({ looks }: { looks: number }) {
             }`}
           >
             <div className="min-w-0">
-              <div className="font-display text-[11px] font-bold uppercase tracking-[0.22em] text-mute">
-                Screen test
-              </div>
               <h2
-                className="mt-1 font-title text-2xl font-black uppercase leading-none tracking-wide sm:text-3xl"
+                className="font-title text-2xl font-black uppercase leading-none tracking-wide sm:text-3xl"
               >
                 Try every look on your own screen
               </h2>
               <p className="mt-2 hidden max-w-2xl text-sm text-mute sm:block">
-                Screenshot a match, then drop the file here. All {looks} looks get graded on your
-                own frame instead of a stock scene, as an approximation of the in-game filter.
-                Nothing is uploaded.
+                Drop a match screenshot to see all {looks} looks on it. Nothing is uploaded.
               </p>
             </div>
             <div className="flex flex-col gap-2 md:items-end">
@@ -202,17 +197,13 @@ export function ScreenTestBar({ looks }: { looks: number }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={shot.preview} alt="Your screenshot" className="h-full w-full object-cover" />
               <span className="absolute inset-0 scanlines opacity-60" />
-              <span className="absolute left-1 top-1 h-2 w-2 rotate-45 bg-lime" />
             </div>
             <div className="min-w-0 flex-1 basis-56">
               <div className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.22em] text-lime">
                 Screen test on
               </div>
               <p className="mt-1 text-sm text-text">
-                Every look is graded on your frame, and the generator&apos;s preview uses it too.
-              </p>
-              <p className="mt-1 text-xs text-mute">
-                Look cards you save now show this screenshot, so crop out any names first.
+                Saved look cards use this screenshot, so crop out names first.
               </p>
             </div>
             <div className="flex items-center gap-1">

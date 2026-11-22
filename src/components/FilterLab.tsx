@@ -475,9 +475,6 @@ function PinBar({
         <button onClick={onPin} className={btn}>
           Pin this grade
         </button>
-        <p className="min-w-0 flex-1 text-xs text-mute">
-          Keeps it on the left of the compare wipe while you edit or load another look.
-        </p>
       </div>
     );
   return (
@@ -665,7 +662,6 @@ function Editor() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.18em] text-codm sm:text-xs sm:tracking-[0.3em]"
           >
-            <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
             Unofficial fan-made tool
           </motion.div>
           <motion.h1
@@ -868,10 +864,6 @@ function Editor() {
                         }))
                       }
                     />
-                    <p className="text-xs text-mute">
-                      The in-game Range bar. Drag the blue handle to set where shadows end and the
-                      amber one to set where highlights begin; the game writes each one the same way.
-                    </p>
                   </div>
                 )}
               </div>
@@ -1056,13 +1048,7 @@ function ConverterShotHint() {
   if (!shot) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-l-2 border-lime bg-lime/10 px-3 py-2 text-xs">
-      <span className="font-display font-bold uppercase tracking-wider text-lime">
-        Screen test on
-      </span>
-      <span>
-        Use that same frame as the baseline: drop it into &ldquo;Your screen&rdquo; and the match is
-        measured against your own picture.
-      </span>
+      Drop your screen-test frame into &ldquo;Your screen&rdquo; for a closer match.
     </p>
   );
 }
@@ -1117,9 +1103,7 @@ function Converter({
           />
         </div>
         <p className="text-sm text-mute">
-          Images stay in your browser. The converter measures the colour cast, saturation and
-          brightness of the shadows, midtones and highlights, then picks slider values that push
-          your screen towards the reference. Treat it as a starting point and fine-tune by eye.
+          Images stay in your browser. Treat the result as a starting point.
         </p>
       </div>
 

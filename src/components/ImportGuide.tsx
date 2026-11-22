@@ -311,7 +311,6 @@ export default function ImportGuide({
                     setOpen(null);
                     onTweak(code, name);
                   }}
-                  title="Open this code in the editor, pinned beside your changes"
                   className="min-h-11 bg-panel-2 px-3 font-display text-sm font-bold uppercase tracking-wider hover:bg-line"
                 >
                   Needs tweaking

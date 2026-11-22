@@ -74,7 +74,6 @@ export function CrankedSwitch({ on, onChange }: { on: boolean; onChange: (on: bo
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      title="The same look at twice the strength, so it reads clearly in game"
       className="flex min-h-11 w-fit items-center gap-3 font-display text-sm font-extrabold uppercase tracking-wider"
     >
       {/* same square switch as Simple / Advanced in the editor */}

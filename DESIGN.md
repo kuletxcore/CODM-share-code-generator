@@ -110,6 +110,7 @@ States are set where the content breaks, not by device:
 
 ## Content rules
 
+- No decorative indicator dots or status lights: a mark must mean a state the visitor can change. No tooltip or hint that restates its control's label, and no taglines; a hint earns its place only by saying something the control cannot.
 - No numbers, testimonials or claims without a source. Footage-based looks say what they were derived from and that the result is subtle and should be tested in game.
 - Game and map attributions are checked against published sources.
 - Card images from gameplay videos are cropped so no other player's gamer tag is visible.

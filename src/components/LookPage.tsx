@@ -139,7 +139,6 @@ export default function LookPage({ look: base }: { look: Look }) {
             ← Filter Lab · all looks
           </Link>
           <span className="flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.18em] text-codm sm:text-xs">
-            <span className="inline-block h-2 w-2 rotate-45 bg-codm" />
             Unofficial fan-made tool
           </span>
         </nav>
@@ -223,7 +222,6 @@ export default function LookPage({ look: base }: { look: Look }) {
           <h2 id="values-title" className="font-title text-2xl font-black uppercase tracking-wide sm:text-3xl">
             In the game&apos;s Customize Color
           </h2>
-          <p className="mt-1 text-sm text-mute">The values the code sets, as the game rounds them on screen.</p>
           <div className="mt-3">
             <Values look={look} />
           </div>
