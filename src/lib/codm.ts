@@ -232,6 +232,10 @@ export function toLight(x: number) {
   const l = clamp(x, 0, WHITE) ** GAMMA;
   return l / (1 - l);
 }
+// The CPU fallback grades every preview pixel on each slider move; inputs are
+// 8-bit, so the linearise step is a table lookup instead of two pow() calls.
+const LIGHT_LUT = Float64Array.from({ length: 256 }, (_, v) => toLight(v / 255));
+
 export function toDisplay(v: number) {
   return (Math.max(0, v) / (1 + Math.max(0, v))) ** INV_GAMMA;
 }
@@ -379,9 +383,9 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
     const ws = 1 - smooth(s0, s1, l0);
     const wh = smooth(h0, h1, l0) * (1 - ws);
     const wm = Math.max(0, 1 - ws - wh);
-    let r = toLight(r0),
-      g = toLight(g0),
-      b = toLight(b0);
+    let r = LIGHT_LUT[data[i]],
+      g = LIGHT_LUT[data[i + 1]],
+      b = LIGHT_LUT[data[i + 2]];
     for (let z = 0; z < 4; z++) {
       if (!allLive && !live[z]) continue;
       const k = z === 3 ? 1 : z === 0 ? ws : z === 1 ? wm : wh;
