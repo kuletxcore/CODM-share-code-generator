@@ -152,6 +152,8 @@ Checked with `npm run check` (32 tests, including the hash format, the stored-co
 
 ## 7. Calibrating the preview
 
+The live preview's colour keys were later aligned with the game's own maths; that change, and what was left as a screenshot fit, is in [GAME_MODEL_NOTES.md](GAME_MODEL_NOTES.md). The rest of this section is the earlier calibration, kept as the record of how the fitted curves were chosen.
+
 In-game tests showed every creator code imports correctly, but the preview showed most looks three to four times stronger than the game. A Kith test brightened the sky by 24 in game against 76 in the preview; Apex changed about 4% of pixels by more than 10. The owner then took before/after screenshots that each change one setting: Firing Range, Nuketown, a set in `pics/` taken on an Oppo F11 at Low graphics, and a second set in `pics/Batch 2/` taken in the Practice Range on an Infinix GT50 Pro at Max graphics, and a third in `pics/F11 Low/` (Practice Range, F11 at Low, camera held still, plus Brightness 25 and Saturation 25 on the Infinix in `Extras/`). The screenshots were removed after calibration; `pics/REFERENCES.md` lists them and the commit that still has them.
 
 What the game does, and the preview now does:

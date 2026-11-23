@@ -20,6 +20,7 @@ A fan-made colour-filter share-code generator for Call of Duty: Mobile, live at 
 - [DESIGN.md](DESIGN.md): the UI contract (tokens, type, layout states, accessibility, content rules) and why. Read it before any UI change; drift from it is a bug, and a UI change updates it.
 - [docs/ARENA-MERGE-2.md](docs/ARENA-MERGE-2.md): which remake ideas were taken or rejected, and why. Check it before reintroducing one.
 - [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md): what changed after that merge, including the in-game evidence behind the share-code rules.
+- [docs/GAME_MODEL_NOTES.md](docs/GAME_MODEL_NOTES.md): how the preview's colour keys relate to the game, and which bits are still a screenshot fit. The revert flag is `USE_GAME_KEY_MODEL` in `src/lib/codm.ts`.
 
 ## Commands
 
@@ -37,7 +38,7 @@ npm run build     # static export into out/
 1. **Typecheck needs generated types.** `npm run typecheck` runs `next typegen` before `tsc`; a bare `tsc --noEmit` on a clean clone fails on `LayoutProps`.
 2. **The share codec is strict on purpose.** `decode()` in `src/lib/codm.ts` only accepts 22 integers inside the documented ranges. Do not loosen it; a silently coerced code is a wrong grade in the player's game. Negative brightness (-1000 to 1000) is legal.
 3. **Codec facts come from in-game screenshots.** The README marks what is confirmed. Do not change the mapping (hue = swatch × 125 + slider × 1.25, brightness and saturation offsets) without new in-game evidence.
-4. **The preview grades on the GPU, with a CPU fallback.** `src/lib/gpuGrade.ts` must match `applyGrade` in `codm.ts`; change both together. `src/lib/grade.test.ts` keeps the original CPU loop as an oracle: an intentional change to the grade maths updates the oracle in the same commit, nothing else does.
+4. **The preview grades on the GPU, with a CPU fallback.** `src/lib/gpuGrade.ts` must match `applyGrade` in `codm.ts`; change both together. The GPU shader reads luma weights and the ramp style from `gradeUniforms`, so it stays in lockstep with `USE_GAME_KEY_MODEL`. `src/lib/grade.test.ts` keeps the original CPU loop as an oracle: an intentional change to the grade maths updates the oracle in the same commit, nothing else does.
 5. **`next dev` rewrites the block at the top of this file.** Leave it, and commit it if it changes.
 
 ## Conventions

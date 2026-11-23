@@ -157,47 +157,81 @@ export const hueFrom = (swatch: number, pos: number) => swatch * 45 + pos * 0.45
 
 // Colour helpers
 
-export function hueToRgb(h: number): [number, number, number] {
+/*
+ * Preview grade keys. When USE_GAME_KEY_MODEL is true (the default), the
+ * values sent into the pixel loop follow the game's CPU-side colour model
+ * for CODM 1.0.60: Rec.601 luma, a plain HSV hue wheel with linear tint,
+ * a single 0–2× brightness gain, 0–2 saturation with the Simple group's
+ * saturation added into each zone, and linear Range ramps. Flip it to
+ * false to restore the earlier screenshot-fitted curves. See
+ * docs/GAME_MODEL_NOTES.md.
+ *
+ * The per-pixel path (linearise, a Reinhard-style tone map, and applying
+ * saturation before tint) is not switched here. That stage of the game
+ * has not been confirmed, so the earlier screenshot fit is kept on
+ * purpose. RANGE_HANDLES_AS_DISPLAY_GAMMA is also off under the game
+ * model: ramps use the raw handle/1000 positions. The space those luma
+ * positions live in is still unconfirmed.
+ */
+const USE_GAME_KEY_MODEL = true;
+
+const LUMA_R = USE_GAME_KEY_MODEL ? 0.299 : 0.2126;
+const LUMA_G = USE_GAME_KEY_MODEL ? 0.587 : 0.7152;
+const LUMA_B = USE_GAME_KEY_MODEL ? 0.114 : 0.0722;
+
+export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
   const x = (((h % 360) + 360) % 360) / 60;
   const f = (n: number) => {
     const k = (n + x) % 6;
-    return 1 - Math.max(0, Math.min(k, 4 - k, 1));
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
   };
   return [f(5), f(3), f(1)];
 }
 
-const luma = (r: number, g: number, b: number) =>
-  0.2126 * r + 0.7152 * g + 0.0722 * b;
+export function hueToRgb(h: number): [number, number, number] {
+  return hsvToRgb(h, 1, 1);
+}
+
+export const luma = (r: number, g: number, b: number) =>
+  LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
 /*
- * The grade, fitted to in-game before/after screenshots (docs/AFTER-MERGE.md,
- * "Calibrating the preview"). The game grades in linear HDR light before a
- * Reinhard-style tone map, which is why every effect fades near white:
- * - Tint multiplies by the swatch colour (`gameHue`). Its weight rises as
- *   1 - (1 - t)^1.5 (Tint 25 weighs 0.33, 50 weighs 0.65). A Shadows, Midtones
- *   or Highlights tint also darkens (`zoneDim`); the Simple tab does not.
- * - Saturation 0 is grey; 100 scales colour by about 1.75, not 2. It runs
- *   before the tint, so Saturation 0 with a tint gives a tinted grey.
- * - Brightness is an exposure gain: 0 is black, 25 about 0.34x, 100 about
- *   2.4x (3.3x on the Shadows tab), rising in a straight line above 50.
- * - The Range handles are positions in linear light. Shadows fade out between
- *   the shadows handle and its falloff; highlights fade in between the
- *   highlights handle and its falloff, so the default range (1000, 1500) puts
- *   nothing in Highlights.
+ * The pixel loop still grades in linear HDR light before a Reinhard-style
+ * tone map (docs/AFTER-MERGE.md, "Calibrating the preview"). That path is
+ * why effects fade near white; it has not been confirmed in the game's
+ * shader, so it is left as the screenshot fit. The keys below are what
+ * changed: see USE_GAME_KEY_MODEL and docs/GAME_MODEL_NOTES.md.
  */
-const GAMMA = 2.2;
-const INV_GAMMA = 1 / GAMMA;
-const SAT_TOP = 1.75;
-const BRI_TOP = 2.4;
-/** Shadows Brightness pushes harder: about 3.3x in the darks at 100. */
-const SHADOW_BRI_TOP = 3.3;
-/** Below 50 brightness falls to black along this power (Brightness 25 is about 0.34x). */
-const BRI_POWER = 1.56;
+/*
+ * Per-pixel colour space and tone map. Still the screenshot fit; the game's
+ * shader has not been confirmed. These names are the hooks to switch once
+ * that stage is known — do not invent a second path ahead of a finding.
+ *
+ * "reinhard-hdr": gamma-decode display values, undo a Reinhard map
+ * (v = l/(1-l)), grade, then apply Reinhard and encode. Saturation runs
+ * before tint, as a luma-preserving chroma scale.
+ */
+const PIXEL_TRANSFER = "reinhard-hdr" as const;
+const DISPLAY_GAMMA = 2.2;
+const INV_DISPLAY_GAMMA = 1 / DISPLAY_GAMMA;
+/** Display values at or above this would invert to infinite light. */
+const REINHARD_WHITE = 0.999;
+const SAT_TOP = USE_GAME_KEY_MODEL ? 2 : 1.75;
+const BRI_TOP = USE_GAME_KEY_MODEL ? 2 : 2.4;
+/** Earlier fit: Shadows Brightness pushed harder (~3.3×). The game model uses 2× for every zone. */
+const SHADOW_BRI_TOP = USE_GAME_KEY_MODEL ? 2 : 3.3;
+/** Earlier fit below 50. The game model is a straight 0–2× line through 50 = 1. */
+const BRI_POWER = USE_GAME_KEY_MODEL ? 1 : 1.56;
+const TINT_POWER = USE_GAME_KEY_MODEL ? 1 : 1.5;
+const ADD_MASTER_SAT_INTO_ZONES = USE_GAME_KEY_MODEL;
+const RANGE_HANDLES_AS_DISPLAY_GAMMA = !USE_GAME_KEY_MODEL;
+const USE_LINEAR_RAMPS = USE_GAME_KEY_MODEL;
+const USE_PLAIN_HSV = USE_GAME_KEY_MODEL;
 
 /**
- * The swatch colours as the game applies them (display values), measured from
- * Tint 100 on each swatch: their second channel is stronger than a plain hue
- * wheel's. The Hue slider moves from one swatch towards the next.
+ * Earlier screenshot fit: measured swatch colours at Tint 100, whose second
+ * channel is stronger than a plain hue wheel. Kept so the flag can restore
+ * them. The game model uses a plain HSV wheel instead (Orange is 1, 0.75, 0).
  */
 const SWATCHES: [number, number, number][] = [
   [1, 0, 0],
@@ -210,26 +244,29 @@ const SWATCHES: [number, number, number][] = [
   [1, 0, 0.92],
 ];
 
-/** A hue in degrees to the colour the game multiplies by, in linear light. */
+/** A hue in degrees to the colour multiplied at full tint, in linear light. */
 export function gameHue(h: number): [number, number, number] {
+  if (USE_PLAIN_HSV) {
+    const c = hsvToRgb(h, 1, 1);
+    return [c[0] ** DISPLAY_GAMMA, c[1] ** DISPLAY_GAMMA, c[2] ** DISPLAY_GAMMA];
+  }
   const x = ((((h % 360) + 360) % 360) / 45) % 8;
   const i = Math.floor(x),
     f = x - i;
   const a = SWATCHES[i],
     b = SWATCHES[(i + 1) % 8];
-  return [0, 1, 2].map((c) => (a[c] + (b[c] - a[c]) * f) ** GAMMA) as [number, number, number];
+  return [0, 1, 2].map((c) => (a[c] + (b[c] - a[c]) * f) ** DISPLAY_GAMMA) as [number, number, number];
 }
 /** Display values above this would map to infinite light; 0.999 is ~500x. */
-const WHITE = 0.999;
-
-const smooth = (a: number, b: number, x: number) => {
+/** 0..1 blend between two luma positions. Linear under the game model; smoothstep was the earlier fit. */
+export const bandMix = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
-  return t * t * (3 - 2 * t);
+  return USE_LINEAR_RAMPS ? t : t * t * (3 - 2 * t);
 };
 
 /** Display value (0..1) to linear HDR light, and back. */
 export function toLight(x: number) {
-  const l = clamp(x, 0, WHITE) ** GAMMA;
+  const l = clamp(x, 0, REINHARD_WHITE) ** DISPLAY_GAMMA;
   return l / (1 - l);
 }
 // The CPU fallback grades every preview pixel on each slider move; inputs are
@@ -237,35 +274,47 @@ export function toLight(x: number) {
 const LIGHT_LUT = Float64Array.from({ length: 256 }, (_, v) => toLight(v / 255));
 
 export function toDisplay(v: number) {
-  return (Math.max(0, v) / (1 + Math.max(0, v))) ** INV_GAMMA;
+  return (Math.max(0, v) / (1 + Math.max(0, v))) ** INV_DISPLAY_GAMMA;
 }
 
-/** Tint 0..100 to the weight the game gives the hue colour. */
-export const tintWeight = (tint: number) => 1 - (1 - clamp(tint / 100, 0, 1)) ** 1.5;
-/** Saturation 0..100 to a colour gain. */
+/** Tint 0..100 to the weight given the hue colour. Linear under the game model; ^1.5 was the earlier fit. */
+export const tintWeight = (tint: number) => {
+  const t = clamp(tint / 100, 0, 1);
+  return TINT_POWER === 1 ? t : 1 - (1 - t) ** TINT_POWER;
+};
+/** Saturation 0..100 to a colour gain (0..2, 50 = 1). The earlier fit capped the top at 1.75. */
 export const satGain = (sat: number) => {
   const x = clamp(sat / 50, 0, 2);
   return x <= 1 ? x : 1 + (x - 1) * (SAT_TOP - 1);
 };
 /**
- * Brightness 0..100 to an exposure gain: 0 is black, 25 about 0.34, 100 `top`,
- * straight in between above 50. A square-root rise fitted Brightness 75 alone
- * but made small steps (a Reddit code's 56 and 61) far too bright.
+ * Brightness 0..100 to an exposure gain. Under the game model this is a
+ * straight 0–2× line (0 at 0, 1 at 50, 2 at 100) for every zone. The earlier
+ * fit used a power below 50 and a higher top on Shadows.
  */
 export const briGain = (bri: number, top = BRI_TOP) => {
   const x = clamp(bri / 50, 0, 2);
-  return x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * (x - 1);
+  return USE_GAME_KEY_MODEL ? x : x <= 1 ? x ** BRI_POWER : 1 + (top - 1) * (x - 1);
 };
 /** `briGain` inverted. */
 const briFromGain = (gain: number, top = BRI_TOP) =>
-  50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + (gain - 1) / (top - 1));
+  USE_GAME_KEY_MODEL
+    ? 50 * clamp(gain, 0, 2)
+    : 50 * (gain <= 1 ? gain ** (1 / BRI_POWER) : 1 + (gain - 1) / (top - 1));
 
 /**
  * The extra darkening a Shadows, Midtones or Highlights tint brings (the
- * Simple tab has none). Dark colours darken most: at Tint 100 Red keeps about
- * 0.17 and Cyan about 0.78, so it follows the swatch's own luminance.
+ * Simple tab has none). Under the game model this is Rec.601 luma of the
+ * HSV colour at that tint (Red 100 keeps 0.299, Orange 0.739). The earlier
+ * fit used a Rec.709-based curve through 0.17 at Red 100.
  */
 export const zoneDim = (tint: number, hue: number) => {
+  if (USE_GAME_KEY_MODEL) {
+    const t = clamp(tint / 100, 0, 1);
+    if (t === 0) return 1;
+    const c = hsvToRgb(hue, t, 1);
+    return luma(c[0], c[1], c[2]);
+  }
   const c = gameHue(hue);
   const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
   return 1 - (1 - full) * clamp(tint / 100, 0, 1) ** 0.85;
@@ -275,17 +324,20 @@ export const zoneDim = (tint: number, hue: number) => {
 type Bands = { s0: number; s1: number; h0: number; h1: number };
 
 function thresholds(s: Settings): Bands {
-  const at = (v: number) => clamp(v / 1000, 0, 1.5) ** INV_GAMMA;
+  const at = (v: number) => {
+    const x = clamp(v / 1000, 0, 1.5);
+    return RANGE_HANDLES_AS_DISPLAY_GAMMA ? x ** INV_DISPLAY_GAMMA : x;
+  };
   const s0 = at(s.shadowPos);
-  const s1 = Math.max(at(s.shadowEdge), s0 + 0.02);
+  const s1 = Math.max(at(s.shadowEdge), s0 + 1e-6);
   const h0 = at(s.highlightPos);
-  const h1 = Math.max(at(s.highlightEdge), h0 + 0.02);
+  const h1 = Math.max(at(s.highlightEdge), h0 + 1e-6);
   return { s0, s1, h0, h1 };
 }
 
 function zoneWeights(l: number, t: Bands) {
-  const ws = 1 - smooth(t.s0, t.s1, l);
-  const wh = smooth(t.h0, t.h1, l) * (1 - ws);
+  const ws = 1 - bandMix(t.s0, t.s1, l);
+  const wh = bandMix(t.h0, t.h1, l) * (1 - ws);
   const wm = Math.max(0, 1 - ws - wh);
   return [ws, wm, wh] as const;
 }
@@ -336,12 +388,20 @@ export function gradePlan(s: Settings): GradePlan {
   const bri = new Float64Array(4);
   const live = new Uint8Array(4);
   const dim = new Float64Array(4);
+  const masterSat = satGain(zs[3].sat);
   for (let z = 0; z < 4; z++) {
     const zone = zs[z];
     tint.set(zoneTint(zone.hue), z * 3);
     dim[z] = z === 3 ? 1 : zoneDim(zone.tint, zone.hue);
     amount[z] = tintWeight(zone.tint);
-    sat[z] = satGain(zone.sat);
+    // The game adds Simple saturation into each zone (zone + master − 1) and
+    // does not apply the Simple slot a second time. The earlier fit applied
+    // each slot separately, which multiplied them.
+    sat[z] = ADD_MASTER_SAT_INTO_ZONES
+      ? z === 3
+        ? 1
+        : satGain(zone.sat) + masterSat - 1
+      : satGain(zone.sat);
     bri[z] = briGain(zone.bri, z === 0 ? SHADOW_BRI_TOP : BRI_TOP);
     live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
   }
@@ -380,8 +440,8 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
       b0 = data[i + 2] / 255;
     // Zone weights come from the pixel's ORIGINAL luminance, all at once.
     const l0 = luma(r0, g0, b0);
-    const ws = 1 - smooth(s0, s1, l0);
-    const wh = smooth(h0, h1, l0) * (1 - ws);
+    const ws = 1 - bandMix(s0, s1, l0);
+    const wh = bandMix(h0, h1, l0) * (1 - ws);
     const wm = Math.max(0, 1 - ws - wh);
     let r = LIGHT_LUT[data[i]],
       g = LIGHT_LUT[data[i + 1]],
@@ -415,6 +475,13 @@ export function gradeUniforms(s: Settings) {
     bands: [p.s0, p.s1, p.h0, p.h1],
     tint: Array.from(p.tint),
     params: [0, 1, 2, 3].flatMap((z) => [p.amount[z], p.sat[z], p.bri[z], p.dim[z]]),
+    // Keep the GPU shader in lockstep with USE_GAME_KEY_MODEL.
+    luma: [LUMA_R, LUMA_G, LUMA_B] as [number, number, number],
+    smooth: USE_LINEAR_RAMPS ? 0 : 1,
+    // Hooks for the still-unconfirmed per-pixel stage.
+    pixelTransfer: PIXEL_TRANSFER,
+    displayGamma: DISPLAY_GAMMA,
+    reinhardWhite: REINHARD_WHITE,
   };
 }
 

@@ -30,18 +30,28 @@ uniform vec3 uTintB[4];
 uniform vec4 uPB[4];
 uniform vec2 uSize;
 uniform float uSplitX;
+uniform vec3 uLuma;
+// 0 = linear ramps (game key model), 1 = smoothstep (earlier screenshot fit)
+uniform float uSmooth;
+uniform float uGamma;
+uniform float uWhite;
 
-float luma(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float luma(vec3 c){ return dot(c, uLuma); }
 float smoothB(float a, float b, float x){
   float d = b - a; if (d == 0.0) d = 1e-6;
   float t = clamp((x - a) / d, 0.0, 1.0);
-  return t * t * (3.0 - 2.0 * t);
+  return uSmooth > 0.5 ? t * t * (3.0 - 2.0 * t) : t;
 }
 // Mirrors paintGrade in codm.ts: zones blend in linear HDR light, then the
-// Reinhard-style tone map brings it back. tint is already in linear light and
-// p is (tint weight, saturation gain, exposure gain, zone tint darkening).
-vec3 toLight(vec3 x){ vec3 l = pow(clamp(x, 0.0, 0.999), vec3(2.2)); return l / (1.0 - l); }
-vec3 toDisplay(vec3 v){ v = max(v, 0.0); return pow(v / (1.0 + v), vec3(1.0 / 2.2)); }
+// Reinhard-style tone map brings it back. That per-pixel path is still the
+// screenshot fit; the keys (luma weights, ramps, tint, gain, sat) come from
+// gradeUniforms so they stay in lockstep with USE_GAME_KEY_MODEL.
+// tint is already in linear light and p is (tint weight, saturation gain,
+// exposure gain, zone tint darkening).
+// PIXEL_TRANSFER "reinhard-hdr" hook: gamma and the Reinhard white point
+// come from gradeUniforms so a later shader finding can retune them here.
+vec3 toLight(vec3 x){ vec3 l = pow(clamp(x, 0.0, uWhite), vec3(uGamma)); return l / (1.0 - l); }
+vec3 toDisplay(vec3 v){ v = max(v, 0.0); return pow(v / (1.0 + v), vec3(1.0 / uGamma)); }
 vec3 zone(vec3 v, vec3 tint, vec4 p, float k){
   if (k <= 0.001) return v;
   float l = luma(v);
@@ -128,7 +138,11 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uPin = u("uPin"),
     uBandsB = u("uBandsB"),
     uTintB = u("uTintB"),
-    uPB = u("uPB");
+    uPB = u("uPB"),
+    uLuma = u("uLuma"),
+    uSmooth = u("uSmooth"),
+    uGamma = u("uGamma"),
+    uWhite = u("uWhite");
   let w = 1,
     h = 1;
 
@@ -144,6 +158,10 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform4fv(uBands, g.bands);
       gl.uniform3fv(uTint, g.tint);
       gl.uniform4fv(uP, g.params);
+      gl.uniform3fv(uLuma, g.luma);
+      gl.uniform1f(uSmooth, g.smooth);
+      gl.uniform1f(uGamma, g.displayGamma);
+      gl.uniform1f(uWhite, g.reinhardWhite);
       gl.uniform1f(uPin, pin ? 1 : 0);
       if (pin) {
         const b = gradeUniforms(pin);

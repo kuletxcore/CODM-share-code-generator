@@ -11,10 +11,16 @@ import {
   LOOKS,
   PRESETS,
   applyGrade,
+  briGain,
   decode,
   defaultSettings,
+  gameHue,
   gradePlan,
+  hsvToRgb,
   paintGrade,
+  satGain,
+  tintWeight,
+  zoneDim,
   type Settings,
 } from "./codm.ts";
 
@@ -24,66 +30,50 @@ import {
  * `applyGrade` hoists per-zone constants out of the pixel loop and skips
  * neutral zones. That is only safe if it produces bit-identical pixels, so the
  * reference lives here rather than in a comment. It follows the in-game
- * calibration: zones blend in linear HDR light (multiply tint, exposure gain)
- * before a Reinhard-style tone map; see docs/AFTER-MERGE.md.
+ * game key model (docs/GAME_MODEL_NOTES.md): Rec.601 luma, a plain HSV
+ * wheel, linear tint, a single 0–2× gain, 0–2 saturation with Simple
+ * added into each zone, and linear ramps. The per-pixel path still
+ * grades in linear HDR light before a Reinhard-style tone map.
  */
 function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const luma = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  const smooth = (a: number, b: number, x: number) => {
-    const t = clamp((x - a) / (b - a || 1e-6), 0, 1);
-    return t * t * (3 - 2 * t);
-  };
+  const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+  const mix = (a: number, b: number, x: number) => clamp((x - a) / (b - a || 1e-6), 0, 1);
   const toLight = (x: number) => {
     const l = clamp(x, 0, 0.999) ** 2.2;
     return l / (1 - l);
   };
   const toDisplay = (v: number) => (Math.max(0, v) / (1 + Math.max(0, v))) ** (1 / 2.2);
-  const at = (v: number) => clamp(v / 1000, 0, 1.5) ** (1 / 2.2);
+  const hsv = (h: number, s: number, v: number) => {
+    const x = (((h % 360) + 360) % 360) / 60;
+    const f = (n: number) => v - v * s * Math.max(0, Math.min((n + x) % 6, 4 - ((n + x) % 6), 1));
+    return [f(5), f(3), f(1)];
+  };
+  const at = (v: number) => clamp(v / 1000, 0, 1.5);
   const s0 = at(s.shadowPos);
-  const s1 = Math.max(at(s.shadowEdge), s0 + 0.02);
+  const s1 = Math.max(at(s.shadowEdge), s0 + 1e-6);
   const h0 = at(s.highlightPos);
-  const h1 = Math.max(at(s.highlightEdge), h0 + 0.02);
+  const h1 = Math.max(at(s.highlightEdge), h0 + 1e-6);
   const zs = [s.zones.shadows, s.zones.midtones, s.zones.highlights, s.zones.global];
-  // swatch colours as the game applies them; the hue slider blends to the next
-  const swatches = [
-    [1, 0, 0],
-    [1, 0.84, 0],
-    [0.59, 1, 0],
-    [0, 1, 0.42],
-    [0, 0.91, 1],
-    [0, 0.35, 1],
-    [0.54, 0, 1],
-    [1, 0, 0.92],
-  ];
-  const colour = zs.map((z) => {
-    const x = ((((z.hue % 360) + 360) % 360) / 45) % 8;
-    const a = swatches[Math.floor(x)],
-      b = swatches[(Math.floor(x) + 1) % 8];
-    return a.map((c, j) => (c + (b[j] - c) * (x - Math.floor(x))) ** 2.2);
-  });
+  const colour = zs.map((z) => hsv(z.hue, 1, 1).map((c) => c ** 2.2));
   const dim = zs.map((z, i) => {
     if (i === 3) return 1;
-    const c = colour[i];
-    const full = clamp(0.17 + 1.386 * (luma(c[0], c[1], c[2]) - 0.2126), 0.05, 1);
-    return 1 - (1 - full) * clamp(z.tint / 100, 0, 1) ** 0.85;
+    const t = clamp(z.tint / 100, 0, 1);
+    if (t === 0) return 1;
+    const c = hsv(z.hue, t, 1);
+    return luma(c[0], c[1], c[2]);
   });
-  const weight = zs.map((z) => 1 - (1 - clamp(z.tint / 100, 0, 1)) ** 1.5);
-  const satGain = zs.map((z) => {
-    const x = clamp(z.sat / 50, 0, 2);
-    return x <= 1 ? x : 1 + (x - 1) * 0.75;
-  });
-  const exposure = zs.map((z, i) => {
-    const x = clamp(z.bri / 50, 0, 2);
-    return x <= 1 ? x ** 1.56 : 1 + (i === 0 ? 2.3 : 1.4) * (x - 1);
-  });
+  const weight = zs.map((z) => clamp(z.tint / 100, 0, 1));
+  const masterSat = clamp(zs[3].sat / 50, 0, 2);
+  const satGain = zs.map((z, i) => (i === 3 ? 1 : clamp(z.sat / 50, 0, 2) + masterSat - 1));
+  const exposure = zs.map((z) => clamp(z.bri / 50, 0, 2));
   const neutral = weight.every((w, i) => w === 0 && satGain[i] === 1 && exposure[i] === 1);
   if (neutral) return;
   const w = [0, 0, 0, 1];
   for (let i = 0; i < data.length; i += 4) {
     const l0 = luma(data[i] / 255, data[i + 1] / 255, data[i + 2] / 255);
-    const ws = 1 - smooth(s0, s1, l0);
-    const wh = smooth(h0, h1, l0) * (1 - ws);
+    const ws = 1 - mix(s0, s1, l0);
+    const wh = mix(h0, h1, l0) * (1 - ws);
     w[0] = ws;
     w[1] = Math.max(0, 1 - ws - wh);
     w[2] = wh;
@@ -196,4 +186,50 @@ test("alpha is never touched", () => {
     d.filter((_, i) => i % 4 === 3),
     alpha,
   );
+});
+
+test("the game key model uses a plain HSV wheel, linear 0–2 gains and additive saturation", () => {
+  const orange = hsvToRgb(45, 1, 1);
+  assert.equal(orange[0], 1);
+  assert.ok(Math.abs(orange[1] - 0.75) < 1e-12);
+  assert.equal(orange[2], 0);
+  const linear = gameHue(45);
+  assert.equal(linear[0], 1);
+  assert.ok(Math.abs(linear[1] - 0.75 ** 2.2) < 1e-12);
+  assert.equal(linear[2], 0);
+
+  assert.equal(tintWeight(0), 0);
+  assert.equal(tintWeight(25), 0.25);
+  assert.equal(tintWeight(50), 0.5);
+  assert.equal(tintWeight(100), 1);
+
+  assert.equal(satGain(0), 0);
+  assert.equal(satGain(50), 1);
+  assert.equal(satGain(100), 2);
+  assert.equal(briGain(0), 0);
+  assert.equal(briGain(50), 1);
+  assert.equal(briGain(100), 2);
+  assert.equal(briGain(25), 0.5);
+  // same gain for Shadows as for every other zone
+  assert.equal(briGain(100, 3.3), 2);
+
+  assert.ok(Math.abs(zoneDim(100, 0) - 0.299) < 1e-12);
+  assert.ok(Math.abs(zoneDim(100, 45) - (0.299 + 0.587 * 0.75)) < 1e-12);
+  assert.equal(zoneDim(0, 0), 1);
+
+  const s = defaultSettings();
+  s.zones.midtones.sat = 100;
+  s.zones.global.sat = 100;
+  const plan = gradePlan(s);
+  assert.equal(plan.sat[1], 3);
+  assert.equal(plan.sat[3], 1);
+});
+
+test("the default Range leaves the Highlights zone inert", () => {
+  const s = defaultSettings();
+  s.zones.highlights = { hue: 0, tint: 100, sat: 100, bri: 100 };
+  const before = fixture();
+  const after = new Uint8ClampedArray(before);
+  applyGrade(after, s);
+  assert.deepEqual(Array.from(after), Array.from(before));
 });
