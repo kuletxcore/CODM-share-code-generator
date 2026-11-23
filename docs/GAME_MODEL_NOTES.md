@@ -1,42 +1,63 @@
 # Preview model notes
 
-The live preview is still an approximation of Call of Duty: Mobile's Graphic Style colour filter. This page records where that approximation now follows the game's own colour-key maths, and where it still uses the earlier screenshot fit. Findings are from the owner's private research on CODM version 1.0.60. They are written here as maths only.
+The live preview aims to follow Call of Duty: Mobile's Graphic Style colour filter as closely as a static screenshot allows. Findings are from the owner's private research on CODM version 1.0.60, written here as maths only.
 
-The share-code codec is unchanged: 22 integers, units ×1000, brightness centred on 0, saturation centred on 1000, Range falloff = handle + 100. Those rules already matched the game and are not part of this change.
+The share-code codec is unchanged: 22 integers, units ×1000, brightness centred on 0, saturation centred on 1000, Range falloff = handle + 100.
 
-## What the preview now uses
+## What the preview does
 
-These are the keys the game builds before its per-pixel colour pass. The preview uses the same keys when `USE_GAME_KEY_MODEL` in `src/lib/codm.ts` is true (the default). Flip that flag to restore the earlier screenshot-fitted curves; keep `src/lib/gpuGrade.ts` in lockstep (it reads luma weights and the ramp style from the same place).
+Controlled by `USE_GAME_KEY_MODEL` (default `true`) and `PIXEL_TRANSFER` (default `"aces"`) in `src/lib/codm.ts`. The GPU path in `src/lib/gpuGrade.ts` reads the same values from `gradeUniforms`. Flip `USE_GAME_KEY_MODEL` to restore the earlier screenshot-fitted key curves; set `PIXEL_TRANSFER` to `"reinhard-hdr"` to compare against the earlier Reinhard tone-map fit.
 
-- **Hue** is a plain colour wheel with eight swatches 45° apart. The colour at a given hue and tint is `HSV(hue, tint, 1)`: at tint 100, Orange is `(1, 0.75, 0)`, not the stronger `(1, 0.84, 0)` the earlier fit measured.
-- **Tint** is linear. Tint 25 is a weight of 0.25, tint 50 is 0.5. There is no `^1.5` curve.
-- **Luma** uses Rec.601 weights: `0.299R + 0.587G + 0.114B`. The earlier fit used Rec.709 (`0.2126 / 0.7152 / 0.0722`).
-- **Brightness** is a single gain `1 + lerp(−1, 1, slider)`, i.e. 0× at 0, 1× at 50, 2× at 100, the same for Simple, Shadows, Midtones and Highlights. There is no 2.4 / 3.3 split and no power curve below 50.
-- **Saturation** is `2 × slider` (0 at 0, 1 at 50, 2 at 100). The Simple group's saturation is added into each zone (`zone + simple − 1`) rather than applied as a second multiply. There is no 1.75 constant.
-- **Zone colour** (Shadows, Midtones, Highlights) is also scaled by that zone colour's own Rec.601 luma, so a strong tint darkens as well as shifts. The Simple group is multiplied in without that luma darkening.
-- **Range blends** are linear ramps between the handle and its falloff, not smoothstep curves. The default range (handles 30 / 1000, falloffs 300 / 1500) still leaves Highlights inert: the fade-in starts at luma 1.0, above ordinary display white.
-- There is no lookup table on this path.
+### Colour keys
 
-## What was left alone, on purpose
+For each of Simple, Shadows, Midtones and Highlights:
 
-The game's per-pixel shader — colour space, any tone mapping, and the exact order of saturation against tint — has not been confirmed. The preview still:
+- **Hue** is a plain colour wheel with eight swatches 45° apart. The colour is `HSV(hue, tint, 1)` — at tint 100, Orange is `(1, 0.75, 0)`.
+- **Tint** is linear (tint 25 is a weight of 0.25). There is no `^1.5` curve.
+- **Brightness** is a single gain `1 + lerp(−1, 1, slider)`: 0× at 0, 1× at 50, 2× at 100, the same for every group.
+- **Saturation** is `2 × slider` (0 at 0, 1 at 50, 2 at 100).
+- **Zone colour** (Shadows, Midtones, Highlights) is also scaled by that colour's own Rec.601 luma (`0.299R + 0.587G + 0.114B`), so a strong tint darkens as well as shifts. Simple is multiplied in without that darkening.
+- Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`), capped at 2.
 
-- converts the picture into linear HDR light with a Reinhard-style undo (`v = l / (1 − l)` after a 2.2 gamma),
-- applies saturation as a luma-preserving chroma scale, then multiplies tint and exposure,
-- converts back with the matching tone map and gamma.
+There is no lookup table on this path.
 
-Those steps came from fitting before/after screenshots ([AFTER-MERGE.md](AFTER-MERGE.md#7-calibrating-the-preview)). The fitted constants that this change removes (Rec.709, the `^1.5` tint curve, the 1.75 saturation cap, the 2.4 / 3.3 brightness tops, smoothstep ramps) may have been absorbing some of that unconfirmed shader stage. If a later look at the shader explains them, they can be restored or re-derived without touching the codec.
+### Per-pixel grade
 
-The hooks for that stage live next to `USE_GAME_KEY_MODEL` in `src/lib/codm.ts`: `PIXEL_TRANSFER` (currently `"reinhard-hdr"`), `DISPLAY_GAMMA`, and `REINHARD_WHITE`. The GPU shader reads the last two from `gradeUniforms`. Change those names when the colour space or tone map is known; do not add a second path before then.
+The three folded zone keys are interpolated with two linear ramps, not applied as four sequential passes. For a pixel in linear light:
 
-The site previews on static screenshots. Those pictures are LDR and already tone-mapped, so the preview has to work from display-referred values. It still undoes a Reinhard-style map to get a working HDR-like range, which is why the default Highlights tab stays inert (its fade-in starts at luma 1.0). Pre-tone-map highlights above luma 1 cannot be recovered exactly from a static image, so any look that depends on those blown-out values will not match the game pixel-for-pixel on the samples or a screen test.
+1. Luma is Rec.709, using the weights `0.2125R + 0.7154G + 0.0721B`.
+2. Two ramps are read from that luma: `w1 = saturate(L·x + y)` between the shadows handle and its falloff, `w2 = saturate(L·z + w)` between the highlights handle and its falloff. The default range (30 / 300 / 1000 / 1500) gives ramps `(≈3.704, −0.111, 2, −2)`: Shadows fade into Midtones over luma 0.03–0.30, Midtones into Highlights over 1.0–1.5.
+3. The key is `shadows + (midtones − shadows)·w1 + (highlights − midtones)·w2`.
+4. Saturation runs first: `rgb = lerp(L, rgb, key.w)`.
+5. Then colour and brightness: `rgb = key.rgb × rgb`.
+6. Then a global exposure (1 on this preview, left as a named hook).
 
-Range handle positions are now used as `handle / 1000` (0.03–0.30 for default Shadows, 1.0–1.5 for default Highlights). The earlier fit raised those values to `1/2.2` so they lined up with display luma. The space the game measures those ramps in is still unconfirmed; the raw positions are the conservative reading of the keys.
+### Tone map, and static screenshots
+
+`PIXEL_TRANSFER = "aces"` (the default) takes a static sRGB screenshot into linear light and back as:
+
+1. Undo display gamma: `lin = srgb ^ 2.2`.
+2. Invert the standard Narkowicz ACES tone map, `y = x(ax+b) / (x(cx+d)+e)` with `(a, b, c, d, e) = (2.51, 0.03, 2.43, 0.59, 0.14)`. The inverse is the unique non-negative root of that quadratic (with these coefficients, the minus root; the plus root is negative and must not be used). Inputs at or below `1e-4` have no unique inverse and map to 0, because the forward curve floors at `1e-4` before gamma encode. Display white inverts to a finite scene-linear value of about 7.24.
+3. Run the grade above in that linear light.
+4. Apply the same ACES curve, floor at `1e-4`, and encode with `pow(., 1/2.2)`.
+
+Those ACES coefficients, the floor, and the inverse root are also named hooks (`ACES_A`…`ACES_E`, `ACES_FLOOR`) so a later finding can retune them without touching the codec. The earlier Reinhard path (`v = l/(1−l)` after gamma) remains selectable via `PIXEL_TRANSFER = "reinhard-hdr"`.
+
+The site previews on static, already tone-mapped LDR screenshots, so this inverse is the practical way to recover a working linear range. It is exact on midtones for this curve, but ACES is many-to-one near and above its white point, so pre-tone-map highlights cannot be recovered uniquely. After the inverse, display values around 0.91 and up already map to scene-linear luma ≥ 1, so the default Highlights ramp *can* affect near-white regions of a still; that is expected, and it will still not match bloomed in-game highlights pixel-for-pixel.
+
+A neutral (default) code is an exact identity: the pixel loop is skipped, so the tone-map round trip is not applied to an already-correct screenshot.
+
+## What this replaced
+
+The earlier preview applied four sequential zone passes and read band weights on display luma, with a Reinhard undo and several fitted constants (Rec.709 as `0.2126/0.7152/0.0722` in places, a `^1.5` tint curve, a 1.75 saturation cap, 2.4 / 3.3 brightness tops, smoothstep ramps, gamma-mapped handles). Those constants were absorbing the composition error and the missing tone map; they are still in this file behind `USE_GAME_KEY_MODEL = false` so the change is reversible, but they should not be re-tuned until this model is compared to in-game screenshots.
 
 ## Agreements that did not need a code change
 
-The codec already had the right units, the handle + 100 falloff, the default Highlights range doing nothing, and the Apex (Cranked) decoding.
+The codec already had the right units, the handle + 100 falloff, and the Apex (Cranked) decoding.
 
 ## Reverting
 
-Set `USE_GAME_KEY_MODEL` to `false` in `src/lib/codm.ts`. The GPU shader follows that flag through `gradeUniforms`. Update the oracle in `src/lib/grade.test.ts` only if you change the grade maths itself.
+- Keys: set `USE_GAME_KEY_MODEL` to `false`.
+- Tone map only: set `PIXEL_TRANSFER` to `"reinhard-hdr"`.
+
+The GPU shader follows both flags through `gradeUniforms`. Update the oracle in `src/lib/grade.test.ts` only if you change the grade maths itself.

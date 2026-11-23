@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { bandMix, luma, type Settings } from "@/lib/codm";
+import { bandMix, luma709, type Settings } from "@/lib/codm";
 
 // Luminance histogram of the preview canvas with the two in-game Range handles on top,
 // so you can see which tones each zone will touch.
@@ -92,7 +92,7 @@ export default function TonalScope({
     let n = 0;
     let mean = 0;
     for (let i = 0; i < px.length; i += 4) {
-      const l = luma(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255);
+      const l = luma709(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255);
       const b = Math.max(0, Math.min(BINS - 1, Math.floor(l * BINS)));
       bins[b] += 1;
       mean += l;

@@ -158,20 +158,19 @@ export const hueFrom = (swatch: number, pos: number) => swatch * 45 + pos * 0.45
 // Colour helpers
 
 /*
- * Preview grade keys. When USE_GAME_KEY_MODEL is true (the default), the
- * values sent into the pixel loop follow the game's CPU-side colour model
- * for CODM 1.0.60: Rec.601 luma, a plain HSV hue wheel with linear tint,
- * a single 0–2× brightness gain, 0–2 saturation with the Simple group's
+ * Preview grade. When USE_GAME_KEY_MODEL is true (the default), the keys
+ * follow the game's colour model for CODM 1.0.60: Rec.601 luma when a
+ * zone tint also darkens, a plain HSV wheel with linear tint, a single
+ * 0–2× brightness gain, 0–2 saturation with the Simple group's
  * saturation added into each zone, and linear Range ramps. Flip it to
  * false to restore the earlier screenshot-fitted curves. See
  * docs/GAME_MODEL_NOTES.md.
  *
- * The per-pixel path (linearise, a Reinhard-style tone map, and applying
- * saturation before tint) is not switched here. That stage of the game
- * has not been confirmed, so the earlier screenshot fit is kept on
- * purpose. RANGE_HANDLES_AS_DISPLAY_GAMMA is also off under the game
- * model: ramps use the raw handle/1000 positions. The space those luma
- * positions live in is still unconfirmed.
+ * PIXEL_TRANSFER chooses how a static sRGB screenshot is taken into
+ * linear light and back. The default, "aces", undoes a 2.2 gamma, applies
+ * the inverse of the standard Narkowicz ACES tone map, grades, then
+ * applies ACES and gamma. "reinhard-hdr" keeps the earlier screenshot
+ * fit. Range ramps are evaluated in that linear light, using Rec.709.
  */
 const USE_GAME_KEY_MODEL = true;
 
@@ -192,30 +191,43 @@ export function hueToRgb(h: number): [number, number, number] {
   return hsvToRgb(h, 1, 1);
 }
 
+/** Rec.601 — used when a Shadows/Midtones/Highlights tint also darkens. */
+export const luma601 = (r: number, g: number, b: number) =>
+  0.299 * r + 0.587 * g + 0.114 * b;
+
+/**
+ * Rec.709 weights used to pick the zone blend from a linear-light pixel.
+ * 0.2125 / 0.7154 / 0.0721 is the set the grade itself uses.
+ */
+export const LUMA709 = [0.2125, 0.7154, 0.0721] as const;
+export const luma709 = (r: number, g: number, b: number) =>
+  LUMA709[0] * r + LUMA709[1] * g + LUMA709[2] * b;
+
+/** Alias kept for older call sites; equals Rec.601 under the game model. */
 export const luma = (r: number, g: number, b: number) =>
   LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
 /*
- * The pixel loop still grades in linear HDR light before a Reinhard-style
- * tone map (docs/AFTER-MERGE.md, "Calibrating the preview"). That path is
- * why effects fade near white; it has not been confirmed in the game's
- * shader, so it is left as the screenshot fit. The keys below are what
- * changed: see USE_GAME_KEY_MODEL and docs/GAME_MODEL_NOTES.md.
+ * How a static sRGB screenshot is taken into linear light and back.
+ * "aces" is the game's tone map (standard Narkowicz coefficients).
+ * "reinhard-hdr" is the earlier screenshot fit, kept so it can be compared.
  */
-/*
- * Per-pixel colour space and tone map. Still the screenshot fit; the game's
- * shader has not been confirmed. These names are the hooks to switch once
- * that stage is known — do not invent a second path ahead of a finding.
- *
- * "reinhard-hdr": gamma-decode display values, undo a Reinhard map
- * (v = l/(1-l)), grade, then apply Reinhard and encode. Saturation runs
- * before tint, as a luma-preserving chroma scale.
- */
-const PIXEL_TRANSFER = "reinhard-hdr" as const;
+export type PixelTransfer = "aces" | "reinhard-hdr";
+const PIXEL_TRANSFER: PixelTransfer = "aces";
 const DISPLAY_GAMMA = 2.2;
 const INV_DISPLAY_GAMMA = 1 / DISPLAY_GAMMA;
-/** Display values at or above this would invert to infinite light. */
+/** Display values at or above this would invert to infinite light on the Reinhard path. */
 const REINHARD_WHITE = 0.999;
+/** Exposure multiplied after the colour grade, before the tone map. */
+const EXPOSURE = 1;
+// Standard Narkowicz ACES: y = x(ax+b) / (x(cx+d)+e)
+const ACES_A = 2.51;
+const ACES_B = 0.03;
+const ACES_C = 2.43;
+const ACES_D = 0.59;
+const ACES_E = 0.14;
+/** Forward tone map is floored here before gamma encode; values at or below it have no unique inverse. */
+const ACES_FLOOR = 1e-4;
 const SAT_TOP = USE_GAME_KEY_MODEL ? 2 : 1.75;
 const BRI_TOP = USE_GAME_KEY_MODEL ? 2 : 2.4;
 /** Earlier fit: Shadows Brightness pushed harder (~3.3×). The game model uses 2× for every zone. */
@@ -247,8 +259,8 @@ const SWATCHES: [number, number, number][] = [
 /** A hue in degrees to the colour multiplied at full tint, in linear light. */
 export function gameHue(h: number): [number, number, number] {
   if (USE_PLAIN_HSV) {
-    const c = hsvToRgb(h, 1, 1);
-    return [c[0] ** DISPLAY_GAMMA, c[1] ** DISPLAY_GAMMA, c[2] ** DISPLAY_GAMMA];
+    // Used as a linear-light multiplier, so the HSV value is left as-is.
+    return hsvToRgb(h, 1, 1);
   }
   const x = ((((h % 360) + 360) % 360) / 45) % 8;
   const i = Math.floor(x),
@@ -264,17 +276,52 @@ export const bandMix = (a: number, b: number, x: number) => {
   return USE_LINEAR_RAMPS ? t : t * t * (3 - 2 * t);
 };
 
-/** Display value (0..1) to linear HDR light, and back. */
+/** Standard Narkowicz ACES tone map, per channel, floored at ACES_FLOOR. */
+export function acesForward(x: number) {
+  if (x <= 0) return ACES_FLOOR;
+  const y = (x * (ACES_A * x + ACES_B)) / (x * (ACES_C * x + ACES_D) + ACES_E);
+  return Math.max(y, ACES_FLOOR);
+}
+
+/**
+ * Inverse of `acesForward` (without the floor). The unique non-negative
+ * root of the quadratic is the one a preview needs — with these
+ * coefficients that is the minus root; the plus root is negative. Values
+ * at or below ACES_FLOOR have no unique inverse and map to 0. Values at
+ * or above the asymptote a/c have no inverse and are clamped just below it.
+ */
+export function acesInverse(y: number) {
+  if (y <= ACES_FLOOR) return 0;
+  const cap = ACES_A / ACES_C;
+  if (y >= cap) y = cap * (1 - 1e-6);
+  const A = y * ACES_C - ACES_A;
+  const B = y * ACES_D - ACES_B;
+  const C = y * ACES_E;
+  const disc = Math.max(0, B * B - 4 * A * C);
+  const s = Math.sqrt(disc);
+  const r1 = (-B + s) / (2 * A);
+  const r2 = (-B - s) / (2 * A);
+  const x = r1 > 0 ? r1 : r2;
+  return x > 0 ? x : 0;
+}
+
+/** Display value (0..1) to linear light, and back, via PIXEL_TRANSFER. */
 export function toLight(x: number) {
-  const l = clamp(x, 0, REINHARD_WHITE) ** DISPLAY_GAMMA;
-  return l / (1 - l);
+  const y = clamp(x, 0, 1) ** DISPLAY_GAMMA;
+  if (PIXEL_TRANSFER === "reinhard-hdr") {
+    const l = Math.min(y, REINHARD_WHITE);
+    return l / Math.max(1e-6, 1 - l);
+  }
+  return acesInverse(y);
 }
 // The CPU fallback grades every preview pixel on each slider move; inputs are
 // 8-bit, so the linearise step is a table lookup instead of two pow() calls.
 const LIGHT_LUT = Float64Array.from({ length: 256 }, (_, v) => toLight(v / 255));
 
 export function toDisplay(v: number) {
-  return (Math.max(0, v) / (1 + Math.max(0, v))) ** INV_DISPLAY_GAMMA;
+  const x = Math.max(0, v);
+  const y = PIXEL_TRANSFER === "reinhard-hdr" ? x / (1 + x) : acesForward(x);
+  return Math.max(0, y) ** INV_DISPLAY_GAMMA;
 }
 
 /** Tint 0..100 to the weight given the hue colour. Linear under the game model; ^1.5 was the earlier fit. */
@@ -354,7 +401,15 @@ export type GradePlan = {
   s1: number;
   h0: number;
   h1: number;
-  /** The colour each zone multiplies by at full weight, in linear light. */
+  /** Linear-light ramps: w1 = sat(L*ramp.x + ramp.y), w2 = sat(L*ramp.z + ramp.w). */
+  ramp: Float64Array;
+  /** Shadows key after Simple is folded in, as (r, g, b, sat). */
+  key0: Float64Array;
+  /** Midtones minus Shadows, same layout. */
+  key1Delta: Float64Array;
+  /** Highlights minus Midtones, same layout. */
+  key2Delta: Float64Array;
+  /** The colour each zone multiplies by at full weight (legacy / fitted path). */
   tint: Float64Array;
   /** Extra exposure from a zone tint (1 for the Simple group). */
   dim: Float64Array;
@@ -377,6 +432,76 @@ function zoneList(s: Settings) {
 
 function zoneTint(hue: number) {
   return gameHue(hue);
+}
+
+type Key4 = { r: number; g: number; b: number; s: number };
+
+function makeKey(zone: Zone, darken: boolean): Key4 {
+  const t = clamp(zone.tint / 100, 0, 1);
+  const c = hsvToRgb(zone.hue, t, 1);
+  let r = c[0],
+    g = c[1],
+    b = c[2];
+  if (darken) {
+    // Tint 0 is a true no-op (Rec.601 of white is not exactly 1 in IEEE floats).
+    const y = t === 0 ? 1 : luma601(r, g, b);
+    r *= y;
+    g *= y;
+    b *= y;
+  }
+  const gain = briGain(zone.bri);
+  return { r: r * gain, g: g * gain, b: b * gain, s: satGain(zone.sat) };
+}
+
+function foldSimple(zone: Key4, simple: Key4): Key4 {
+  // Saturation adds around the neutral 1, and is capped at 2.
+  return {
+    r: zone.r * simple.r,
+    g: zone.g * simple.g,
+    b: zone.b * simple.b,
+    s: clamp(zone.s + simple.s - 1, 0, 2),
+  };
+}
+
+function keyNearlyNeutral(k: Key4) {
+  return k.r === 1 && k.g === 1 && k.b === 1 && k.s === 1;
+}
+
+/** Packed zone keys and luma ramps the per-pixel pass interpolates. */
+export function packedKeys(s: Settings) {
+  const simple = makeKey(s.zones.global, false);
+  const shadows = foldSimple(makeKey(s.zones.shadows, true), simple);
+  const midtones = foldSimple(makeKey(s.zones.midtones, true), simple);
+  const highlights = foldSimple(makeKey(s.zones.highlights, true), simple);
+  const s0 = s.shadowPos / 1000;
+  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
+  const h0 = s.highlightPos / 1000;
+  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
+  return {
+    key0: shadows,
+    key1Delta: {
+      r: midtones.r - shadows.r,
+      g: midtones.g - shadows.g,
+      b: midtones.b - shadows.b,
+      s: midtones.s - shadows.s,
+    },
+    key2Delta: {
+      r: highlights.r - midtones.r,
+      g: highlights.g - midtones.g,
+      b: highlights.b - midtones.b,
+      s: highlights.s - midtones.s,
+    },
+    ramp: [1 / (s1 - s0), -s0 / (s1 - s0), 1 / (h1 - h0), -h0 / (h1 - h0)] as [
+      number,
+      number,
+      number,
+      number,
+    ],
+    shadows,
+    midtones,
+    highlights,
+    simple,
+  };
 }
 
 export function gradePlan(s: Settings): GradePlan {
@@ -405,15 +530,27 @@ export function gradePlan(s: Settings): GradePlan {
     bri[z] = briGain(zone.bri, z === 0 ? SHADOW_BRI_TOP : BRI_TOP);
     live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
   }
+  const packed = packedKeys(s);
+  const toVec = (k: Key4) => new Float64Array([k.r, k.g, k.b, k.s]);
+  const gameNeutral =
+    keyNearlyNeutral(packed.shadows) &&
+    keyNearlyNeutral(packed.midtones) &&
+    keyNearlyNeutral(packed.highlights);
   return {
     ...b,
+    ramp: new Float64Array(packed.ramp),
+    key0: toVec(packed.key0),
+    key1Delta: toVec(packed.key1Delta),
+    key2Delta: toVec(packed.key2Delta),
     tint,
     dim,
     amount,
     sat,
     bri,
     live,
-    neutral: !live[0] && !live[1] && !live[2] && !live[3],
+    neutral: USE_GAME_KEY_MODEL
+      ? gameNeutral
+      : !live[0] && !live[1] && !live[2] && !live[3],
   };
 }
 
@@ -431,6 +568,11 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
   // what makes "no filter" free instead of a full-frame pass.
   if (plan.neutral) return;
 
+  if (USE_GAME_KEY_MODEL) {
+    paintGameGrade(data, plan);
+    return;
+  }
+
   const { s0, s1, h0, h1, tint, dim, amount, sat, bri, live } = plan;
   const allLive = live[0] && live[1] && live[2] && live[3];
 
@@ -438,7 +580,7 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
     const r0 = data[i] / 255,
       g0 = data[i + 1] / 255,
       b0 = data[i + 2] / 255;
-    // Zone weights come from the pixel's ORIGINAL luminance, all at once.
+    // Legacy path: zone weights from the pixel's display luminance.
     const l0 = luma(r0, g0, b0);
     const ws = 1 - bandMix(s0, s1, l0);
     const wh = bandMix(h0, h1, l0) * (1 - ws);
@@ -468,6 +610,31 @@ export function paintGrade(data: Uint8ClampedArray, plan: GradePlan) {
   }
 }
 
+/** Game path: interpolate one key from Rec.709 luma, sat then colour, then tone-map. */
+function paintGameGrade(data: Uint8ClampedArray, plan: GradePlan) {
+  const { key0, key1Delta, key2Delta, ramp } = plan;
+  const exp = Math.max(EXPOSURE, 0);
+  for (let i = 0; i < data.length; i += 4) {
+    let r = LIGHT_LUT[data[i]],
+      g = LIGHT_LUT[data[i + 1]],
+      b = LIGHT_LUT[data[i + 2]];
+    const L = luma709(r, g, b);
+    const w1 = clamp(L * ramp[0] + ramp[1], 0, 1);
+    const w2 = clamp(L * ramp[2] + ramp[3], 0, 1);
+    const kr = key0[0] + key1Delta[0] * w1 + key2Delta[0] * w2;
+    const kg = key0[1] + key1Delta[1] * w1 + key2Delta[1] * w2;
+    const kb = key0[2] + key1Delta[2] * w1 + key2Delta[2] * w2;
+    const ks = key0[3] + key1Delta[3] * w1 + key2Delta[3] * w2;
+    // lerp(L, rgb, sat) then multiply by the key's colour (which includes brightness).
+    r = (L + (r - L) * ks) * kr * exp;
+    g = (L + (g - L) * ks) * kg * exp;
+    b = (L + (b - L) * ks) * kb * exp;
+    data[i] = toDisplay(r) * 255;
+    data[i + 1] = toDisplay(g) * 255;
+    data[i + 2] = toDisplay(b) * 255;
+  }
+}
+
 /** The per-zone inputs applyGrade uses, flattened for the GPU version of the same maths. */
 export function gradeUniforms(s: Settings) {
   const p = gradePlan(s);
@@ -475,13 +642,21 @@ export function gradeUniforms(s: Settings) {
     bands: [p.s0, p.s1, p.h0, p.h1],
     tint: Array.from(p.tint),
     params: [0, 1, 2, 3].flatMap((z) => [p.amount[z], p.sat[z], p.bri[z], p.dim[z]]),
-    // Keep the GPU shader in lockstep with USE_GAME_KEY_MODEL.
     luma: [LUMA_R, LUMA_G, LUMA_B] as [number, number, number],
     smooth: USE_LINEAR_RAMPS ? 0 : 1,
-    // Hooks for the still-unconfirmed per-pixel stage.
-    pixelTransfer: PIXEL_TRANSFER,
+    useGameModel: USE_GAME_KEY_MODEL ? 1 : 0,
+    key0: Array.from(p.key0),
+    key1Delta: Array.from(p.key1Delta),
+    key2Delta: Array.from(p.key2Delta),
+    ramp: Array.from(p.ramp),
+    luma709: [...LUMA709] as [number, number, number],
+    exposure: EXPOSURE,
+    pixelTransfer: PIXEL_TRANSFER === "reinhard-hdr" ? 1 : 0,
     displayGamma: DISPLAY_GAMMA,
     reinhardWhite: REINHARD_WHITE,
+    aces: [ACES_A, ACES_B, ACES_C, ACES_D] as [number, number, number, number],
+    acesE: ACES_E,
+    acesFloor: ACES_FLOOR,
   };
 }
 
