@@ -256,6 +256,7 @@ export default function ImportGuide({
                 src="/import-demo.mp4"
                 poster="/import-demo.jpg"
                 controls
+                loop
                 muted
                 playsInline
                 preload="none"
