@@ -248,6 +248,21 @@ export default function ImportGuide({
               })}
             </ol>
 
+            <details className="mt-3">
+              <summary className="flex min-h-11 cursor-pointer items-center font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text">
+                Watch it done (2× speed)
+              </summary>
+              <video
+                src="/import-demo.mp4"
+                poster="/import-demo.jpg"
+                controls
+                muted
+                playsInline
+                preload="none"
+                className="mt-2 w-full border border-line bg-black"
+              />
+            </details>
+
             <div className="mt-3 flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate bg-black/50 px-2 py-2 font-mono text-xs text-codm-light">
                 {open.code}
