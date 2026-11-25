@@ -655,7 +655,7 @@ export const lookSlug = (look: Pick<Look, "name">) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-export const GAMES = ["MW4", "Black Ops 7", "Black Ops 6", "MWIII", "MWII", "Vanguard", "MW 2019", "Cold War", "CODM"] as const;
+export const GAMES = ["MW4", "Black Ops 7", "Black Ops 6", "MWIII", "MWII", "WZM", "Vanguard", "MW 2019", "Cold War", "CODM"] as const;
 export type Game = (typeof GAMES)[number];
 
 /** Ready-made looks shown in the gallery. */
@@ -959,13 +959,25 @@ export const LOOKS: Look[] = [
   {
     // FlowyOps, "MWIII inspired Rust map color tone" (youtu.be/DG9oc6rvroI).
     // His own code, pinned under the video; his before/after shows warmer,
-    // softer light. The card is the "after" half of the video thumbnail.
-    name: "Rust (FlowyOps)",
+    // softer light. The card is a frame from the after half of the video.
+    name: "MWIII Rust",
     game: "MWIII",
-    note: "FlowyOps' MWIII-style Rust tone: warm, soft desert light",
+    note: "FlowyOps' MWIII Rust tone: warm, soft desert light",
     mode: "Advanced",
     code: "3_1_45_145_308_408_128_87_579_1000_500_172_353_1159_0_0_0_1000_0_0_0_1000",
-    image: "/looks/rust-flowyops.webp",
+    image: "/looks/mwiii-rust.webp",
+    inGame: true,
+  },
+  {
+    // FlowyOps, "Crash Graphics (Before vs After) Warzone Mobile Style"
+    // (youtu.be/MQT5LbkLsYk). His own code, posted under the video.
+    // The card is a frame from the after half of the video.
+    name: "WZM Crash",
+    game: "WZM",
+    note: "FlowyOps' Warzone Mobile-style Crash tone",
+    mode: "Advanced",
+    code: "3_1_0_100_1000_1100_125_338_583_957_180_251_-188_1575_125_9_0_1000_0_0_0_1000",
+    image: "/looks/wzm-crash.webp",
     inGame: true,
   },
   {
