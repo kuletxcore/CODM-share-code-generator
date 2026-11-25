@@ -957,6 +957,18 @@ export const LOOKS: Look[] = [
     inGame: true,
   },
   {
+    // FlowyOps, "MWIII inspired Rust map color tone" (youtu.be/DG9oc6rvroI).
+    // His own code, pinned under the video; his before/after shows warmer,
+    // softer light. The card is the "after" half of the video thumbnail.
+    name: "Rust (FlowyOps)",
+    game: "MWIII",
+    note: "FlowyOps' MWIII-style Rust tone: warm, soft desert light",
+    mode: "Advanced",
+    code: "3_1_45_145_308_408_128_87_579_1000_500_172_353_1159_0_0_0_1000_0_0_0_1000",
+    image: "/looks/rust-flowyops.webp",
+    inGame: true,
+  },
+  {
     // Serotonin, "Best Color Settings for CODM to Spot Enemies Faster!"
     // (youtu.be/MvEatDU4eiE, 30 Jun 2026). His own code, posted in reply to a
     // viewer under the video. It matches the settings he saves in the video
