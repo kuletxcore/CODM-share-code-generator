@@ -41,7 +41,7 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 
 An in-game export with every slider at 100 reads `125_1000_1000_2000` for each group: Red with the Hue slider at 100 writes 125, the same value as Orange at 0. Both Range handles pushed to the ends write `0_100_1000_1100`.
 
-The preview is an approximation of the in-game filter, fitted to before/after screenshots from the game (see [docs/AFTER-MERGE.md](docs/AFTER-MERGE.md#7-calibrating-the-preview)). The game grades in linear light before a tone map: tint multiplies by the hue colour, brightness is an exposure gain (0 is black), and on the default Range the Highlights tab changes nothing.
+The preview is an approximation of the in-game filter. It builds the game's colour keys (Rec.601 zone darkening, a plain HSV wheel with linear tint, a single 0–2× brightness gain, 0–2 saturation), interpolates one key per pixel with linear Rec.709 ramps, and grades in linear light between an inverse and a forward Narkowicz ACES tone map. See [docs/GAME_MODEL_NOTES.md](docs/GAME_MODEL_NOTES.md). The site previews on static, already tone-mapped screenshots, so pre-tone-map highlights cannot be recovered exactly; on the default Range, Highlights can still tint near-white regions of a still once the inverse tone map has lifted them above luma 1.
 
 ## Using a code in game
 

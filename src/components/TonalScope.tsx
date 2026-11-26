@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Settings } from "@/lib/codm";
+import { bandMix, luma709, type Settings } from "@/lib/codm";
 
 // Luminance histogram of the preview canvas with the two in-game Range handles on top,
 // so you can see which tones each zone will touch.
@@ -92,7 +92,7 @@ export default function TonalScope({
     let n = 0;
     let mean = 0;
     for (let i = 0; i < px.length; i += 4) {
-      const l = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+      const l = luma709(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255);
       const b = Math.max(0, Math.min(BINS - 1, Math.floor(l * BINS)));
       bins[b] += 1;
       mean += l;
@@ -146,17 +146,14 @@ export default function TonalScope({
 
     // share of the frame per zone, using the grade's own falloff
     if (onShare) {
-      const soft = (a: number, b: number, x: number) => {
-        const t = Math.min(1, Math.max(0, (x - a) / (b - a || 1e-6)));
-        return t * t * (3 - 2 * t);
-      };
       let ws = 0;
       let wm = 0;
       let wh = 0;
       for (let i = 0; i < BINS; i++) {
         const l = (i + 0.5) / BINS;
-        const a = 1 - soft(s0, s1, l);
-        const c2 = soft(h0, h1, l) * (1 - a);
+        // Same linear ramps as the grade (bandMix), on the handles as drawn.
+        const a = 1 - bandMix(s0, s1, l);
+        const c2 = bandMix(h0, h1, l) * (1 - a);
         ws += bins[i] * a;
         wh += bins[i] * c2;
         wm += bins[i] * Math.max(0, 1 - a - c2);
