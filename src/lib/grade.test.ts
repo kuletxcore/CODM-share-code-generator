@@ -53,7 +53,7 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     EE = 0.14,
     FLOOR = 1e-4;
   const acesFwd = (x: number) => {
-    if (x <= 0) return FLOOR;
+    x = Math.min(x, 50.001);
     return Math.max((x * (AA * x + BB)) / (x * (CC * x + DD) + EE), FLOOR);
   };
   const acesInv = (y: number) => {
@@ -71,7 +71,7 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     return x > 0 ? x : 0;
   };
   const toLight = (x: number) => acesInv(clamp(x, 0, 1) ** 2.2);
-  const toDisplay = (v: number) => acesFwd(Math.max(0, v)) ** (1 / 2.2);
+  const toDisplay = (v: number) => acesFwd(v) ** (1 / 2.2);
   const makeKey = (zone: Settings["zones"]["shadows"], darken: boolean) => {
     const t = clamp(zone.tint / 100, 0, 1);
     const c = hsv(zone.hue, t, 1);
@@ -328,4 +328,20 @@ test("on the default Range, Highlights stay off mid-greys but can reach near-whi
   const brightAfter = new Uint8ClampedArray(bright);
   applyGrade(brightAfter, s);
   assert.notDeepEqual(Array.from(brightAfter), Array.from(bright));
+});
+
+test("the tone map clamps from above only: negative lanes go through the curve", () => {
+  const f = (x: number) => (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
+  // Small negative lanes floor; strongly negative ones come out positive, as the shader's maths gives.
+  assert.equal(acesForward(-0.005), 1e-4);
+  assert.ok(Math.abs(acesForward(-0.5) - f(-0.5)) < 1e-15);
+  assert.ok(acesForward(-0.5) > 1);
+  // Above the white point the input is held at 50.001.
+  assert.equal(acesForward(1e6), f(50.001));
+  // Saturation 2 on a saturated red pushes green and blue below zero; flooring them would give ~4/255.
+  const s = defaultSettings();
+  s.zones.global = { hue: 0, tint: 0, sat: 100, bri: 50 };
+  const px = new Uint8ClampedArray([200, 40, 30, 255]);
+  applyGrade(px, s);
+  assert.ok(px[1] > 60 && px[2] > 60, `got ${Array.from(px)}`);
 });

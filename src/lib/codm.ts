@@ -228,6 +228,14 @@ const ACES_D = 0.59;
 const ACES_E = 0.14;
 /** Forward tone map is floored here before gamma encode; values at or below it have no unique inverse. */
 const ACES_FLOOR = 1e-4;
+/**
+ * The tone map clamps its input from above only, at a white point of 50
+ * plus a small epsilon. It has no lower clamp: a lane pushed below zero by
+ * saturation above 1 or a negative key goes through the rational curve as
+ * is, and below about -0.012 the curve is positive again (a strongly
+ * negative lane comes out bright, not black). The preview copies that.
+ */
+const ACES_WHITE = 50.001;
 const SAT_TOP = USE_GAME_KEY_MODEL ? 2 : 1.75;
 const BRI_TOP = USE_GAME_KEY_MODEL ? 2 : 2.4;
 /** Earlier fit: Shadows Brightness pushed harder (~3.3×). The game model uses 2× for every zone. */
@@ -276,9 +284,9 @@ export const bandMix = (a: number, b: number, x: number) => {
   return USE_LINEAR_RAMPS ? t : t * t * (3 - 2 * t);
 };
 
-/** Standard Narkowicz ACES tone map, per channel, floored at ACES_FLOOR. */
+/** Standard Narkowicz ACES tone map, per channel: clamped above at ACES_WHITE only, floored at ACES_FLOOR. */
 export function acesForward(x: number) {
-  if (x <= 0) return ACES_FLOOR;
+  if (x > ACES_WHITE) x = ACES_WHITE;
   const y = (x * (ACES_A * x + ACES_B)) / (x * (ACES_C * x + ACES_D) + ACES_E);
   return Math.max(y, ACES_FLOOR);
 }
@@ -319,8 +327,8 @@ export function toLight(x: number) {
 const LIGHT_LUT = Float64Array.from({ length: 256 }, (_, v) => toLight(v / 255));
 
 export function toDisplay(v: number) {
-  const x = Math.max(0, v);
-  const y = PIXEL_TRANSFER === "reinhard-hdr" ? x / (1 + x) : acesForward(x);
+  // Only the Reinhard fit needs a non-negative input; the ACES path keeps negative lanes (see ACES_WHITE).
+  const y = PIXEL_TRANSFER === "reinhard-hdr" ? Math.max(0, v) / (1 + Math.max(0, v)) : acesForward(v);
   return Math.max(0, y) ** INV_DISPLAY_GAMMA;
 }
 
@@ -657,6 +665,7 @@ export function gradeUniforms(s: Settings) {
     aces: [ACES_A, ACES_B, ACES_C, ACES_D] as [number, number, number, number],
     acesE: ACES_E,
     acesFloor: ACES_FLOOR,
+    acesWhite: ACES_WHITE,
   };
 }
 
