@@ -248,8 +248,8 @@ export default function ImportGuide({
               })}
             </ol>
             <p className="mt-2 text-xs text-mute">
-              Each mode keeps its own five Custom slots. No change in a match you are already in? It may only take
-              effect once the match reloads, so check in your next match.
+              Each mode keeps its own five Custom slots. The look follows the Custom slot that is selected. No change? Make
+              sure the slot you imported into is the selected one, or pick another slot and switch back.
             </p>
 
             <details className="mt-3">
