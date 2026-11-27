@@ -50,6 +50,9 @@ uniform vec4 uAces;
 uniform float uAcesE;
 uniform float uAcesFloor;
 uniform float uAcesWhite;
+// 1 when a side's code is neutral: the CPU path skips the pixel loop then, so the GPU must too.
+uniform float uNeutral;
+uniform float uNeutralB;
 
 float luma(vec3 c){ return dot(c, uLuma); }
 float smoothB(float a, float b, float x){
@@ -120,6 +123,7 @@ vec3 gradeGame(vec3 c, vec4 k0, vec4 d1, vec4 d2, vec4 ramp){
   return toEncoded(v);
 }
 vec3 grade(vec3 c, bool pin){
+  if ((pin ? uNeutralB : uNeutral) > 0.5) return c;
   if (uGame > 0.5) {
     return pin
       ? gradeGame(c, uKey0B, uKey1DeltaB, uKey2DeltaB, uRampB)
@@ -216,7 +220,9 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uAces = u("uAces"),
     uAcesE = u("uAcesE"),
     uAcesFloor = u("uAcesFloor"),
-    uAcesWhite = u("uAcesWhite");
+    uAcesWhite = u("uAcesWhite"),
+    uNeutral = u("uNeutral"),
+    uNeutralB = u("uNeutralB");
   let w = 1,
     h = 1;
 
@@ -248,6 +254,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform1f(uAcesE, g.acesE);
       gl.uniform1f(uAcesFloor, g.acesFloor);
       gl.uniform1f(uAcesWhite, g.acesWhite);
+      gl.uniform1f(uNeutral, g.neutral);
       gl.uniform1f(uPin, pin ? 1 : 0);
       if (pin) {
         const b = gradeUniforms(pin);
@@ -258,6 +265,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
         gl.uniform4fv(uKey1DeltaB, b.key1Delta);
         gl.uniform4fv(uKey2DeltaB, b.key2Delta);
         gl.uniform4fv(uRampB, b.ramp);
+        gl.uniform1f(uNeutralB, b.neutral);
       }
       gl.uniform2f(uSize, w, h);
       // same rounding as the CPU compositor: original left of round(w * split)

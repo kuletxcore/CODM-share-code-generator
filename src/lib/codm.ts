@@ -926,6 +926,7 @@ export function gradeUniforms(s: Settings) {
     acesE: ACES_E,
     acesFloor: ACES_FLOOR,
     acesWhite: ACES_WHITE,
+    neutral: p.neutral ? 1 : 0,
   };
 }
 

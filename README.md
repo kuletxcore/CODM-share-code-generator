@@ -47,7 +47,7 @@ The preview is an approximation of the in-game filter. It builds the game's colo
 
 Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
 
-Each mode has its own five Custom slots; a code is the only way to move a look between modes. The filter grades the match view, not the lobby. In testing, a code imported into the selected Custom slot changed the look straight away, while one imported into another slot only showed once that slot was selected. A code with a stray character or a trailing `_` is refused with "Invalid Share code".
+Each mode has its own five Custom slots; a code is the only way to move a look between modes. The filter grades the match view, not the lobby. In testing, an imported code did not always change the match straight away; the look did change once the slot holding that code was selected. If nothing changes, pick another slot and switch back. A code with a stray character or a trailing `_` is refused with "Invalid Share code".
 
 ## Development
 
