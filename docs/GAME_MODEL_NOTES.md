@@ -17,7 +17,7 @@ For each of Simple, Shadows, Midtones and Highlights:
 - **Brightness** is a single gain `1 + lerp(−1, 1, slider)`: 0× at 0, 1× at 50, 2× at 100, the same for every group.
 - **Saturation** is `2 × slider` (0 at 0, 1 at 50, 2 at 100).
 - **Zone colour** (Shadows, Midtones, Highlights) is also scaled by that colour's own Rec.601 luma (`0.299R + 0.587G + 0.114B`), so a strong tint darkens as well as shifts. Simple is multiplied in without that darkening.
-- Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`), capped at 2.
+- Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`). The preview clamps that sum to 0–2; in the game the sum is not clamped (each slider is limited, the sum is not), so both at 100 give 3 and both at 0 give −1. Removing the preview clamp is a grade-maths change and is tracked separately.
 
 There is no lookup table on this path.
 
@@ -46,6 +46,13 @@ Those ACES coefficients, the floor, and the inverse root are also named hooks (`
 The site previews on static, already tone-mapped LDR screenshots, so this inverse is the practical way to recover a working linear range. It is exact on midtones for this curve, but ACES is many-to-one near and above its white point, so pre-tone-map highlights cannot be recovered uniquely. After the inverse, display values around 0.91 and up already map to scene-linear luma ≥ 1, so the default Highlights ramp *can* affect near-white regions of a still; that is expected, and it will still not match bloomed in-game highlights pixel-for-pixel.
 
 A neutral (default) code is an exact identity: the pixel loop is skipped, so the tone-map round trip is not applied to an already-correct screenshot.
+
+### What the preview leaves out
+
+- **Quality tier.** Higher graphics tiers grade in HDR with a multi-pass tone map, lower tiers in one LDR pass. Some night modes cap the tier, so they always take the lower path. The preview models one path.
+- **Battle Royale zones.** Some BR areas blend the frame into a different grade towards the edge of the zone (over the outer 30% of its radius), so the same code can look different in places on the BR map.
+- **Damage overlay.** The red full-screen effect lerps the active grade towards a fixed red, on all four keys, by its intensity. It is not part of a code.
+- **Auto-exposure.** Exposure can switch on at round reset and after some scorestreaks, which changes overall brightness without changing the code.
 
 ## What this replaced
 

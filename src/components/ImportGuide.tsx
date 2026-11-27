@@ -94,7 +94,7 @@ const STEPS: { title: string; hint?: string }[] = [
   { title: "Graphic Style → Import → Go" },
   { title: "Choose a Custom slot" },
   { title: "Paste the code", hint: "Into “Enter the Share code”" },
-  { title: "Apply" },
+  { title: "Apply", hint: "The look shows in a match, not in the lobby" },
 ];
 
 const readOff = () => {
@@ -247,6 +247,10 @@ export default function ImportGuide({
                 );
               })}
             </ol>
+            <p className="mt-2 text-xs text-mute">
+              Each mode keeps its own five Custom slots. No change in a match you are already in? It may only take
+              effect once the match reloads, so check in your next match.
+            </p>
 
             <details className="mt-3">
               <summary className="flex min-h-11 cursor-pointer items-center font-display text-sm font-bold uppercase tracking-wider text-mute hover:text-text">
