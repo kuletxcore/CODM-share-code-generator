@@ -17,7 +17,13 @@ For each of Simple, Shadows, Midtones and Highlights:
 - **Brightness** is a single gain `1 + lerp(−1, 1, slider)`: 0× at 0, 1× at 50, 2× at 100, the same for every group.
 - **Saturation** is `2 × slider` (0 at 0, 1 at 50, 2 at 100).
 - **Zone colour** (Shadows, Midtones, Highlights) is also scaled by that colour's own Rec.601 luma (`0.299R + 0.587G + 0.114B`), so a strong tint darkens as well as shifts. Simple is multiplied in without that darkening.
-- Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`). The preview clamps that sum to 0–2; in the game the sum is not clamped (each slider is limited, the sum is not), so both at 100 give 3 and both at 0 give −1. Removing the preview clamp is a grade-maths change and is tracked separately.
+- Zone tint uses the fused HSV wheel; a hue outside sectors −1..6 (raw outside −166..1166) gives black. Zone brightness is clamped to [−1, 1] and saturation to [0, 2] before the fold.
+- Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`) with no clamp afterwards, so both at 100 give 3 and both at 0 give −1.
+- **White balance:** every zone key is also multiplied by the master-temperature white balance (`rgb / Rec.601(rgb)` of the 6500 K colour, about `1.036, 0.978, 1.019`). Every shipped look uses 6500 K, so the reset code is not an identity in the game.
+- **Range repair:** each Range value is clamped to 0–5 (raw / 1000), then walked left to right; a value not above the previous one becomes that value + 0.01 (including the midtone pair). No clamp after the repair.
+- Key maths runs in float32 (`Math.fround` at each step); the keys match the reference model within 1 ULP.
+
+**Preview baseline (assumption).** Screenshots were already rendered by the game with the neutral code, so they already carry the 6500 K white balance. The preview applies each key relative to the neutral code's key (`rgb / neutral rgb`; saturation and ramps unchanged), so the default code is an exact identity and is skipped. Absolute keys stay exported for parity tests. `SOURCE_BASELINE` in `src/lib/codm.ts` switches this (`"neutral"` or `"none"` for absolute keys); CPU and GPU both read the same plan.
 
 There is no lookup table on this path.
 
