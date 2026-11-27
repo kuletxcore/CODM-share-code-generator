@@ -5,6 +5,9 @@ import {
   DEFAULT_CODE,
   analyse,
   extractCode,
+  checkCode,
+  parseFields,
+  rangeKeys,
   LOOKS,
   lookSlug,
   PRESETS,
@@ -47,6 +50,68 @@ test("decode tolerates surrounding whitespace", () => {
   assert.ok(decode(`  ${DEFAULT_CODE}\n`));
 });
 
+test("decode follows the game's field grammar", () => {
+  const swap = (i: number, v: string) => {
+    const p = DEFAULT_CODE.split("_");
+    p[i] = v;
+    return p.join("_");
+  };
+  const same = (code: string) => assert.equal(encode(decode(code)!), DEFAULT_CODE, JSON.stringify(code));
+  same(swap(9, "+1000"));
+  same(swap(9, "001000"));
+  same(swap(9, " 1000\t"));
+  same(swap(9, "\u180e1000\u3000"));
+  same(swap(9, "\u00851000"));
+  same(swap(9, "1000\u0000junk"));
+  same(swap(8, "-0"));
+});
+
+test("parseFields keeps the full Int32 range and no range checks", () => {
+  const p = DEFAULT_CODE.split("_");
+  p[9] = "-2147483648";
+  p[10] = "2147483647";
+  const n = parseFields(p.join("_"));
+  assert.ok(n);
+  assert.equal(n[9], -2147483648);
+  assert.equal(n[10], 2147483647);
+});
+
+test("decode imports what the game imports, clamped as the game renders it", () => {
+  // A code the game accepted in game with "Successfully applied." (Range past 1000)
+  const code = "0_1_974_1074_1084_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000";
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.equal(encode(r.settings), code);
+  assert.ok(r.notes.some((t) => t.includes("Customize Color")));
+  const swap = (i: number, v: string) => {
+    const q = DEFAULT_CODE.split("_");
+    q[i] = v;
+    return q.join("_");
+  };
+  const raw = (c: string) => encode(decode(c)!).split("_").map(Number);
+  assert.equal(raw(swap(9, "2001"))[9], 2000);
+  assert.equal(raw(swap(9, "-5"))[9], 0);
+  assert.equal(raw(swap(8, "1500"))[8], 1000);
+  assert.equal(raw(swap(8, "-1500"))[8], -1000);
+  assert.equal(raw(swap(4, "9000"))[4], 5000);
+  assert.equal(raw(swap(2, "-1"))[2], 0);
+  assert.equal(raw(swap(1, "7"))[1], 1);
+  // hue wraps on -166..1166 (period 1000)
+  assert.equal(raw(swap(6, "1166"))[6], 166);
+  assert.equal(raw(swap(6, "-166"))[6], 834);
+  // far out of range but tint 0: no visible effect
+  assert.equal(raw(swap(6, "5000"))[6], 0);
+});
+
+test("Range repair pushes out-of-order values 0.01 above the previous one", () => {
+  assert.deepEqual(rangeKeys(30, 300, 1000, 1500), [0.03, 0.3, 1, 1.5]);
+  const [d, m0, m1, b0] = rangeKeys(500, 500, 400, 9000);
+  assert.equal(d, 0.5);
+  assert.ok(Math.abs(m0 - 0.51) < 1e-12);
+  assert.ok(Math.abs(m1 - 0.52) < 1e-12);
+  assert.equal(b0, 5);
+});
+
 test("decode rejects malformed codes", () => {
   const swap = (i: number, v: string) => {
     const p = DEFAULT_CODE.split("_");
@@ -59,17 +124,20 @@ test("decode rejects malformed codes", () => {
     hex: swap(0, "0x1"),
     exponent: swap(21, "1e3"),
     decimal: swap(7, "1.5"),
-    "preset out of range": swap(0, "5"),
-    "enabled out of range": swap(1, "2"),
-    "hue out of range": swap(6, "1001"),
-    "negative tint": swap(7, "-1"),
-    "brightness out of range": swap(8, "1001"),
-    "saturation out of range": swap(9, "2001"),
-    "negative shadow handle": swap(2, "-1"),
-    "negative highlight handle": swap(4, "-5"),
-    "highlight handle past the bar (the game refuses it)": swap(4, "1084"),
-    "shadow handle past the bar": swap(2, "1001"),
-    "negative falloff": swap(3, "-1"),
+    "preset out of range (game shows no filter)": swap(0, "5"),
+    "negative preset": swap(0, "-1"),
+    "hue far out of range with tint (game renders black)": DEFAULT_CODE.replace(/^((?:[^_]+_){6})0_0/, "$11167_500"),
+    "negative tint (game renders it unclamped)": swap(7, "-1"),
+    "tint past 1000": swap(7, "1001"),
+    "past Int32": swap(9, "2147483648"),
+    "below Int32": swap(9, "-2147483649"),
+    "two signs": swap(9, "+-1"),
+    "Arabic-Indic digits": swap(9, "\u0661"),
+    "fullwidth digits": swap(9, "\uff11"),
+    "zero-width no-break space": swap(9, "\ufeff1000"),
+    "space inside a number": swap(9, "10 00"),
+    "trailing underscore": DEFAULT_CODE + "_",
+    "empty field": swap(9, ""),
     empty: "",
   };
   for (const [why, code] of Object.entries(bad)) assert.equal(decode(code), null, why);

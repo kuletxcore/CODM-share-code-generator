@@ -25,6 +25,7 @@ import {
   tintWeight,
   zoneDim,
   type Settings,
+  rangeKeys,
 } from "./codm.ts";
 
 /**
@@ -103,10 +104,7 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   const ident = (k: { r: number; g: number; b: number; s: number }) =>
     k.r === 1 && k.g === 1 && k.b === 1 && k.s === 1;
   if (ident(shadows) && ident(midtones) && ident(highlights)) return;
-  const s0 = s.shadowPos / 1000;
-  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
-  const h0 = s.highlightPos / 1000;
-  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
+  const [s0, s1, h0, h1] = rangeKeys(s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge);
   const lx = 1 / (s1 - s0),
     ly = -s0 / (s1 - s0),
     lz = 1 / (h1 - h0),

@@ -79,43 +79,131 @@ export function encode(s: Settings): string {
   return out.map((n) => Math.round(n)).join("_");
 }
 
-/** Raw range of each value in a zone group, in code order (hue, tint, bri, sat). */
-const ZONE_RANGES: [number, number][] = [
-  [0, 1000],
-  [0, 1000],
-  [-1000, 1000],
-  [0, 2000],
-];
+/**
+ * Whitespace the game's field parser skips around a number: the .NET
+ * `Char.IsWhiteSpace` set of its runtime, which predates Unicode 6.3, so it
+ * still holds U+180E. It does not hold U+FEFF or U+200B, which JavaScript's
+ * `trim()` would strip.
+ */
+const GAME_WS =
+  "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u180e\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+/**
+ * One field: optional whitespace, one optional sign, ASCII digits, optional
+ * whitespace. A NUL character ends the field early, so anything after it is
+ * ignored (read from the game's parser, not yet tested in game).
+ */
+const FIELD_RE = new RegExp(`^[${GAME_WS}]*([+-]?[0-9]+)[${GAME_WS}]*(?:\\u0000[^]*)?$`);
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
 
 /**
- * Parses a share code. Returns null unless it is exactly 22 integers with every
- * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
- * load as a washed-out grade. The Range handles run 0-1000, the ends of the bar;
- * the game itself refuses a handle past 1000 and imports the default instead.
- * The falloffs only have to be non-negative: the game writes handle + 100 after
- * a drag, but the reset state has 1500, so no tighter limit is known.
+ * Splits a share code the way the game does: on "_", exactly 22 parts, each a
+ * signed 32-bit decimal integer. No range checks happen here, as in the game,
+ * whose import stores whatever parses and only clamps later, when it renders.
+ * Returns null when the game would reject the code ("invalid share code").
+ */
+export function parseFields(code: string): number[] | null {
+  const parts = code.split("_");
+  if (parts.length !== 22) return null;
+  const out: number[] = [];
+  for (const p of parts) {
+    const m = FIELD_RE.exec(p);
+    if (!m) return null;
+    const v = Number(m[1]);
+    if (!Number.isSafeInteger(v) || v < INT32_MIN || v > INT32_MAX) return null;
+    out.push(v === 0 ? 0 : v); // no -0
+  }
+  return out;
+}
+
+export type CodeCheck =
+  | { ok: true; settings: Settings; notes: string[] }
+  | { ok: false; reason: string; notes: string[] };
+
+/**
+ * Reads a share code and says what the game does with it. The game accepts
+ * any 22 integers; this returns the settings it would render, with values the
+ * game clamps already clamped, plus a note for every value it changed. It
+ * returns ok: false when the game rejects the code, or when the game accepts
+ * it but renders something the preview can't show (no grade at all, a black
+ * zone, or a tint outside 0-100%).
+ */
+export function checkCode(code: string): CodeCheck {
+  const notes: string[] = [];
+  const n = parseFields(code);
+  if (!n) return { ok: false, reason: "The game rejects this: it needs exactly 22 whole numbers joined by _.", notes };
+  if (n[0] < 0 || n[0] > 4) {
+    return {
+      ok: false,
+      reason: `Preset ${n[0]} doesn't exist (0-4). The game imports the code but then shows no colour filter.`,
+      notes,
+    };
+  }
+  const s = defaultSettings();
+  s.preset = n[0];
+  // The second number only marks the slot as saved; any value imports.
+  if (n[1] !== 0 && n[1] !== 1) notes.push(`The second number (${n[1]}) is only a marker; read as 1.`);
+  s.enabled = n[1] === 0 ? 0 : 1;
+  // Range: the game clamps each value to 0-5000 when it renders. Customize
+  // Color shows only 0-1000 on its bar, so opening it moves a handle past 1000.
+  const range = n.slice(2, 6).map((v, i) => {
+    const c = clamp(v, 0, 5000);
+    if (c !== v) notes.push(`Range value ${i + 1} (${v}) is clamped to ${c}.`);
+    else if ((i === 0 || i === 2) && v > 1000)
+      notes.push(`Range handle ${v} is past the bar; opening Customize Color in game moves it to 1000.`);
+    return c;
+  });
+  [s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = range;
+  for (const [i, k] of ZONES.entries()) {
+    const o = 6 + i * 4;
+    const [rawHue, tint, bri, sat] = n.slice(o, o + 4);
+    let hue = rawHue;
+    if (tint < 0 || tint > 1000) {
+      return { ok: false, reason: `${k} tint ${tint} is outside 0-1000; the game renders it unclamped.`, notes };
+    }
+    if (hue < -166 || hue > 1166) {
+      if (tint !== 0) {
+        return { ok: false, reason: `${k} hue ${hue} is outside -166 to 1166; the game turns that zone's tint black.`, notes };
+      }
+      notes.push(`${k} hue ${hue} has no effect at tint 0; read as 0.`);
+      hue = 0;
+    } else if (hue < 0 || hue > 1000) {
+      const w = hue < 0 ? hue + 1000 : hue - 1000;
+      notes.push(`${k} hue ${hue} wraps to ${w}.`);
+      hue = w;
+    }
+    const b = clamp(bri, -1000, 1000);
+    if (b !== bri) notes.push(`${k} brightness ${bri} is clamped to ${b}.`);
+    const t = clamp(sat, 0, 2000);
+    if (t !== sat) notes.push(`${k} saturation ${sat} is clamped to ${t}.`);
+    s.zones[k] = { hue: (hue / 1000) * 360, tint: tint / 10, bri: b / 20 + 50, sat: t / 20 };
+  }
+  return { ok: true, settings: s, notes };
+}
+
+/**
+ * Parses a share code into the settings the game renders, or null when the
+ * game rejects it or the preview can't show it (see `checkCode`).
  */
 export function decode(code: string): Settings | null {
-  const parts = code.trim().split("_");
-  if (parts.length !== 22 || parts.some((p) => !/^-?\d{1,5}$/.test(p))) return null;
-  const n = parts.map(Number);
-  const inRange = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
-  if (!inRange(n[0], [0, 4]) || !inRange(n[1], [0, 1])) return null;
-  if (!inRange(n[2], [0, 1000]) || !inRange(n[4], [0, 1000])) return null;
-  if (n[3] < 0 || n[5] < 0) return null;
-  for (let i = 6; i < 22; i++) if (!inRange(n[i], ZONE_RANGES[(i - 6) % 4])) return null;
-  const s = defaultSettings();
-  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
-  ZONES.forEach((k, i) => {
-    const o = 6 + i * 4;
-    s.zones[k] = {
-      hue: (n[o] / 1000) * 360,
-      tint: n[o + 1] / 10,
-      bri: n[o + 2] / 20 + 50,
-      sat: n[o + 3] / 20,
-    };
-  });
-  return s;
+  const r = checkCode(code);
+  return r.ok ? r.settings : null;
+}
+
+/**
+ * The game's Range repair: each value is clamped to 0-5 (raw / 1000), then any
+ * value not above the one before it is pushed to that value + 0.01, in order.
+ * Returns [shadow end, midtone start, midtone end, highlight start].
+ */
+export function rangeKeys(r0: number, r1: number, r2: number, r3: number): [number, number, number, number] {
+  const d = clamp(r0 / 1000, 0, 5);
+  let m0 = clamp(r1 / 1000, 0, 5);
+  let m1 = clamp(r2 / 1000, 0, 5);
+  let b0 = clamp(r3 / 1000, 0, 5);
+  if (!(d < m0)) m0 = d + 0.01;
+  if (!(m0 < m1)) m1 = m0 + 0.01;
+  if (!(m1 < b0)) b0 = m1 + 0.01;
+  return [d, m0, m1, b0];
 }
 
 /**
@@ -473,10 +561,7 @@ export function packedKeys(s: Settings) {
   const shadows = foldSimple(makeKey(s.zones.shadows, true), simple);
   const midtones = foldSimple(makeKey(s.zones.midtones, true), simple);
   const highlights = foldSimple(makeKey(s.zones.highlights, true), simple);
-  const s0 = s.shadowPos / 1000;
-  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
-  const h0 = s.highlightPos / 1000;
-  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
+  const [s0, s1, h0, h1] = rangeKeys(s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge);
   return {
     key0: shadows,
     key1Delta: {
