@@ -1184,7 +1184,8 @@ export const LOOKS: Look[] = [
     // 4 Sep 2026), which shows the in-game screen: Simple Red 0 / Tint 23 /
     // Saturation 77 / Brightness 70, Shadows Lime 0 / 17 / 59 / 78, and both
     // Range handles at the right end. As posted, the highlights handle reads
-    // 1084, which the game refuses (it imports the default instead); its
+    // 1084. The game accepts that on import (a later owner recording shows
+    // "Successfully applied."), but Customize Color snaps it to the bar end; its
     // falloff is 1094 and the game writes handle + 100, so the handle was 994
     // and 1084 is a typo. The site owner's in-game remake of the zone values
     // reads identically. Warzone ran on Black Ops 7 then (Season 05;

@@ -88,6 +88,8 @@ A test pins this code.
 
 **The correction.** The code's highlights falloff is 1094, and the game writes each falloff as handle + 100 (confirmed again by the all-100 export in section 3). So the handle was 994, and 1084 is a typo. The Warzone look uses `…974_1074_994_1094…`. The owner's in-game remake of the zone values (`0_226_403_1535` and `250_165_555_1182`) shows the same numbers in game as the posted code. A test pins the corrected code, and another checks that 1084 is rejected.
 
+**Update (2026-11-27).** A later owner recording shows the same `…974_1074_1084_1094…` code pasted into a Custom slot with the toast "Successfully applied.", and the grade showing in a match afterwards. So the game does accept a handle past 1000 on import. The earlier "loads the default" result most likely came from opening Customize Color, whose bar snaps a handle past 1000 back to the end. `decode()` now accepts such codes, clamps Range values at 5000 for the preview, and adds a note. The Warzone look keeps 994, since the 1094 falloff still points to a typo.
+
 **Lesson.** A code posted as text can carry typos that a code copied from the game cannot. When a shared code breaks a limit, try importing it in the game before changing the codec.
 
 ## 5. Six more looks, two new ways of sourcing them

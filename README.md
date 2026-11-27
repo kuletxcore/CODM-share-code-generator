@@ -23,9 +23,9 @@ Live: https://codm.kuletxcore.workers.dev
 | --- | --- | --- |
 | 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed) | 0 |
 | 1 | enabled | 1 |
-| 2 | Range bar shadows handle, 0–1000 (confirmed; the game refuses a code with a handle past 1000) | 30 |
+| 2 | Range bar shadows handle, 0–1000 on the bar; an imported code may carry up to 5000 (the game accepts it and clamps at 5000, but the Customize Color bar snaps a handle past 1000 back to 1000 when opened) | 30 |
 | 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
-| 4 | Range bar highlights handle, 0–1000 (confirmed, as above) | 1000 |
+| 4 | Range bar highlights handle, 0–1000 on the bar (as above) | 1000 |
 | 5 | highlights falloff; handle + 100 after a drag | 1500 |
 | 6–9 | group 1: the **Simple** Customize Color screen, whole image (confirmed) | `0_0_0_1000` |
 | 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |
