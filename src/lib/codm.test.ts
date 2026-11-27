@@ -6,6 +6,7 @@ import {
   analyse,
   extractCode,
   checkCode,
+  packedKeys,
   parseFields,
   rangeKeys,
   LOOKS,
@@ -104,12 +105,22 @@ test("decode imports what the game imports, clamped as the game renders it", () 
 });
 
 test("Range repair pushes out-of-order values 0.01 above the previous one", () => {
-  assert.deepEqual(rangeKeys(30, 300, 1000, 1500), [0.03, 0.3, 1, 1.5]);
+  const f = Math.fround;
+  assert.deepEqual(rangeKeys(30, 300, 1000, 1500), [f(0.03), f(0.3), 1, 1.5]);
   const [d, m0, m1, b0] = rangeKeys(500, 500, 400, 9000);
   assert.equal(d, 0.5);
-  assert.ok(Math.abs(m0 - 0.51) < 1e-12);
-  assert.ok(Math.abs(m1 - 0.52) < 1e-12);
+  assert.ok(Math.abs(m0 - 0.51) < 1e-6);
+  assert.ok(Math.abs(m1 - 0.52) < 1e-6);
   assert.equal(b0, 5);
+});
+
+test("decode keeps a far out-of-range hue with tint; its zone key is black", () => {
+  const code = DEFAULT_CODE.replace(/^((?:[^_]+_){6})0_0/, "$11167_500");
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => n.includes("black")));
+  const k = packedKeys(r.settings);
+  assert.deepEqual([k.shadows.r, k.shadows.g, k.shadows.b], [0, 0, 0]);
 });
 
 test("decode rejects malformed codes", () => {
@@ -126,7 +137,6 @@ test("decode rejects malformed codes", () => {
     decimal: swap(7, "1.5"),
     "preset out of range (game shows no filter)": swap(0, "5"),
     "negative preset": swap(0, "-1"),
-    "hue far out of range with tint (game renders black)": DEFAULT_CODE.replace(/^((?:[^_]+_){6})0_0/, "$11167_500"),
     "negative tint (game renders it unclamped)": swap(7, "-1"),
     "tint past 1000": swap(7, "1001"),
     "past Int32": swap(9, "2147483648"),
