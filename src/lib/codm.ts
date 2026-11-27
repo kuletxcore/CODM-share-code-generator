@@ -436,62 +436,202 @@ function zoneTint(hue: number) {
 
 type Key4 = { r: number; g: number; b: number; s: number };
 
-function makeKey(zone: Zone, darken: boolean): Key4 {
-  const t = clamp(zone.tint / 100, 0, 1);
-  const c = hsvToRgb(zone.hue, t, 1);
-  let r = c[0],
-    g = c[1],
-    b = c[2];
-  if (darken) {
-    // Tint 0 is a true no-op (Rec.601 of white is not exactly 1 in IEEE floats).
-    const y = t === 0 ? 1 : luma601(r, g, b);
-    r *= y;
-    g *= y;
-    b *= y;
-  }
-  const gain = briGain(zone.bri);
-  return { r: r * gain, g: g * gain, b: b * gain, s: satGain(zone.sat) };
+/*
+ * Colour keys, computed in float32 like the game (Math.fround after every
+ * operation) so the uploaded uniforms match the research reference model.
+ */
+const f32 = Math.fround;
+
+/** Plain HSV wheel in float32. Hue 0..1; only the sectors next to 0..6 wrap, anything else is black. */
+function hsvKey(h: number, s: number): [number, number, number] {
+  h = f32(h);
+  s = f32(s);
+  if (s === 0) return [1, 1, 1];
+  const h6 = f32(h * 6);
+  const sector = Math.floor(h6);
+  if (sector < -1 || sector > 6) return [0, 0, 0];
+  const frac = f32(h6 - sector);
+  // 1 - s*x is rounded once (fused multiply-subtract).
+  const p = f32(1 - s);
+  const q = f32(1 - s * frac);
+  const t = f32(1 - s * f32(1 - frac));
+  const rows: [number, number, number][] = [
+    [1, t, p],
+    [q, 1, p],
+    [p, 1, t],
+    [p, q, 1],
+    [t, p, 1],
+    [1, p, q],
+  ];
+  return rows[((sector % 6) + 6) % 6];
 }
 
-function foldSimple(zone: Key4, simple: Key4): Key4 {
-  // Saturation adds around the neutral 1, and is capped at 2.
+/** Rec.601 luma in the game's float32 operation order. */
+function luma601f([r, g, b]: [number, number, number]) {
+  return f32(0.114 * b + f32(0.299 * r + f32(0.587 * g)));
+}
+
+/** A zone's tint colour darkened by its own Rec.601 luma (divide by the rounded reciprocal). */
+function bandTint(c: [number, number, number]): [number, number, number] {
+  const inv = f32(1 / luma601f(c));
+  return [f32(c[0] / inv), f32(c[1] / inv), f32(c[2] / inv)];
+}
+
+/** Master temperature -> the colour temperature the white balance asks for. */
+function wbTemperature(t: number) {
+  const k0 = 6500,
+    kmax = 15000;
+  t = f32(t);
+  if (t < k0) return f32(f32(f32(f32(k0 - t) / k0) * f32(kmax - k0)) + k0);
+  return f32(f32(f32(f32(k0 - t) / f32(kmax - k0)) * k0) + k0);
+}
+
+/** Correlated colour temperature (K) to RGB, float32 rational fit, clamped to 0..1. */
+function cctToRgb(kelvin: number): [number, number, number] {
+  let K = f32(kelvin);
+  if (K > 40000) K = 40000;
+  const t = K < 1000 ? 1 : f32(K / 1000);
+  const t2 = f32(t * t);
+  let r: number, g: number, b: number;
+  if (t < f32(6.57)) {
+    r = 1;
+    g = f32(
+      f32(f32(f32(-399.809) + f32(f32(414.271) * t)) + f32(f32(111.543) * t2)) /
+        f32(f32(f32(2779.24) + f32(f32(164.143) * t)) + f32(f32(84.7356) * t2)),
+    );
+    b = f32(
+      f32(f32(f32(348.963) - f32(f32(523.53) * t)) + f32(f32(183.62) * t2)) /
+        f32(f32(f32(2848.82) - f32(f32(214.52) * t)) + f32(f32(78.8614) * t2)),
+    );
+  } else {
+    r = f32(
+      f32(
+        f32(f32(1.35651) + f32(f32(0.216422) * t)) + f32(f32(0.000633715) * t2),
+      ) / f32(f32(-3.24223) + f32(f32(0.918711) * t)),
+    );
+    g = f32(
+      f32(f32(f32(1370.38) + f32(f32(734.616) * t)) + f32(f32(0.689955) * t2)) /
+        f32(f32(-4625.69) + f32(f32(1699.87) * t)),
+    );
+    b = 1;
+  }
+  return [r, g, b].map((c) => (c !== c || c < 0 ? 0 : c > 1 ? 1 : c)) as [
+    number,
+    number,
+    number,
+  ];
+}
+
+/** The game's master temperature. Every shipped look uses 6500 K. */
+export const MASTER_TEMPERATURE = 6500;
+
+/** White-balance multiplier folded into every zone key: rgb / Rec.601(rgb). */
+export function whiteBalance(
+  temperature = MASTER_TEMPERATURE,
+): [number, number, number] {
+  const rgb = cctToRgb(wbTemperature(temperature));
+  const L = luma601f(rgb);
+  return [f32(rgb[0] / L), f32(rgb[1] / L), f32(rgb[2] / L)];
+}
+const WB = whiteBalance();
+
+/** Clamp that lets NaN through, as the game's compare-and-select does. */
+const constrain = (v: number, lo: number, hi: number) => {
+  v = f32(v);
+  if (v > hi) v = hi;
+  if (lo > v) v = lo;
+  return v;
+};
+
+/** Raw code integers of a zone group, recovered from panel units. */
+function zoneRaw(zone: Zone) {
   return {
-    r: zone.r * simple.r,
-    g: zone.g * simple.g,
-    b: zone.b * simple.b,
-    s: clamp(zone.s + simple.s - 1, 0, 2),
+    hue: Math.round((zone.hue / 360) * 1000),
+    tint: Math.round(zone.tint * 10),
+    bri: Math.round((zone.bri - 50) * 20),
+    sat: Math.round(zone.sat * 20),
   };
+}
+
+type RawKey = { c: [number, number, number]; bri: number; sat: number };
+
+/** One group -> (colour, brightness, saturation). Bands are darkened and clamped; Simple is neither. */
+function makeKey(zone: Zone, band: boolean): RawKey {
+  const raw = zoneRaw(zone);
+  const u = (v: number) => f32(f32(v) / 1000);
+  let c = hsvKey(u(raw.hue), u(raw.tint));
+  let bri = u(raw.bri),
+    sat = u(raw.sat);
+  if (band) {
+    c = bandTint(c);
+    bri = constrain(bri, -1, 1);
+    sat = constrain(sat, 0, 2);
+  }
+  return { c, bri, sat };
+}
+
+/** Fold Simple and white balance into a band. Saturation adds around 1 with no clamp afterwards (-1..3). */
+function foldSimple(zone: RawKey, simple: RawKey): Key4 {
+  const gain = f32(f32(1 + zone.bri) * f32(1 + simple.bri));
+  const ch = (i: number) =>
+    f32(f32(f32(zone.c[i] * gain) * simple.c[i]) * WB[i]);
+  return {
+    r: ch(0),
+    g: ch(1),
+    b: ch(2),
+    s: f32(zone.sat + f32(simple.sat - 1)),
+  };
+}
+
+/**
+ * Range fields -> (dark max, mid min, mid max, bright min). Each is clamped to
+ * 0..5, then walked left to right: a value not strictly above the (repaired)
+ * one before it becomes that value + 0.01. Nothing is clamped after the repair.
+ */
+export function rangeEdges(r0: number, r1: number, r2: number, r3: number) {
+  const step = f32(0.01);
+  const e = [r0, r1, r2, r3].map((v) => constrain(f32(f32(v) / 1000), 0, 5));
+  for (let i = 1; i < 4; i++)
+    if (!(e[i - 1] < e[i])) e[i] = f32(e[i - 1] + step);
+  return e as [number, number, number, number];
 }
 
 function keyNearlyNeutral(k: Key4) {
   return k.r === 1 && k.g === 1 && k.b === 1 && k.s === 1;
 }
 
+const sub = (a: Key4, b: Key4): Key4 => ({
+  r: f32(a.r - b.r),
+  g: f32(a.g - b.g),
+  b: f32(a.b - b.b),
+  s: f32(a.s - b.s),
+});
+
 /** Packed zone keys and luma ramps the per-pixel pass interpolates. */
 export function packedKeys(s: Settings) {
-  const simple = makeKey(s.zones.global, false);
-  const shadows = foldSimple(makeKey(s.zones.shadows, true), simple);
-  const midtones = foldSimple(makeKey(s.zones.midtones, true), simple);
-  const highlights = foldSimple(makeKey(s.zones.highlights, true), simple);
-  const s0 = s.shadowPos / 1000;
-  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
-  const h0 = s.highlightPos / 1000;
-  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
+  const simpleRaw = makeKey(s.zones.global, false);
+  const shadows = foldSimple(makeKey(s.zones.shadows, true), simpleRaw);
+  const midtones = foldSimple(makeKey(s.zones.midtones, true), simpleRaw);
+  const highlights = foldSimple(makeKey(s.zones.highlights, true), simpleRaw);
+  const simple: Key4 = {
+    r: f32(simpleRaw.c[0] * f32(1 + simpleRaw.bri)),
+    g: f32(simpleRaw.c[1] * f32(1 + simpleRaw.bri)),
+    b: f32(simpleRaw.c[2] * f32(1 + simpleRaw.bri)),
+    s: simpleRaw.sat,
+  };
+  const [d, m0, m1, b0] = rangeEdges(
+    s.shadowPos,
+    s.shadowEdge,
+    s.highlightPos,
+    s.highlightEdge,
+  );
+  const a = f32(m0 - d),
+    b = f32(b0 - m1);
   return {
     key0: shadows,
-    key1Delta: {
-      r: midtones.r - shadows.r,
-      g: midtones.g - shadows.g,
-      b: midtones.b - shadows.b,
-      s: midtones.s - shadows.s,
-    },
-    key2Delta: {
-      r: highlights.r - midtones.r,
-      g: highlights.g - midtones.g,
-      b: highlights.b - midtones.b,
-      s: highlights.s - midtones.s,
-    },
-    ramp: [1 / (s1 - s0), -s0 / (s1 - s0), 1 / (h1 - h0), -h0 / (h1 - h0)] as [
+    key1Delta: sub(midtones, shadows),
+    key2Delta: sub(highlights, midtones),
+    ramp: [f32(1 / a), f32(-d / a), f32(1 / b), f32(-m1 / b)] as [
       number,
       number,
       number,

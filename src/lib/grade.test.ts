@@ -7,6 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   LOOKS,
   PRESETS,
@@ -20,6 +21,7 @@ import {
   gradePlan,
   hsvToRgb,
   packedKeys,
+  rangeEdges,
   paintGrade,
   satGain,
   tintWeight,
@@ -39,13 +41,7 @@ import {
  */
 function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const luma601 = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
   const luma709 = (r: number, g: number, b: number) => 0.2125 * r + 0.7154 * g + 0.0721 * b;
-  const hsv = (h: number, s: number, v: number) => {
-    const x = (((h % 360) + 360) % 360) / 60;
-    const f = (n: number) => v - v * s * Math.max(0, Math.min((n + x) % 6, 4 - ((n + x) % 6), 1));
-    return [f(5), f(3), f(1)] as [number, number, number];
-  };
   const AA = 2.51,
     BB = 0.03,
     CC = 2.43,
@@ -72,45 +68,21 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
   };
   const toLight = (x: number) => acesInv(clamp(x, 0, 1) ** 2.2);
   const toDisplay = (v: number) => acesFwd(Math.max(0, v)) ** (1 / 2.2);
-  const makeKey = (zone: Settings["zones"]["shadows"], darken: boolean) => {
-    const t = clamp(zone.tint / 100, 0, 1);
-    const c = hsv(zone.hue, t, 1);
-    let r = c[0],
-      g = c[1],
-      b = c[2];
-    if (darken) {
-      const y = t === 0 ? 1 : luma601(r, g, b);
-      r *= y;
-      g *= y;
-      b *= y;
-    }
-    const gain = clamp(zone.bri / 50, 0, 2);
-    return { r: r * gain, g: g * gain, b: b * gain, s: clamp(zone.sat / 50, 0, 2) };
+  // The keys themselves are pinned against the research reference model by
+  // the parity vectors below; this oracle only checks the per-pixel pass.
+  const k = packedKeys(s);
+  const shadows = k.key0;
+  const midtones = {
+    r: k.key0.r + k.key1Delta.r,
+    g: k.key0.g + k.key1Delta.g,
+    b: k.key0.b + k.key1Delta.b,
+    s: k.key0.s + k.key1Delta.s,
   };
-  const fold = (
-    zone: { r: number; g: number; b: number; s: number },
-    simple: { r: number; g: number; b: number; s: number },
-  ) => ({
-    r: zone.r * simple.r,
-    g: zone.g * simple.g,
-    b: zone.b * simple.b,
-    s: clamp(zone.s + simple.s - 1, 0, 2),
-  });
-  const simple = makeKey(s.zones.global, false);
-  const shadows = fold(makeKey(s.zones.shadows, true), simple);
-  const midtones = fold(makeKey(s.zones.midtones, true), simple);
-  const highlights = fold(makeKey(s.zones.highlights, true), simple);
-  const ident = (k: { r: number; g: number; b: number; s: number }) =>
-    k.r === 1 && k.g === 1 && k.b === 1 && k.s === 1;
+  const highlights = k.highlights;
+  const ident = (q: { r: number; g: number; b: number; s: number }) =>
+    q.r === 1 && q.g === 1 && q.b === 1 && q.s === 1;
   if (ident(shadows) && ident(midtones) && ident(highlights)) return;
-  const s0 = s.shadowPos / 1000;
-  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
-  const h0 = s.highlightPos / 1000;
-  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
-  const lx = 1 / (s1 - s0),
-    ly = -s0 / (s1 - s0),
-    lz = 1 / (h1 - h0),
-    lw = -h0 / (h1 - h0);
+  const [lx, ly, lz, lw] = k.ramp;
   for (let i = 0; i < data.length; i += 4) {
     let r = toLight(data[i] / 255),
       g = toLight(data[i + 1] / 255),
@@ -118,10 +90,10 @@ function referenceGrade(data: Uint8ClampedArray, s: Settings) {
     const L = luma709(r, g, b);
     const w1 = clamp(L * lx + ly, 0, 1);
     const w2 = clamp(L * lz + lw, 0, 1);
-    const kr = shadows.r + (midtones.r - shadows.r) * w1 + (highlights.r - midtones.r) * w2;
-    const kg = shadows.g + (midtones.g - shadows.g) * w1 + (highlights.g - midtones.g) * w2;
-    const kb = shadows.b + (midtones.b - shadows.b) * w1 + (highlights.b - midtones.b) * w2;
-    const ks = shadows.s + (midtones.s - shadows.s) * w1 + (highlights.s - midtones.s) * w2;
+    const kr = k.key0.r + k.key1Delta.r * w1 + k.key2Delta.r * w2;
+    const kg = k.key0.g + k.key1Delta.g * w1 + k.key2Delta.g * w2;
+    const kb = k.key0.b + k.key1Delta.b * w1 + k.key2Delta.b * w2;
+    const ks = k.key0.s + k.key1Delta.s * w1 + k.key2Delta.s * w2;
     r = (L + (r - L) * ks) * kr;
     g = (L + (g - L) * ks) * kg;
     b = (L + (b - L) * ks) * kb;
@@ -197,13 +169,12 @@ test("paintGrade with a prebuilt plan matches applyGrade", () => {
   assert.deepEqual(Array.from(b), Array.from(a));
 });
 
-test("the reset state is a no-op and skips the pixel loop", () => {
+test("the reset state still carries the 6500 K white balance", () => {
+  // The game folds the master-temperature white balance into every key, so the
+  // reset code is not an identity (key0 is about 1.036, 0.978, 1.019).
   const plan = gradePlan(defaultSettings());
-  assert.equal(plan.neutral, true);
-  const before = fixture();
-  const after = new Uint8ClampedArray(before);
-  applyGrade(after, defaultSettings());
-  assert.deepEqual(Array.from(after), Array.from(before));
+  assert.equal(plan.neutral, false);
+  assertSameGrade(defaultSettings(), "reset");
 });
 
 test("a neutral zone does not accumulate rounding error", () => {
@@ -258,8 +229,8 @@ test("the game key model uses a plain HSV wheel, linear 0–2 gains and additive
   s.zones.midtones.sat = 100;
   s.zones.global.sat = 100;
   const packed = packedKeys(s);
-  // zone + simple − 1 would be 3, but saturation is capped at 2.
-  assert.equal(packed.midtones.s, 2);
+  // zone + simple − 1 is not clamped after the fold, so it can reach 3.
+  assert.equal(packed.midtones.s, 3);
   assert.equal(packed.simple.s, 2);
 });
 
@@ -293,28 +264,67 @@ test("the ACES inverse is the unique non-negative root and respects the floor", 
   assert.ok(acesInverse(0.5) > 0);
 });
 
-test("Apex (Cranked) packs to the published default-range keys", () => {
+test("Apex (Cranked) packs to the reference keys with the 6500 K white balance", () => {
   const look = LOOKS.find((l) => l.name === "Apex");
   assert.ok(look?.cranked);
   const packed = packedKeys(decode(look.cranked)!);
   const close = (got: number, want: number) =>
     assert.ok(Math.abs(got - want) < 5e-3, `${got} vs ${want}`);
-  close(packed.key0.r, 1.137);
-  close(packed.key0.g, 1.166);
-  close(packed.key0.b, 0.883);
+  // Identity white balance would give (1.137, 1.166, 0.883).
+  close(packed.key0.r, 1.178);
+  close(packed.key0.g, 1.14);
+  close(packed.key0.b, 0.899);
   close(packed.key0.s, 0.98);
-  close(packed.key1Delta.r, 0.254);
-  close(packed.key1Delta.g, 0.141);
-  close(packed.key1Delta.b, -0.042);
-  close(packed.key1Delta.s, 0.04);
-  close(packed.key2Delta.r, -0.159);
-  close(packed.key2Delta.g, -0.068);
-  close(packed.key2Delta.b, 0.238);
-  close(packed.key2Delta.s, -0.02);
-  close(packed.ramp[0], 3.704);
-  close(packed.ramp[1], -0.111);
-  close(packed.ramp[2], 2);
-  close(packed.ramp[3], -2);
+  assert.ok(packed.key2Delta.r < 0);
+});
+
+/**
+ * Parity vectors generated by the research reference model: share code, then
+ * key0, key1Delta, key2Delta and the Range ramps. They cover every look and
+ * preset, hue sectors and edges, saturation folds past 2 and below 0,
+ * crossed and equal Range edges, and random codes.
+ */
+const PARITY = JSON.parse(readFileSync(new URL("./keyParity.json", import.meta.url), "utf8")) as [
+  string,
+  number[],
+  number[],
+  number[],
+  number[],
+][];
+
+test("packed keys match the reference model to float32 rounding", () => {
+  let worst = 0;
+  for (const [code, k0, k1, k2, ramp] of PARITY) {
+    const s = decode(code);
+    assert.ok(s, code);
+    const p = packedKeys(s);
+    const got = [
+      [p.key0.r, p.key0.g, p.key0.b, p.key0.s],
+      [p.key1Delta.r, p.key1Delta.g, p.key1Delta.b, p.key1Delta.s],
+      [p.key2Delta.r, p.key2Delta.g, p.key2Delta.b, p.key2Delta.s],
+      p.ramp,
+    ];
+    [k0, k1, k2, ramp].forEach((want, i) =>
+      want.forEach((w, j) => {
+        const d = Math.abs(got[i][j] - w);
+        worst = Math.max(worst, d);
+        assert.ok(
+          d <= 1e-6 * Math.max(1, Math.abs(w)),
+          `${code} [${i}][${j}] ${got[i][j]} vs ${w}`,
+        );
+      }),
+    );
+  }
+  assert.ok(worst < 1e-6, `worst ${worst}`);
+});
+
+test("Range edges are repaired left to right, never sorted", () => {
+  // Crossed edges: Midtones would otherwise get a negative weight.
+  const [d, m0, m1, b0] = rangeEdges(600, 700, 200, 300);
+  assert.equal(d, Math.fround(0.6));
+  assert.equal(m0, Math.fround(0.7));
+  assert.equal(m1, Math.fround(Math.fround(0.7) + Math.fround(0.01)));
+  assert.equal(b0, Math.fround(m1 + Math.fround(0.01)));
 });
 
 test("on the default Range, Highlights stay off mid-greys but can reach near-white after the inverse tone map", () => {
@@ -323,7 +333,9 @@ test("on the default Range, Highlights stay off mid-greys but can reach near-whi
   const mid = new Uint8ClampedArray([128, 128, 128, 255]);
   const midAfter = new Uint8ClampedArray(mid);
   applyGrade(midAfter, s);
-  assert.deepEqual(Array.from(midAfter), Array.from(mid));
+  const midReset = new Uint8ClampedArray(mid);
+  applyGrade(midReset, defaultSettings());
+  assert.deepEqual(Array.from(midAfter), Array.from(midReset));
   const bright = new Uint8ClampedArray([250, 250, 250, 255]);
   const brightAfter = new Uint8ClampedArray(bright);
   applyGrade(brightAfter, s);
