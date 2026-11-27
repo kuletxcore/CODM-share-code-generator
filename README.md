@@ -64,7 +64,7 @@ Before pushing, run the same checks as CI (lint, type check, and the share-code 
 npm run check
 ```
 
-The tests cover the share-code codec: every look and preset must round-trip unchanged, and malformed or out-of-range codes must be rejected. Add a test when you touch `encode` or `decode`; new looks are covered automatically.
+The tests cover the share-code codec: every look and preset must round-trip unchanged, malformed codes must be rejected, and out-of-range values must be accepted and clamped with a note, as the game does. Add a test when you touch `encode` or `decode`; new looks are covered automatically.
 
 Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` runs the build first, so Cloudflare Workers Builds works from a clean checkout):
 
