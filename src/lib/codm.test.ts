@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_CODE,
   analyse,
+  applyGrade,
+  gradeUniforms,
   extractCode,
   checkCode,
   packedKeys,
@@ -91,7 +93,8 @@ test("decode imports what the game imports, clamped as the game renders it", () 
   };
   const raw = (c: string) => encode(decode(c)!).split("_").map(Number);
   assert.equal(raw(swap(9, "2001"))[9], 2000);
-  assert.equal(raw(swap(9, "-5"))[9], 0);
+  assert.equal(raw(swap(9, "-5"))[9], -5); // Simple saturation has no floor in game
+  assert.equal(raw(swap(13, "-5"))[13], 0);
   assert.equal(raw(swap(8, "1500"))[8], 1000);
   assert.equal(raw(swap(8, "-1500"))[8], -1000);
   assert.equal(raw(swap(4, "9000"))[4], 5000);
@@ -123,6 +126,35 @@ test("decode keeps a far out-of-range hue with tint; its zone key is black", () 
   assert.deepEqual([k.shadows.r, k.shadows.g, k.shadows.b], [0, 0, 0]);
 });
 
+test("a preset field outside 0-4 is accepted with a note and round-trips", () => {
+  for (const v of ["5", "7", "-1"]) {
+    const code = DEFAULT_CODE.replace(/^0_/, `${v}_`);
+    const r = checkCode(code);
+    assert.ok(r.ok, v);
+    assert.ok(r.notes.some((n) => n.includes("outside 0-4")), v);
+    assert.equal(encode(r.settings), code, v);
+  }
+});
+
+test("negative Simple saturation is kept and inverts colour (in game, -500 drew a teal door)", () => {
+  const code = "0_1_30_300_1000_1500_0_0_0_-500_0_0_0_1000_0_0_0_1000_0_0_0_1000";
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => n.includes("inverts")));
+  assert.equal(encode(r.settings), code);
+  assert.equal(packedKeys(r.settings).shadows.s, -0.5);
+  assert.equal(gradeUniforms(r.settings).key0[3], -0.5);
+  // The door from that test (110, 78, 70 under the default code) was drawn
+  // as about (74, 90, 94); the model gives (70, 89, 92).
+  const px = new Uint8ClampedArray([110, 78, 70, 255]);
+  applyGrade(px, r.settings);
+  assert.deepEqual([...px.slice(0, 3)], [70, 89, 92]);
+  // A band saturation still floors at 0.
+  const band = checkCode(code.replace("_0_-500_0_0_0_1000_", "_0_1000_0_0_0_-500_"));
+  assert.ok(band.ok);
+  assert.equal(band.settings.zones.shadows.sat, 0);
+});
+
 test("decode rejects malformed codes", () => {
   const swap = (i: number, v: string) => {
     const p = DEFAULT_CODE.split("_");
@@ -135,8 +167,6 @@ test("decode rejects malformed codes", () => {
     hex: swap(0, "0x1"),
     exponent: swap(21, "1e3"),
     decimal: swap(7, "1.5"),
-    "preset out of range (game shows no filter)": swap(0, "5"),
-    "negative preset": swap(0, "-1"),
     "negative tint (game renders it unclamped)": swap(7, "-1"),
     "tint past 1000": swap(7, "1001"),
     "past Int32": swap(9, "2147483648"),

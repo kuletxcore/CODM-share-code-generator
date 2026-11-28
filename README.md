@@ -21,7 +21,7 @@ Live: https://codm.kuletxcore.workers.dev
 
 | Index | Meaning | Default |
 | --- | --- | --- |
-| 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed) | 0 |
+| 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed; the game also accepts other values, effect untested) | 0 |
 | 1 | enabled | 1 |
 | 2 | Range bar shadows handle, 0–1000 on the bar; an imported code may carry up to 5000 (the game accepts it and clamps at 5000, but the Customize Color bar snaps a handle past 1000 back to 1000 when opened) | 30 |
 | 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
@@ -37,7 +37,7 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 - hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
 - tint `0–1000` = 0–100 (top confirmed in game).
 - brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral; top confirmed in game).
-- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral; top confirmed in game).
+- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral; top confirmed in game). A negative Simple saturation is accepted and inverts colours (in-game test with −500); a band's is clamped to 0.
 
 An in-game export with every slider at 100 reads `125_1000_1000_2000` for each group: Red with the Hue slider at 100 writes 125, the same value as Orange at 0. Both Range handles pushed to the ends write `0_100_1000_1100`.
 

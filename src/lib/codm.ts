@@ -132,13 +132,10 @@ export function checkCode(code: string): CodeCheck {
   const notes: string[] = [];
   const n = parseFields(code);
   if (!n) return { ok: false, reason: "The game rejects this: it needs exactly 22 whole numbers joined by _.", notes };
-  if (n[0] < 0 || n[0] > 4) {
-    return {
-      ok: false,
-      reason: `Preset ${n[0]} doesn't exist (0-4). The game imports the code but then shows no colour filter.`,
-      notes,
-    };
-  }
+  // In-game imports with 5 and 7 here were accepted; what the style dropdown
+  // shows for them is untested, so the preview still grades from the fields.
+  if (n[0] < 0 || n[0] > 4)
+    notes.push(`Preset field ${n[0]} is outside 0-4; the game accepts it, but what it shows in the style dropdown is untested.`);
   const s = defaultSettings();
   s.preset = n[0];
   // The second number only marks the slot as saved; any value imports.
@@ -176,8 +173,11 @@ export function checkCode(code: string): CodeCheck {
     }
     const b = clamp(bri, -1000, 1000);
     if (b !== bri) notes.push(`${k} brightness ${bri} is clamped to ${b}.`);
-    const t = clamp(sat, 0, 2000);
+    // Simple saturation has no floor in game: -500 draws as a -0.5 factor
+    // (colours invert at half strength). Band saturation stays 0-2000.
+    const t = k === "global" ? Math.min(sat, 2000) : clamp(sat, 0, 2000);
     if (t !== sat) notes.push(`${k} saturation ${sat} is clamped to ${t}.`);
+    else if (sat < 0) notes.push(`${k} saturation ${sat} is below 0; the game inverts colours instead of greying them.`);
     s.zones[k] = { hue: (hue / 1000) * 360, tint: tint / 10, bri: b / 20 + 50, sat: t / 20 };
   }
   return { ok: true, settings: s, notes };

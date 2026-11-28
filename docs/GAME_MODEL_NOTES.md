@@ -18,6 +18,7 @@ For each of Simple, Shadows, Midtones and Highlights:
 - **Saturation** is `2 × slider` (0 at 0, 1 at 50, 2 at 100).
 - **Zone colour** (Shadows, Midtones, Highlights) is also scaled by that colour's own Rec.601 luma (`0.299R + 0.587G + 0.114B`), so a strong tint darkens as well as shifts. Simple is multiplied in without that darkening.
 - Zone tint uses the fused HSV wheel; a hue outside sectors −1..6 (raw outside −166..1166) gives black. Zone brightness is clamped to [−1, 1] and saturation to [0, 2] before the fold.
+- Simple saturation has no floor: a negative value (in-game test: −500) gives a negative factor, which inverts colour around luma instead of greying it.
 - Simple is then folded into each zone: RGB is multiplied, and saturations add around the neutral 1 (`zone + simple − 1`) with no clamp afterwards, so both at 100 give 3 and both at 0 give −1.
 - **White balance:** every zone key is also multiplied by the master-temperature white balance (`rgb / Rec.601(rgb)` of the 6500 K colour, about `1.036, 0.978, 1.019`). Every shipped look uses 6500 K, so the reset code is not an identity in the game.
 - **Range repair:** each Range value is clamped to 0–5 (raw / 1000), then walked left to right; a value not above the previous one becomes that value + 0.01 (including the midtone pair). No clamp after the repair.
