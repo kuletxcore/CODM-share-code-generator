@@ -79,43 +79,122 @@ export function encode(s: Settings): string {
   return out.map((n) => Math.round(n)).join("_");
 }
 
-/** Raw range of each value in a zone group, in code order (hue, tint, bri, sat). */
-const ZONE_RANGES: [number, number][] = [
-  [0, 1000],
-  [0, 1000],
-  [-1000, 1000],
-  [0, 2000],
-];
+/**
+ * Whitespace the game's field parser skips around a number: the .NET
+ * `Char.IsWhiteSpace` set of its runtime, which predates Unicode 6.3, so it
+ * still holds U+180E. It does not hold U+FEFF or U+200B, which JavaScript's
+ * `trim()` would strip.
+ */
+const GAME_WS =
+  "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u180e\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+/**
+ * One field: optional whitespace, one optional sign, ASCII digits, optional
+ * whitespace. A NUL character ends the field early, so anything after it is
+ * ignored (read from the game's parser, not yet tested in game).
+ */
+const FIELD_RE = new RegExp(`^[${GAME_WS}]*([+-]?[0-9]+)[${GAME_WS}]*(?:\\u0000[^]*)?$`);
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
 
 /**
- * Parses a share code. Returns null unless it is exactly 22 integers with every
- * documented value in range, so a truncated paste ("…_0_0_") or a typo can't
- * load as a washed-out grade. The Range handles run 0-1000, the ends of the bar;
- * the game itself refuses a handle past 1000 and imports the default instead.
- * The falloffs only have to be non-negative: the game writes handle + 100 after
- * a drag, but the reset state has 1500, so no tighter limit is known.
+ * Splits a share code the way the game does: on "_", exactly 22 parts, each a
+ * signed 32-bit decimal integer. No range checks happen here, as in the game,
+ * whose import stores whatever parses and only clamps later, when it renders.
+ * Returns null when the game would reject the code ("invalid share code").
+ */
+export function parseFields(code: string): number[] | null {
+  const parts = code.split("_");
+  if (parts.length !== 22) return null;
+  const out: number[] = [];
+  for (const p of parts) {
+    const m = FIELD_RE.exec(p);
+    if (!m) return null;
+    const v = Number(m[1]);
+    if (!Number.isSafeInteger(v) || v < INT32_MIN || v > INT32_MAX) return null;
+    out.push(v === 0 ? 0 : v); // no -0
+  }
+  return out;
+}
+
+export type CodeCheck =
+  | { ok: true; settings: Settings; notes: string[] }
+  | { ok: false; reason: string; notes: string[] };
+
+/**
+ * Reads a share code and says what the game does with it. The game accepts
+ * any 22 integers; this returns the settings it would render, with values the
+ * game clamps already clamped, plus a note for every value it changed. It
+ * returns ok: false when the game rejects the code, or when the game accepts
+ * it but renders something the preview can't show (no grade at all, or a
+ * tint outside 0-100%). A hue outside -166..1166 is kept and renders black.
+ */
+export function checkCode(code: string): CodeCheck {
+  const notes: string[] = [];
+  const n = parseFields(code);
+  if (!n) return { ok: false, reason: "The game rejects this: it needs exactly 22 whole numbers joined by _.", notes };
+  // In-game imports with 5 and 7 here were accepted; what the style dropdown
+  // shows for them is untested, so the preview still grades from the fields.
+  if (n[0] < 0 || n[0] > 4)
+    notes.push(`Preset field ${n[0]} is outside 0-4; the game accepts it, but what it shows in the style dropdown is untested.`);
+  const s = defaultSettings();
+  s.preset = n[0];
+  // The second number only marks the slot as saved; any value imports.
+  if (n[1] !== 0 && n[1] !== 1) notes.push(`The second number (${n[1]}) is only a marker; read as 1.`);
+  s.enabled = n[1] === 0 ? 0 : 1;
+  // Range: the game clamps each value to 0-5000 when it renders. Customize
+  // Color shows only 0-1000 on its bar, so opening it moves a handle past 1000.
+  const range = n.slice(2, 6).map((v, i) => {
+    const c = clamp(v, 0, 5000);
+    if (c !== v) notes.push(`Range value ${i + 1} (${v}) is clamped to ${c}.`);
+    else if ((i === 0 || i === 2) && v > 1000)
+      notes.push(`Range handle ${v} is past the bar; opening Customize Color in game moves it to 1000.`);
+    return c;
+  });
+  [s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = range;
+  for (const [i, k] of ZONES.entries()) {
+    const o = 6 + i * 4;
+    const [rawHue, tint, bri, sat] = n.slice(o, o + 4);
+    let hue = rawHue;
+    if (tint < 0 || tint > 1000) {
+      return { ok: false, reason: `${k} tint ${tint} is outside 0-1000; the game renders it unclamped.`, notes };
+    }
+    if (hue < -166 || hue > 1166) {
+      if (tint !== 0) {
+        // Kept raw: the key maths turns it black, as the game does.
+        notes.push(`${k} hue ${hue} is outside -166 to 1166; the game turns that zone's colour black.`);
+      } else {
+        notes.push(`${k} hue ${hue} has no effect at tint 0; read as 0.`);
+        hue = 0;
+      }
+    } else if (hue < 0 || hue > 1000) {
+      const w = hue < 0 ? hue + 1000 : hue - 1000;
+      notes.push(`${k} hue ${hue} wraps to ${w}.`);
+      hue = w;
+    }
+    const b = clamp(bri, -1000, 1000);
+    if (b !== bri) notes.push(`${k} brightness ${bri} is clamped to ${b}.`);
+    // Simple saturation has no floor in game: -500 draws as a -0.5 factor
+    // (colours invert at half strength). Band saturation stays 0-2000.
+    const t = k === "global" ? Math.min(sat, 2000) : clamp(sat, 0, 2000);
+    if (t !== sat) notes.push(`${k} saturation ${sat} is clamped to ${t}.`);
+    else if (sat < 0) notes.push(`${k} saturation ${sat} is below 0; the game inverts colours instead of greying them.`);
+    s.zones[k] = { hue: (hue / 1000) * 360, tint: tint / 10, bri: b / 20 + 50, sat: t / 20 };
+  }
+  return { ok: true, settings: s, notes };
+}
+
+/**
+ * Parses a share code into the settings the game renders, or null when the
+ * game rejects it or the preview can't show it (see `checkCode`).
  */
 export function decode(code: string): Settings | null {
-  const parts = code.trim().split("_");
-  if (parts.length !== 22 || parts.some((p) => !/^-?\d{1,5}$/.test(p))) return null;
-  const n = parts.map(Number);
-  const inRange = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
-  if (!inRange(n[0], [0, 4]) || !inRange(n[1], [0, 1])) return null;
-  if (!inRange(n[2], [0, 1000]) || !inRange(n[4], [0, 1000])) return null;
-  if (n[3] < 0 || n[5] < 0) return null;
-  for (let i = 6; i < 22; i++) if (!inRange(n[i], ZONE_RANGES[(i - 6) % 4])) return null;
-  const s = defaultSettings();
-  [s.preset, s.enabled, s.shadowPos, s.shadowEdge, s.highlightPos, s.highlightEdge] = n;
-  ZONES.forEach((k, i) => {
-    const o = 6 + i * 4;
-    s.zones[k] = {
-      hue: (n[o] / 1000) * 360,
-      tint: n[o + 1] / 10,
-      bri: n[o + 2] / 20 + 50,
-      sat: n[o + 3] / 20,
-    };
-  });
-  return s;
+  const r = checkCode(code);
+  return r.ok ? r.settings : null;
+}
+
+/** The game's Range repair. Alias of `rangeEdges` (float32, see there). */
+export function rangeKeys(r0: number, r1: number, r2: number, r3: number): [number, number, number, number] {
+  return rangeEdges(r0, r1, r2, r3);
 }
 
 /**
@@ -228,6 +307,14 @@ const ACES_D = 0.59;
 const ACES_E = 0.14;
 /** Forward tone map is floored here before gamma encode; values at or below it have no unique inverse. */
 const ACES_FLOOR = 1e-4;
+/**
+ * The tone map clamps its input from above only, at a white point of 50
+ * plus a small epsilon. It has no lower clamp: a lane pushed below zero by
+ * saturation above 1 or a negative key goes through the rational curve as
+ * is, and below about -0.012 the curve is positive again (a strongly
+ * negative lane comes out bright, not black). The preview copies that.
+ */
+const ACES_WHITE = 50.001;
 const SAT_TOP = USE_GAME_KEY_MODEL ? 2 : 1.75;
 const BRI_TOP = USE_GAME_KEY_MODEL ? 2 : 2.4;
 /** Earlier fit: Shadows Brightness pushed harder (~3.3×). The game model uses 2× for every zone. */
@@ -276,9 +363,9 @@ export const bandMix = (a: number, b: number, x: number) => {
   return USE_LINEAR_RAMPS ? t : t * t * (3 - 2 * t);
 };
 
-/** Standard Narkowicz ACES tone map, per channel, floored at ACES_FLOOR. */
+/** Standard Narkowicz ACES tone map, per channel: clamped above at ACES_WHITE only, floored at ACES_FLOOR. */
 export function acesForward(x: number) {
-  if (x <= 0) return ACES_FLOOR;
+  if (x > ACES_WHITE) x = ACES_WHITE;
   const y = (x * (ACES_A * x + ACES_B)) / (x * (ACES_C * x + ACES_D) + ACES_E);
   return Math.max(y, ACES_FLOOR);
 }
@@ -319,8 +406,8 @@ export function toLight(x: number) {
 const LIGHT_LUT = Float64Array.from({ length: 256 }, (_, v) => toLight(v / 255));
 
 export function toDisplay(v: number) {
-  const x = Math.max(0, v);
-  const y = PIXEL_TRANSFER === "reinhard-hdr" ? x / (1 + x) : acesForward(x);
+  // Only the Reinhard fit needs a non-negative input; the ACES path keeps negative lanes (see ACES_WHITE).
+  const y = PIXEL_TRANSFER === "reinhard-hdr" ? Math.max(0, v) / (1 + Math.max(0, v)) : acesForward(v);
   return Math.max(0, y) ** INV_DISPLAY_GAMMA;
 }
 
@@ -436,62 +523,202 @@ function zoneTint(hue: number) {
 
 type Key4 = { r: number; g: number; b: number; s: number };
 
-function makeKey(zone: Zone, darken: boolean): Key4 {
-  const t = clamp(zone.tint / 100, 0, 1);
-  const c = hsvToRgb(zone.hue, t, 1);
-  let r = c[0],
-    g = c[1],
-    b = c[2];
-  if (darken) {
-    // Tint 0 is a true no-op (Rec.601 of white is not exactly 1 in IEEE floats).
-    const y = t === 0 ? 1 : luma601(r, g, b);
-    r *= y;
-    g *= y;
-    b *= y;
-  }
-  const gain = briGain(zone.bri);
-  return { r: r * gain, g: g * gain, b: b * gain, s: satGain(zone.sat) };
+/*
+ * Colour keys, computed in float32 like the game (Math.fround after every
+ * operation) so the uploaded uniforms match the research reference model.
+ */
+const f32 = Math.fround;
+
+/** Plain HSV wheel in float32. Hue 0..1; only the sectors next to 0..6 wrap, anything else is black. */
+function hsvKey(h: number, s: number): [number, number, number] {
+  h = f32(h);
+  s = f32(s);
+  if (s === 0) return [1, 1, 1];
+  const h6 = f32(h * 6);
+  const sector = Math.floor(h6);
+  if (sector < -1 || sector > 6) return [0, 0, 0];
+  const frac = f32(h6 - sector);
+  // 1 - s*x is rounded once (fused multiply-subtract).
+  const p = f32(1 - s);
+  const q = f32(1 - s * frac);
+  const t = f32(1 - s * f32(1 - frac));
+  const rows: [number, number, number][] = [
+    [1, t, p],
+    [q, 1, p],
+    [p, 1, t],
+    [p, q, 1],
+    [t, p, 1],
+    [1, p, q],
+  ];
+  return rows[((sector % 6) + 6) % 6];
 }
 
-function foldSimple(zone: Key4, simple: Key4): Key4 {
-  // Saturation adds around the neutral 1, and is capped at 2.
+/** Rec.601 luma in the game's float32 operation order. */
+function luma601f([r, g, b]: [number, number, number]) {
+  return f32(0.114 * b + f32(0.299 * r + f32(0.587 * g)));
+}
+
+/** A zone's tint colour darkened by its own Rec.601 luma (divide by the rounded reciprocal). */
+function bandTint(c: [number, number, number]): [number, number, number] {
+  const inv = f32(1 / luma601f(c));
+  return [f32(c[0] / inv), f32(c[1] / inv), f32(c[2] / inv)];
+}
+
+/** Master temperature -> the colour temperature the white balance asks for. */
+function wbTemperature(t: number) {
+  const k0 = 6500,
+    kmax = 15000;
+  t = f32(t);
+  if (t < k0) return f32(f32(f32(f32(k0 - t) / k0) * f32(kmax - k0)) + k0);
+  return f32(f32(f32(f32(k0 - t) / f32(kmax - k0)) * k0) + k0);
+}
+
+/** Correlated colour temperature (K) to RGB, float32 rational fit, clamped to 0..1. */
+function cctToRgb(kelvin: number): [number, number, number] {
+  let K = f32(kelvin);
+  if (K > 40000) K = 40000;
+  const t = K < 1000 ? 1 : f32(K / 1000);
+  const t2 = f32(t * t);
+  let r: number, g: number, b: number;
+  if (t < f32(6.57)) {
+    r = 1;
+    g = f32(
+      f32(f32(f32(-399.809) + f32(f32(414.271) * t)) + f32(f32(111.543) * t2)) /
+        f32(f32(f32(2779.24) + f32(f32(164.143) * t)) + f32(f32(84.7356) * t2)),
+    );
+    b = f32(
+      f32(f32(f32(348.963) - f32(f32(523.53) * t)) + f32(f32(183.62) * t2)) /
+        f32(f32(f32(2848.82) - f32(f32(214.52) * t)) + f32(f32(78.8614) * t2)),
+    );
+  } else {
+    r = f32(
+      f32(
+        f32(f32(1.35651) + f32(f32(0.216422) * t)) + f32(f32(0.000633715) * t2),
+      ) / f32(f32(-3.24223) + f32(f32(0.918711) * t)),
+    );
+    g = f32(
+      f32(f32(f32(1370.38) + f32(f32(734.616) * t)) + f32(f32(0.689955) * t2)) /
+        f32(f32(-4625.69) + f32(f32(1699.87) * t)),
+    );
+    b = 1;
+  }
+  return [r, g, b].map((c) => (c !== c || c < 0 ? 0 : c > 1 ? 1 : c)) as [
+    number,
+    number,
+    number,
+  ];
+}
+
+/** The game's master temperature. Every shipped look uses 6500 K. */
+export const MASTER_TEMPERATURE = 6500;
+
+/** White-balance multiplier folded into every zone key: rgb / Rec.601(rgb). */
+export function whiteBalance(
+  temperature = MASTER_TEMPERATURE,
+): [number, number, number] {
+  const rgb = cctToRgb(wbTemperature(temperature));
+  const L = luma601f(rgb);
+  return [f32(rgb[0] / L), f32(rgb[1] / L), f32(rgb[2] / L)];
+}
+const WB = whiteBalance();
+
+/** Clamp that lets NaN through, as the game's compare-and-select does. */
+const constrain = (v: number, lo: number, hi: number) => {
+  v = f32(v);
+  if (v > hi) v = hi;
+  if (lo > v) v = lo;
+  return v;
+};
+
+/** Raw code integers of a zone group, recovered from panel units. */
+function zoneRaw(zone: Zone) {
   return {
-    r: zone.r * simple.r,
-    g: zone.g * simple.g,
-    b: zone.b * simple.b,
-    s: clamp(zone.s + simple.s - 1, 0, 2),
+    hue: Math.round((zone.hue / 360) * 1000),
+    tint: Math.round(zone.tint * 10),
+    bri: Math.round((zone.bri - 50) * 20),
+    sat: Math.round(zone.sat * 20),
   };
+}
+
+type RawKey = { c: [number, number, number]; bri: number; sat: number };
+
+/** One group -> (colour, brightness, saturation). Bands are darkened and clamped; Simple is neither. */
+function makeKey(zone: Zone, band: boolean): RawKey {
+  const raw = zoneRaw(zone);
+  const u = (v: number) => f32(f32(v) / 1000);
+  let c = hsvKey(u(raw.hue), u(raw.tint));
+  let bri = u(raw.bri),
+    sat = u(raw.sat);
+  if (band) {
+    c = bandTint(c);
+    bri = constrain(bri, -1, 1);
+    sat = constrain(sat, 0, 2);
+  }
+  return { c, bri, sat };
+}
+
+/** Fold Simple and white balance into a band. Saturation adds around 1 with no clamp afterwards (-1..3). */
+function foldSimple(zone: RawKey, simple: RawKey): Key4 {
+  const gain = f32(f32(1 + zone.bri) * f32(1 + simple.bri));
+  const ch = (i: number) =>
+    f32(f32(f32(zone.c[i] * gain) * simple.c[i]) * WB[i]);
+  return {
+    r: ch(0),
+    g: ch(1),
+    b: ch(2),
+    s: f32(zone.sat + f32(simple.sat - 1)),
+  };
+}
+
+/**
+ * Range fields -> (dark max, mid min, mid max, bright min). Each is clamped to
+ * 0..5, then walked left to right: a value not strictly above the (repaired)
+ * one before it becomes that value + 0.01. Nothing is clamped after the repair.
+ */
+export function rangeEdges(r0: number, r1: number, r2: number, r3: number) {
+  const step = f32(0.01);
+  const e = [r0, r1, r2, r3].map((v) => constrain(f32(f32(v) / 1000), 0, 5));
+  for (let i = 1; i < 4; i++)
+    if (!(e[i - 1] < e[i])) e[i] = f32(e[i - 1] + step);
+  return e as [number, number, number, number];
 }
 
 function keyNearlyNeutral(k: Key4) {
   return k.r === 1 && k.g === 1 && k.b === 1 && k.s === 1;
 }
 
+const sub = (a: Key4, b: Key4): Key4 => ({
+  r: f32(a.r - b.r),
+  g: f32(a.g - b.g),
+  b: f32(a.b - b.b),
+  s: f32(a.s - b.s),
+});
+
 /** Packed zone keys and luma ramps the per-pixel pass interpolates. */
 export function packedKeys(s: Settings) {
-  const simple = makeKey(s.zones.global, false);
-  const shadows = foldSimple(makeKey(s.zones.shadows, true), simple);
-  const midtones = foldSimple(makeKey(s.zones.midtones, true), simple);
-  const highlights = foldSimple(makeKey(s.zones.highlights, true), simple);
-  const s0 = s.shadowPos / 1000;
-  const s1 = Math.max(s.shadowEdge / 1000, s0 + 1e-6);
-  const h0 = s.highlightPos / 1000;
-  const h1 = Math.max(s.highlightEdge / 1000, h0 + 1e-6);
+  const simpleRaw = makeKey(s.zones.global, false);
+  const shadows = foldSimple(makeKey(s.zones.shadows, true), simpleRaw);
+  const midtones = foldSimple(makeKey(s.zones.midtones, true), simpleRaw);
+  const highlights = foldSimple(makeKey(s.zones.highlights, true), simpleRaw);
+  const simple: Key4 = {
+    r: f32(simpleRaw.c[0] * f32(1 + simpleRaw.bri)),
+    g: f32(simpleRaw.c[1] * f32(1 + simpleRaw.bri)),
+    b: f32(simpleRaw.c[2] * f32(1 + simpleRaw.bri)),
+    s: simpleRaw.sat,
+  };
+  const [d, m0, m1, b0] = rangeEdges(
+    s.shadowPos,
+    s.shadowEdge,
+    s.highlightPos,
+    s.highlightEdge,
+  );
+  const a = f32(m0 - d),
+    b = f32(b0 - m1);
   return {
     key0: shadows,
-    key1Delta: {
-      r: midtones.r - shadows.r,
-      g: midtones.g - shadows.g,
-      b: midtones.b - shadows.b,
-      s: midtones.s - shadows.s,
-    },
-    key2Delta: {
-      r: highlights.r - midtones.r,
-      g: highlights.g - midtones.g,
-      b: highlights.b - midtones.b,
-      s: highlights.s - midtones.s,
-    },
-    ramp: [1 / (s1 - s0), -s0 / (s1 - s0), 1 / (h1 - h0), -h0 / (h1 - h0)] as [
+    key1Delta: sub(midtones, shadows),
+    key2Delta: sub(highlights, midtones),
+    ramp: [f32(1 / a), f32(-d / a), f32(1 / b), f32(-m1 / b)] as [
       number,
       number,
       number,
@@ -501,6 +728,46 @@ export function packedKeys(s: Settings) {
     midtones,
     highlights,
     simple,
+  };
+}
+
+/**
+ * What the preview's source pixels already contain. Screenshots were rendered
+ * by the game with the default (neutral) code, whose keys already carry the
+ * 6500 K white balance. "neutral": preview applies the grade relative to that
+ * code (key rgb / neutral key rgb), so the default code is exact identity.
+ * "none": apply the absolute keys, as if the source had no grade at all.
+ */
+export const SOURCE_BASELINE: "neutral" | "none" = "neutral";
+
+let neutralKeysCache: ReturnType<typeof packedKeys> | null = null;
+
+/**
+ * Keys the preview applies. Absolute keys (`packedKeys`, the parity reference)
+ * divided per zone and channel by the neutral code's keys when
+ * SOURCE_BASELINE is "neutral". Saturation and ramps stay absolute.
+ */
+export function previewKeys(s: Settings) {
+  const abs = packedKeys(s);
+  if (SOURCE_BASELINE === "none") return abs;
+  const n = (neutralKeysCache ??= packedKeys(defaultSettings()));
+  const rel = (a: Key4, b: Key4): Key4 => ({
+    r: f32(a.r / b.r),
+    g: f32(a.g / b.g),
+    b: f32(a.b / b.b),
+    s: a.s,
+  });
+  const shadows = rel(abs.shadows, n.shadows);
+  const midtones = rel(abs.midtones, n.midtones);
+  const highlights = rel(abs.highlights, n.highlights);
+  return {
+    ...abs,
+    key0: shadows,
+    key1Delta: sub(midtones, shadows),
+    key2Delta: sub(highlights, midtones),
+    shadows,
+    midtones,
+    highlights,
   };
 }
 
@@ -530,7 +797,8 @@ export function gradePlan(s: Settings): GradePlan {
     bri[z] = briGain(zone.bri, z === 0 ? SHADOW_BRI_TOP : BRI_TOP);
     live[z] = amount[z] > 0 || sat[z] !== 1 || bri[z] !== 1 ? 1 : 0;
   }
-  const packed = packedKeys(s);
+  // Relative to the neutral code (SOURCE_BASELINE); GPU reads the same plan.
+  const packed = previewKeys(s);
   const toVec = (k: Key4) => new Float64Array([k.r, k.g, k.b, k.s]);
   const gameNeutral =
     keyNearlyNeutral(packed.shadows) &&
@@ -657,6 +925,8 @@ export function gradeUniforms(s: Settings) {
     aces: [ACES_A, ACES_B, ACES_C, ACES_D] as [number, number, number, number],
     acesE: ACES_E,
     acesFloor: ACES_FLOOR,
+    acesWhite: ACES_WHITE,
+    neutral: p.neutral ? 1 : 0,
   };
 }
 
@@ -1090,7 +1360,8 @@ export const LOOKS: Look[] = [
     // 4 Sep 2026), which shows the in-game screen: Simple Red 0 / Tint 23 /
     // Saturation 77 / Brightness 70, Shadows Lime 0 / 17 / 59 / 78, and both
     // Range handles at the right end. As posted, the highlights handle reads
-    // 1084, which the game refuses (it imports the default instead); its
+    // 1084. The game accepts that on import (a later owner recording shows
+    // "Successfully applied."), but Customize Color snaps it to the bar end; its
     // falloff is 1094 and the game writes handle + 100, so the handle was 994
     // and 1084 is a typo. The site owner's in-game remake of the zone values
     // reads identically. Warzone ran on Black Ops 7 then (Season 05;
@@ -1196,6 +1467,18 @@ export const LOOKS: Look[] = [
     mode: "Advanced",
     code: "0_1_30_300_1000_1500_0_0_0_1000_612_50_1000_1300_12_9_592_1298_125_9_0_598",
     image: "/looks/kith.webp",
+    inGame: true,
+  },
+  {
+    // FlowyOps, "MWIII inspired Rust map color tone" (youtu.be/DG9oc6rvroI).
+    // His own code, pinned under the video; his before/after shows warmer,
+    // softer light. The card is the "after" half of the video thumbnail.
+    name: "Rust (FlowyOps)",
+    game: "MWIII",
+    note: "FlowyOps' MWIII-style Rust tone: warm, soft desert light",
+    mode: "Advanced",
+    code: "3_1_45_145_308_408_128_87_579_1000_500_172_353_1159_0_0_0_1000_0_0_0_1000",
+    image: "/looks/rust-flowyops.webp",
     inGame: true,
   },
   {

@@ -4,7 +4,13 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_CODE,
   analyse,
+  applyGrade,
+  gradeUniforms,
   extractCode,
+  checkCode,
+  packedKeys,
+  parseFields,
+  rangeKeys,
   LOOKS,
   lookSlug,
   PRESETS,
@@ -47,6 +53,108 @@ test("decode tolerates surrounding whitespace", () => {
   assert.ok(decode(`  ${DEFAULT_CODE}\n`));
 });
 
+test("decode follows the game's field grammar", () => {
+  const swap = (i: number, v: string) => {
+    const p = DEFAULT_CODE.split("_");
+    p[i] = v;
+    return p.join("_");
+  };
+  const same = (code: string) => assert.equal(encode(decode(code)!), DEFAULT_CODE, JSON.stringify(code));
+  same(swap(9, "+1000"));
+  same(swap(9, "001000"));
+  same(swap(9, " 1000\t"));
+  same(swap(9, "\u180e1000\u3000"));
+  same(swap(9, "\u00851000"));
+  same(swap(9, "1000\u0000junk"));
+  same(swap(8, "-0"));
+});
+
+test("parseFields keeps the full Int32 range and no range checks", () => {
+  const p = DEFAULT_CODE.split("_");
+  p[9] = "-2147483648";
+  p[10] = "2147483647";
+  const n = parseFields(p.join("_"));
+  assert.ok(n);
+  assert.equal(n[9], -2147483648);
+  assert.equal(n[10], 2147483647);
+});
+
+test("decode imports what the game imports, clamped as the game renders it", () => {
+  // A code the game accepted in game with "Successfully applied." (Range past 1000)
+  const code = "0_1_974_1074_1084_1094_0_232_403_1531_250_169_552_1175_0_0_0_1000_0_0_0_1000";
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.equal(encode(r.settings), code);
+  assert.ok(r.notes.some((t) => t.includes("Customize Color")));
+  const swap = (i: number, v: string) => {
+    const q = DEFAULT_CODE.split("_");
+    q[i] = v;
+    return q.join("_");
+  };
+  const raw = (c: string) => encode(decode(c)!).split("_").map(Number);
+  assert.equal(raw(swap(9, "2001"))[9], 2000);
+  assert.equal(raw(swap(9, "-5"))[9], -5); // Simple saturation has no floor in game
+  assert.equal(raw(swap(13, "-5"))[13], 0);
+  assert.equal(raw(swap(8, "1500"))[8], 1000);
+  assert.equal(raw(swap(8, "-1500"))[8], -1000);
+  assert.equal(raw(swap(4, "9000"))[4], 5000);
+  assert.equal(raw(swap(2, "-1"))[2], 0);
+  assert.equal(raw(swap(1, "7"))[1], 1);
+  // hue wraps on -166..1166 (period 1000)
+  assert.equal(raw(swap(6, "1166"))[6], 166);
+  assert.equal(raw(swap(6, "-166"))[6], 834);
+  // far out of range but tint 0: no visible effect
+  assert.equal(raw(swap(6, "5000"))[6], 0);
+});
+
+test("Range repair pushes out-of-order values 0.01 above the previous one", () => {
+  const f = Math.fround;
+  assert.deepEqual(rangeKeys(30, 300, 1000, 1500), [f(0.03), f(0.3), 1, 1.5]);
+  const [d, m0, m1, b0] = rangeKeys(500, 500, 400, 9000);
+  assert.equal(d, 0.5);
+  assert.ok(Math.abs(m0 - 0.51) < 1e-6);
+  assert.ok(Math.abs(m1 - 0.52) < 1e-6);
+  assert.equal(b0, 5);
+});
+
+test("decode keeps a far out-of-range hue with tint; its zone key is black", () => {
+  const code = DEFAULT_CODE.replace(/^((?:[^_]+_){6})0_0/, "$11167_500");
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => n.includes("black")));
+  const k = packedKeys(r.settings);
+  assert.deepEqual([k.shadows.r, k.shadows.g, k.shadows.b], [0, 0, 0]);
+});
+
+test("a preset field outside 0-4 is accepted with a note and round-trips", () => {
+  for (const v of ["5", "7", "-1"]) {
+    const code = DEFAULT_CODE.replace(/^0_/, `${v}_`);
+    const r = checkCode(code);
+    assert.ok(r.ok, v);
+    assert.ok(r.notes.some((n) => n.includes("outside 0-4")), v);
+    assert.equal(encode(r.settings), code, v);
+  }
+});
+
+test("negative Simple saturation is kept and inverts colour (in game, -500 drew a teal door)", () => {
+  const code = "0_1_30_300_1000_1500_0_0_0_-500_0_0_0_1000_0_0_0_1000_0_0_0_1000";
+  const r = checkCode(code);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => n.includes("inverts")));
+  assert.equal(encode(r.settings), code);
+  assert.equal(packedKeys(r.settings).shadows.s, -0.5);
+  assert.equal(gradeUniforms(r.settings).key0[3], -0.5);
+  // The door from that test (110, 78, 70 under the default code) was drawn
+  // as about (74, 90, 94); the model gives (70, 89, 92).
+  const px = new Uint8ClampedArray([110, 78, 70, 255]);
+  applyGrade(px, r.settings);
+  assert.deepEqual([...px.slice(0, 3)], [70, 89, 92]);
+  // A band saturation still floors at 0.
+  const band = checkCode(code.replace("_0_-500_0_0_0_1000_", "_0_1000_0_0_0_-500_"));
+  assert.ok(band.ok);
+  assert.equal(band.settings.zones.shadows.sat, 0);
+});
+
 test("decode rejects malformed codes", () => {
   const swap = (i: number, v: string) => {
     const p = DEFAULT_CODE.split("_");
@@ -59,17 +167,17 @@ test("decode rejects malformed codes", () => {
     hex: swap(0, "0x1"),
     exponent: swap(21, "1e3"),
     decimal: swap(7, "1.5"),
-    "preset out of range": swap(0, "5"),
-    "enabled out of range": swap(1, "2"),
-    "hue out of range": swap(6, "1001"),
-    "negative tint": swap(7, "-1"),
-    "brightness out of range": swap(8, "1001"),
-    "saturation out of range": swap(9, "2001"),
-    "negative shadow handle": swap(2, "-1"),
-    "negative highlight handle": swap(4, "-5"),
-    "highlight handle past the bar (the game refuses it)": swap(4, "1084"),
-    "shadow handle past the bar": swap(2, "1001"),
-    "negative falloff": swap(3, "-1"),
+    "negative tint (game renders it unclamped)": swap(7, "-1"),
+    "tint past 1000": swap(7, "1001"),
+    "past Int32": swap(9, "2147483648"),
+    "below Int32": swap(9, "-2147483649"),
+    "two signs": swap(9, "+-1"),
+    "Arabic-Indic digits": swap(9, "\u0661"),
+    "fullwidth digits": swap(9, "\uff11"),
+    "zero-width no-break space": swap(9, "\ufeff1000"),
+    "space inside a number": swap(9, "10 00"),
+    "trailing underscore": DEFAULT_CODE + "_",
+    "empty field": swap(9, ""),
     empty: "",
   };
   for (const [why, code] of Object.entries(bad)) assert.equal(decode(code), null, why);

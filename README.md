@@ -21,11 +21,11 @@ Live: https://codm.kuletxcore.workers.dev
 
 | Index | Meaning | Default |
 | --- | --- | --- |
-| 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed) | 0 |
+| 0 | selected Simple preset slot, 0–4 = Preset #1–#5 (confirmed; the game also accepts other values, effect untested) | 0 |
 | 1 | enabled | 1 |
-| 2 | Range bar shadows handle, 0–1000 (confirmed; the game refuses a code with a handle past 1000) | 30 |
+| 2 | Range bar shadows handle, 0–1000 on the bar; an imported code may carry up to 5000 (the game accepts it and clamps at 5000, but the Customize Color bar snaps a handle past 1000 back to 1000 when opened) | 30 |
 | 3 | shadows falloff; the game writes handle + 100 after a drag | 300 |
-| 4 | Range bar highlights handle, 0–1000 (confirmed, as above) | 1000 |
+| 4 | Range bar highlights handle, 0–1000 on the bar (as above) | 1000 |
 | 5 | highlights falloff; handle + 100 after a drag | 1500 |
 | 6–9 | group 1: the **Simple** Customize Color screen, whole image (confirmed) | `0_0_0_1000` |
 | 10–13 | group 2: **shadows** (confirmed in game) | `0_0_0_1000` |
@@ -37,7 +37,7 @@ Each group is `hue_tint_brightness_saturation` (confirmed in game):
 - hue `0–1000` = swatch × 125 + slider × 1.25. The 8 in-game swatches (red, orange, lime, green, cyan, blue, purple, magenta) are 45° apart and the 0–100 Hue slider moves towards the next one.
 - tint `0–1000` = 0–100 (top confirmed in game).
 - brightness `-1000–1000` = 0–100 (raw 0 = 50, neutral; top confirmed in game).
-- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral; top confirmed in game).
+- saturation `0–2000` = 0–100 (raw 1000 = 50, neutral; top confirmed in game). A negative Simple saturation is accepted and inverts colours (in-game test with −500); a band's is clamped to 0.
 
 An in-game export with every slider at 100 reads `125_1000_1000_2000` for each group: Red with the Hue slider at 100 writes 125, the same value as Orange at 0. Both Range handles pushed to the ends write `0_100_1000_1100`.
 
@@ -46,6 +46,8 @@ The preview is an approximation of the in-game filter. It builds the game's colo
 ## Using a code in game
 
 Settings → Audio and Graphics → pick a mode tab (MP Mode, BR Mode, DMZ: Recon, …) → that mode's Graphic Style → Import → Go → choose a Custom slot (1–5), paste into "Enter the Share code", then Apply. The format is the same in every mode. Share copies the current code; Customize Color edits it (DMZ: Recon only shows the style dropdown, Share and Import).
+
+Each mode has its own five Custom slots; a code is the only way to move a look between modes. The filter grades the match view, not the lobby. In testing, an imported code did not always change the match straight away; the look did change once the slot holding that code was selected. If nothing changes, pick another slot and switch back. A code with a stray character or a trailing `_` is refused with "Invalid Share code".
 
 ## Development
 
@@ -62,7 +64,7 @@ Before pushing, run the same checks as CI (lint, type check, and the share-code 
 npm run check
 ```
 
-The tests cover the share-code codec: every look and preset must round-trip unchanged, and malformed or out-of-range codes must be rejected. Add a test when you touch `encode` or `decode`; new looks are covered automatically.
+The tests cover the share-code codec: every look and preset must round-trip unchanged, malformed codes must be rejected, and out-of-range values must be accepted and clamped with a note, as the game does. Add a test when you touch `encode` or `decode`; new looks are covered automatically.
 
 Deploy (static export to a Cloudflare Worker named `codm`; `wrangler deploy` runs the build first, so Cloudflare Workers Builds works from a clean checkout):
 

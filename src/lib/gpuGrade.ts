@@ -49,6 +49,10 @@ uniform float uTransfer;
 uniform vec4 uAces;
 uniform float uAcesE;
 uniform float uAcesFloor;
+uniform float uAcesWhite;
+// 1 when a side's code is neutral: the CPU path skips the pixel loop then, so the GPU must too.
+uniform float uNeutral;
+uniform float uNeutralB;
 
 float luma(vec3 c){ return dot(c, uLuma); }
 float smoothB(float a, float b, float x){
@@ -57,7 +61,8 @@ float smoothB(float a, float b, float x){
   return uSmooth > 0.5 ? t * t * (3.0 - 2.0 * t) : t;
 }
 vec3 acesFwd(vec3 x){
-  x = max(x, 0.0);
+  // Clamped from above only, as in codm.ts acesForward: negative lanes go through the curve.
+  x = min(x, vec3(uAcesWhite));
   vec3 y = (x * (uAces.x * x + uAces.y)) / (x * (uAces.z * x + uAces.w) + uAcesE);
   return max(y, vec3(uAcesFloor));
 }
@@ -85,8 +90,7 @@ vec3 toLinear(vec3 srgb){
   return acesInv(y);
 }
 vec3 toEncoded(vec3 v){
-  v = max(v, 0.0);
-  vec3 y = uTransfer > 0.5 ? v / (1.0 + v) : acesFwd(v);
+  vec3 y = uTransfer > 0.5 ? max(v, 0.0) / (1.0 + max(v, 0.0)) : acesFwd(v);
   return pow(max(y, 0.0), vec3(1.0 / uGamma));
 }
 // Legacy fitted path, kept so USE_GAME_KEY_MODEL can be flipped.
@@ -119,6 +123,7 @@ vec3 gradeGame(vec3 c, vec4 k0, vec4 d1, vec4 d2, vec4 ramp){
   return toEncoded(v);
 }
 vec3 grade(vec3 c, bool pin){
+  if ((pin ? uNeutralB : uNeutral) > 0.5) return c;
   if (uGame > 0.5) {
     return pin
       ? gradeGame(c, uKey0B, uKey1DeltaB, uKey2DeltaB, uRampB)
@@ -214,7 +219,10 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
     uTransfer = u("uTransfer"),
     uAces = u("uAces"),
     uAcesE = u("uAcesE"),
-    uAcesFloor = u("uAcesFloor");
+    uAcesFloor = u("uAcesFloor"),
+    uAcesWhite = u("uAcesWhite"),
+    uNeutral = u("uNeutral"),
+    uNeutralB = u("uNeutralB");
   let w = 1,
     h = 1;
 
@@ -245,6 +253,8 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
       gl.uniform4fv(uAces, g.aces);
       gl.uniform1f(uAcesE, g.acesE);
       gl.uniform1f(uAcesFloor, g.acesFloor);
+      gl.uniform1f(uAcesWhite, g.acesWhite);
+      gl.uniform1f(uNeutral, g.neutral);
       gl.uniform1f(uPin, pin ? 1 : 0);
       if (pin) {
         const b = gradeUniforms(pin);
@@ -255,6 +265,7 @@ function init(canvas: HTMLCanvasElement): GradeGpu | null {
         gl.uniform4fv(uKey1DeltaB, b.key1Delta);
         gl.uniform4fv(uKey2DeltaB, b.key2Delta);
         gl.uniform4fv(uRampB, b.ramp);
+        gl.uniform1f(uNeutralB, b.neutral);
       }
       gl.uniform2f(uSize, w, h);
       // same rounding as the CPU compositor: original left of round(w * split)
